@@ -59,15 +59,24 @@ import (
 )
 
 // abiVersion must match pluginabi.ABIVersion = 1.
-const abiVersion uint32 = 1
+const (
+	abiVersion    uint32 = 1
+	maxRequestLen        = 8 << 20 // Bound JSON envelopes before copying caller-owned memory.
+	maxCIntValue         = uint64(1<<31 - 1)
+)
 
 func main() {}
 
 // cliproxy_plugin_init is the C ABI entry point called by the host after dlopen.
 //
 //export cliproxy_plugin_init
-func cliproxy_plugin_init(host *C.cliproxy_host_api, p *C.cliproxy_plugin_api) C.int {
-	if p == nil {
+func cliproxy_plugin_init(host *C.cliproxy_host_api, p *C.cliproxy_plugin_api) (rc C.int) {
+	defer func() {
+		if recover() != nil {
+			rc = 1
+		}
+	}()
+	if p == nil || (host != nil && uint32(host.abi_version) != abiVersion) {
 		return 1
 	}
 	C.store_host_api(host)
@@ -81,22 +90,39 @@ func cliproxy_plugin_init(host *C.cliproxy_host_api, p *C.cliproxy_plugin_api) C
 // cliproxyPluginCall dispatches all host→plugin RPC calls.
 //
 //export cliproxyPluginCall
-func cliproxyPluginCall(method *C.char, request *C.uint8_t, requestLen C.size_t, response *C.cliproxy_buffer) C.int {
+func cliproxyPluginCall(method *C.char, request *C.uint8_t, requestLen C.size_t, response *C.cliproxy_buffer) (rc C.int) {
 	if response != nil {
 		response.ptr = nil
 		response.len = 0
 	}
+	defer func() {
+		if recover() != nil {
+			// Panic values may contain private data. Never unwind through C.
+			_ = writeResponse(response, plugin.ErrorEnvelope("internal_panic", "plugin call failed"))
+			rc = 1
+		}
+	}()
+	if response == nil {
+		return 1
+	}
 	if method == nil {
-		writeResponse(response, plugin.ErrorEnvelope("invalid_method", "method is required"))
+		_ = writeResponse(response, plugin.ErrorEnvelope("invalid_method", "method is required"))
+		return 1
+	}
+	if requestLen > C.size_t(maxRequestLen) {
+		_ = writeResponse(response, plugin.ErrorEnvelope("request_too_large", "request exceeds maximum length"))
+		return 1
+	}
+	if (request == nil && requestLen != 0) || uint64(requestLen) > maxCIntValue {
+		_ = writeResponse(response, plugin.ErrorEnvelope("invalid_request", "invalid request pointer or length"))
 		return 1
 	}
 	var reqBytes []byte
-	if request != nil && requestLen > 0 {
+	if requestLen != 0 {
 		reqBytes = C.GoBytes(unsafe.Pointer(request), C.int(requestLen))
 	}
 	raw, ok := plugin.HandleMethod(C.GoString(method), reqBytes)
-	writeResponse(response, raw)
-	if !ok {
+	if !writeResponse(response, raw) || !ok {
 		return 1
 	}
 	return 0
@@ -106,6 +132,7 @@ func cliproxyPluginCall(method *C.char, request *C.uint8_t, requestLen C.size_t,
 //
 //export cliproxyPluginFree
 func cliproxyPluginFree(ptr unsafe.Pointer, _ C.size_t) {
+	defer func() { _ = recover() }()
 	if ptr != nil {
 		C.free(ptr)
 	}
@@ -115,19 +142,21 @@ func cliproxyPluginFree(ptr unsafe.Pointer, _ C.size_t) {
 //
 //export cliproxyPluginShutdown
 func cliproxyPluginShutdown() {
+	defer func() { _ = recover() }()
 	plugin.Shutdown()
 }
 
-func writeResponse(response *C.cliproxy_buffer, raw []byte) {
+func writeResponse(response *C.cliproxy_buffer, raw []byte) bool {
 	if response == nil || len(raw) == 0 {
-		return
+		return false
 	}
 	ptr := C.CBytes(raw)
 	if ptr == nil {
-		return
+		return false
 	}
 	response.ptr = ptr
 	response.len = C.size_t(len(raw))
+	return true
 }
 
 // okEnvelope wraps a JSON value in the host envelope. Used by plugin.go tests.
