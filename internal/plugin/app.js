@@ -755,7 +755,7 @@ function loadData(appendRecords, forceReplace) {
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
     // Prevent the surviving sibling response from painting after this request failed.
-    state.abortCtrl.abort(); state.pendingChanges=null; state.inFlight = false; setDashboardBusy(false);
+    if (state.abortCtrl) state.abortCtrl.abort(); state.pendingChanges=null; state.inFlight = false; setDashboardBusy(false);
     if (err.name !== 'AbortError') { hideSkeletons(); showError(err.message === 'The user aborted a request.' ? t('err.timeout') : t('err.load', { e: err.message })); scheduleNextPoll(UA_POLL_RETRY_MS); }
   });
 }
