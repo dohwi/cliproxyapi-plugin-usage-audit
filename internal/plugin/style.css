@@ -104,7 +104,7 @@
   /* Keep language controls in normal filter flow, below the host's floating tools. */
   .filter-language-field { flex: 0 0 auto; min-width: 0; }
   .lang-switch { display: inline-flex; align-items: stretch; gap: 2px; padding: 2px; height: 32px; border: 1px solid var(--filter-control-border); border-radius: var(--filter-control-radius); background: var(--filter-control-bg); }
-  .lang-btn { min-height: 0; height: 100%; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1.2; cursor: pointer; }
+  .lang-btn { min-height: 0; height: 100%; min-width: 30px; padding: 0 8px; text-align: center; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1.2; cursor: pointer; }
   .lang-btn:hover { background: var(--filter-control-hover-bg); }
   .lang-btn[aria-pressed="true"] { background: #e8eef5; color: var(--accent-blue); }
   .lang-btn:focus-visible { outline: 2px solid var(--filter-control-focus); outline-offset: 1px; }
