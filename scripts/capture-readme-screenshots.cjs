@@ -2,6 +2,7 @@
 // Regenerates the README previews (docs/assets/usage-{desktop,mobile}.{en,ko}.png) from synthetic
 // fixtures only. Install Playwright or set PLAYWRIGHT_MODULE; BROWSER_EXECUTABLE selects a browser.
 const fs = require('node:fs');
+const switchLang = (async (page, lang) => { if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('.lang-toggle'); await page.waitForFunction(l => document.documentElement.lang === l, lang); });
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
@@ -51,7 +52,7 @@ async function capture(browser, lang, kind) {
   });
   await page.goto('http://fixture.invalid/v0/resource/plugins/usage-audit/dashboard');
   await page.waitForSelector('#recordsBody tr.ui-table-row');
-  await page.click(`.lang-btn[data-lang="${lang}"]`);
+  await switchLang(page, lang);
   await page.click('#presetGroupControl [data-preset="7d"]');
   await page.waitForFunction(() => !state.inFlight);
   await page.waitForSelector('#dailyChartSummary');

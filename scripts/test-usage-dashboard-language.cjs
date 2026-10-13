@@ -3,6 +3,7 @@
 // including switching while the dialog is open, shared-storage sync and persistence.
 // Install Playwright or set PLAYWRIGHT_MODULE; BROWSER_EXECUTABLE selects a system browser.
 const fs = require('fs'), path = require('path');
+const switchLang = (async (page, lang) => { if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('.lang-toggle'); await page.waitForFunction(l => document.documentElement.lang === l, lang); });
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
@@ -50,7 +51,7 @@ const hangul = s => /[가-힣]/.test(s);
       });
 
       for (const lang of [other, base]) {
-        await page.click(`.lang-btn[data-lang="${lang}"]`);
+        await switchLang(page, lang);
         // open a few interactive surfaces so their text is covered too
         await page.click('#presetGroupControl [data-preset="custom"]');
         await page.click('#filterDateRangeTrigger');
@@ -77,7 +78,7 @@ const hangul = s => /[가-힣]/.test(s);
           fail: await page.locator('#kpiSubFail').innerText(),
           chart: await page.locator('#dailyChartSummary').innerText(),
           time: await page.locator('#recordsBody tr >> nth=0 >> td >> nth=0').innerText(),
-          pressed: await page.locator('.lang-btn[aria-pressed="true"]').getAttribute('data-lang'),
+          pressed: await page.locator('.lang-toggle').getAttribute('data-current-lang'),
         };
         if (checks.lang !== lang) fail.push(`${locale}/${lang}: html lang ${checks.lang}`);
         if (checks.pressed !== lang) fail.push(`${locale}/${lang}: pressed ${checks.pressed}`);
@@ -102,7 +103,7 @@ const hangul = s => /[가-힣]/.test(s);
             const out = [];
             if (document.documentElement.scrollWidth > innerWidth + 1) out.push('page-h-scroll');
             document.querySelectorAll('.badge, #recordsTable .ui-table-head, #recordsTable .ui-table-cell, .kpi-label, .kpi-sub, .tab-btn, .preset-btn, .btn').forEach(e => { if (e.offsetWidth && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis') out.push('CLIPPED ' + e.tagName + '.' + String(e.className).slice(0, 24) + ' "' + e.textContent.trim().slice(0, 20) + '" ' + e.scrollWidth + '>' + e.clientWidth); });
-            document.querySelectorAll('.page-heading, .lang-switch, .filter-card, .kpi-group, #activeFilterBadge, .card-header').forEach(e => { if (e.scrollWidth > e.clientWidth + 1) out.push(e.className.toString().slice(0, 30) + ' ' + e.scrollWidth + '>' + e.clientWidth); });
+            document.querySelectorAll('.page-heading, .lang-toggle, .filter-card, .kpi-group, #activeFilterBadge, .card-header').forEach(e => { if (e.scrollWidth > e.clientWidth + 1) out.push(e.className.toString().slice(0, 30) + ' ' + e.scrollWidth + '>' + e.clientWidth); });
             return out;
           });
           await verifyLanguagePlacement(page, '.filter-card');
@@ -130,7 +131,7 @@ const hangul = s => /[가-힣]/.test(s);
       if ((await page.evaluate(() => document.documentElement.lang)) !== 'ko') fail.push(`${locale}: storage event not followed`);
 
       // persistence
-      await page.click('.lang-btn[data-lang="en"]');
+      await switchLang(page, 'en');
       await page.reload();
       await page.waitForSelector('#recordsBody tr.ui-table-row');
       const after = await page.evaluate(() => [document.documentElement.lang, localStorage.getItem('cpa_plugin_lang')]);

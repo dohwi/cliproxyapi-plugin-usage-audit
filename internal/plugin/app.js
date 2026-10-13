@@ -13,6 +13,8 @@ var I18N = {
     'page.heading': '토큰 사용량',
     'page.sub': '요청과 토큰 사용량을 한눈에 확인하세요.',
     'lang.label': '언어',
+    'lang.toEn': 'English로 전환',
+    'lang.toKo': '한국어로 전환',
     'retry': '다시 시도',
     'period.aria': '기간 선택',
     'preset.today': '오늘', 'preset.yesterday': '어제', 'preset.7d': '7일', 'preset.30d': '30일', 'preset.month': '이번 달', 'preset.custom': '직접',
@@ -143,6 +145,8 @@ var I18N = {
     'page.heading': 'Token Usage',
     'page.sub': 'See requests and token usage at a glance.',
     'lang.label': 'Language',
+    'lang.toEn': 'Switch to English',
+    'lang.toKo': 'Switch to Korean',
     'retry': 'Retry',
     'period.aria': 'Select period',
     'preset.today': 'Today', 'preset.yesterday': 'Yesterday', 'preset.7d': '7 days', 'preset.30d': '30 days', 'preset.month': 'This month', 'preset.custom': 'Custom',
@@ -334,8 +338,12 @@ function applyStaticI18n() {
     el.setAttribute('aria-label', kvLabel(el.getAttribute('data-i18n-label'), /\d/.test(shown) ? shown : '0'));
   });
   eachNode('[data-i18n-count]', function(el) { el.textContent = tn(el.getAttribute('data-i18n-count'), (state.records && state.records.length) || 0); });
-  eachNode('[data-lang]', function(btn) {
-    btn.setAttribute('aria-pressed', btn.getAttribute('data-lang') === currentLang ? 'true' : 'false');
+  // One toggle button: label/tooltip name the language a click switches to.
+  eachNode('.lang-toggle', function(btn) {
+    var label = t(currentLang === 'ko' ? 'lang.toEn' : 'lang.toKo');
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.setAttribute('data-current-lang', currentLang);
   });
 }
 function setLanguage(lang, fromStorage) {
@@ -355,8 +363,8 @@ function setLanguage(lang, fromStorage) {
   if (overlay && overlay.classList && overlay.classList.contains('open') && state.openRecordIdx != null) showRecordDetail(state.openRecordIdx, state.drawerOpener);
 }
 function initLanguageControls() {
-  eachNode('[data-lang]', function(btn) {
-    btn.addEventListener('click', function() { setLanguage(btn.getAttribute('data-lang')); });
+  eachNode('.lang-toggle', function(btn) {
+    btn.addEventListener('click', function() { setLanguage(currentLang === 'ko' ? 'en' : 'ko'); });
   });
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('storage', function(e) {

@@ -1424,7 +1424,7 @@ func TestDashboardAboveFilterLabelsAndMobileNativeControls(t *testing.T) {
 
 func TestDashboardAppliedConditionsInFilterTopline(t *testing.T) {
 	body := plugin.DashboardHTML
-	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*(?:<div class="filter-language-field">.*?</div>\s*</div>\s*)?</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
+	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*(?:<div class="filter-language-field">.*?</div>\s*)?</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
 	if !topline.MatchString(body) {
 		t.Error("conditions must remain live metadata inside the filter topline, before detail controls")
 	}
