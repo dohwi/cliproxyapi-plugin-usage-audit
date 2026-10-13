@@ -15,4 +15,4 @@ The embedded dashboard serves local WOFF2 assets. Copyright information below is
 
 [SUIT upstream](https://github.com/sunn-us/SUIT) · [Manrope family](https://github.com/google/fonts/tree/main/ofl/manrope) · [Asset provenance](internal/plugin/assets/fonts/PROVENANCE.txt).
 
-This document does not assign a new license to the repository's own source code.
+The repository's own source code is licensed under the PolyForm Noncommercial License 1.0.0 (see [LICENSE](LICENSE)). The CLIProxyAPI SDK and the bundled fonts above keep their own licenses.

@@ -1,54 +1,57 @@
+<p align="center"><b>English</b> · <a href="README.ko.md">한국어</a></p>
+
 <div align="center">
   <h1>cliproxyapi-plugin-usage-audit</h1>
-  <p>CLIProxyAPI를 위한 토큰 사용량 감사·로그 집계 및 반응형 웹 대시보드 네이티브 Go 플러그인.</p>
+  <p>A native Go plugin for CLIProxyAPI that audits token usage and aggregates request logs, with a responsive bilingual (English/Korean) web dashboard.</p>
 
   <p>
     <a href="https://go.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Go-1.26.5-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26.5" /></a>
     <a href="https://react.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" /></a>
-    <a href="https://github.com/dohwi/cliproxyapi-plugin-usage-audit/actions/workflows/verify.yml" target="_blank" rel="noreferrer"><img src="https://img.shields.io/github/actions/workflow/status/dohwi/cliproxyapi-plugin-usage-audit/verify.yml?branch=main&style=flat-square&label=verify" alt="Verification workflow" /></a>
-    <a href="https://www.docker.com" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Ready" /></a>
+    <a href="https://github.com/dohwi/cliproxyapi-plugin-usage-audit/actions/workflows/verify.yml" target="_blank" rel="noreferrer"><img src="https://img.shields.io/github/actions/workflow/status/dohwi/cliproxyapi-plugin-usage-audit/verify.yml?branch=main&style=flat-square&label=verify" alt="Verify workflow status" /></a>
+    <a href="LICENSE" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue?style=flat-square" alt="PolyForm Noncommercial 1.0.0" /></a>
   </p>
 
-  <p><a href="#preview">Preview</a> · <a href="#features">Features</a> · <a href="#getting-started">Getting Started</a> · <a href="#routes">Routes</a> · <a href="#operations">Operations</a></p>
+  <p><a href="#preview">Preview</a> · <a href="#features">Features</a> · <a href="#getting-started">Getting Started</a> · <a href="#routes">Routes</a> · <a href="#language">Language</a> · <a href="#operations--tooling">Operations</a></p>
 </div>
 
 ---
 
 ## Overview
 
-`cliproxyapi-plugin-usage-audit`는 CLIProxyAPI 호스트에 직접 로드되는 `c-shared` C ABI 기반 네이티브 Go 플러그인입니다. 프록시를 통과하는 모든 LLM 요청의 토큰 사용량(입력·캐시·추론·출력·총합), 지연 시간, 상태 코드, 공급자/모델별 세부 통계를 비동기 링 버퍼를 통해 무손실로 캡처·영속화하고, 임베디드 반응형 대시보드로 시각화합니다.
+`cliproxyapi-plugin-usage-audit` is a `c-shared` C ABI native Go plugin that the CLIProxyAPI host loads directly. It captures and persists, without loss and through an asynchronous ring buffer, the token usage of every LLM request passing through the proxy (input, cache, reasoning, output and total), plus latency, status codes and per-provider/model statistics, and visualizes them in an embedded responsive dashboard.
 
 ## Preview
 
 | Desktop Dashboard | Mobile View |
 | :---: | :---: |
-| <img src="docs/assets/usage-desktop.png" alt="토큰 사용량: 기간 필터, 입력·출력 집계, 차트와 요청 기록" width="100%" /> | <img src="docs/assets/usage-mobile.png" alt="모바일 토큰 사용량과 축약 요청 기록" width="280" /> |
+| <img src="docs/assets/usage-desktop.en.png" alt="Token usage dashboard: period filters, input/output totals, chart and request log" width="100%" /> | <img src="docs/assets/usage-mobile.en.png" alt="Token usage dashboard on mobile" width="100%" /> |
 
 ## Features
 
-- **비동기 무손실 캡처**: 비차단 링 버퍼 큐와 백그라운드 워커를 통해 프록시 요청 지연 없이 사용량 로그 영속화.
-- **다차원 토큰 집계**: Provider, Endpoint, Model, 상태(성공/실패), 일자별 요청 수 및 토큰 소비 통계 실시간 집계.
-- **커서 기반 요청 로그 조회**: 역순 커서 페이지네이션 및 고성능 상위 K개 정렬 알고리즘 적용.
-- **모던 반응형 대시보드**: React 19 및 Radix UI 기반의 정밀한 날짜 범위 선택기, 필터링, 반응형 테이블 레이아웃.
-- **강건한 저장소 복구성**: 손상 라인 격리, 원자적 스냅샷 디코딩 및 안전한 로테이션 지원.
-- **민감 정보 살균 도구 (Sanitizer)**: 키, 프롬프트 본문 등 민감 정보를 비파괴적으로 감사하고 정리할 수 있는 독립 CLI 도구 내장.
+- **Asynchronous lossless capture**: a non-blocking ring-buffer queue and a background worker persist usage logs without adding latency to proxied requests.
+- **Multi-dimensional token aggregation**: live totals by provider, endpoint, model and status (success/failure), plus daily request counts and token consumption.
+- **Cursor-based request log**: reverse-cursor pagination with a high-performance top-K selection algorithm.
+- **Modern responsive dashboard**: React 19 and Radix UI date-range picker, filters and responsive table layout.
+- **Bilingual UI**: English and Korean, switchable from the dashboard header (see [Language](#language)).
+- **Resilient storage**: quarantine of corrupt lines, atomic snapshot decoding and safe rotation.
+- **Sanitizer tool**: a standalone CLI that non-destructively audits and cleans sensitive data such as keys and prompt bodies.
 
 ## Tech Stack
 
 | Domain | Technology / Specification |
 |---|---|
 | Runtime & ABI | Go 1.26.5, cgo, C shared library (`.so`) |
-| Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK 의존성) |
-| Embedded UI | React 19, Radix UI Primitives, esbuild 번들링 |
-| Persistence | JSONL 로테이션 로그, 인메모리 스냅샷 캐시 |
+| Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK dependency) |
+| Embedded UI | React 19, Radix UI primitives, esbuild bundle |
+| Persistence | Rotating JSONL log, in-memory snapshot cache |
 | Bundled Typography | SUIT Regular/SemiBold, Manrope Variable (self-hosted WOFF2) |
-| Verification | Go race/vet, Node 계약 검증, Native C smoke test (`dlopen`) |
+| Verification | Go race/vet, Node contract and i18n tests, native C smoke test (`dlopen`) |
 
 ## Getting Started
 
-호스트 프로세스와 동일한 OS·아키텍처·C 런타임 환경(Linux amd64 glibc)에서 빌드해야 합니다.
+Build on the same OS, architecture and C runtime as the host process (Linux amd64, glibc).
 
-[mise](https://mise.jdx.dev)를 통해 로컬 런타임을 간편하게 부트스트랩할 수 있습니다:
+Bootstrap the local runtimes with [mise](https://mise.jdx.dev):
 
 ```bash
 # Managed runtimes
@@ -58,7 +61,7 @@ mise install
 # Ubuntu/Debian native build tools
 sudo apt-get update && sudo apt-get install -y build-essential
 
-# Run tests and native ABI smoke test
+# Run tests and the native ABI smoke test
 make verify
 make native-smoke
 ```
@@ -69,65 +72,93 @@ make native-smoke
 make build
 ```
 
-빌드 결과물은 `artifacts/usage-audit.so` 및 헤더 파일 `artifacts/usage-audit.h`로 생성됩니다.
+The build writes `artifacts/usage-audit.so` and the header `artifacts/usage-audit.h`.
+
+### Rebuilding the dashboard UI
+
+Normal Go builds do not need frontend tooling because the generated dashboard is checked in. After changing `ui/entry.tsx` or the vendored components, regenerate it:
+
+```bash
+cd ui
+npm ci
+npm run build
+```
+
+This rewrites the marked regions of `internal/plugin/dashboard.html`. Do not edit those generated regions by hand. See [ui/README.md](ui/README.md).
+
+## Language
+
+The dashboard ships in English and Korean. A `한국어 | English` switch sits in the page header.
+
+- **Selection order**: saved choice, then browser language (Korean selects Korean, anything else selects English), then Korean.
+- **Shared setting**: the choice is stored in the browser under `cpa_plugin_lang`, the same key used by the [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) dashboard. Changing it in one open dashboard updates the other. This only applies when both dashboards are served from the same origin.
+- **Privacy**: this key is the only thing the page writes to browser storage.
+- **Not translated**: the plugin name shown in the host menu is registered once at load time, so it stays Korean ("토큰 사용량").
 
 ## Routes
 
-CLIProxyAPI 호스트 로드 후 아래 리소스 및 관리 경로로 접근할 수 있습니다:
+Once the CLIProxyAPI host has loaded the plugin, these resource and management routes are available:
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | 사용량 감사 반응형 웹 대시보드 |
-| `GET` | `/v0/resource/plugins/usage-audit/data/summary` | 기간 및 필터 조건에 따른 집계 요약 |
-| `GET` | `/v0/resource/plugins/usage-audit/data/records` | 커서 기반 세부 요청 로그 목록 |
-| `GET` | `/v0/management/plugins/usage-audit/dashboard` | 관리자 경로 대시보드 |
-| `GET` | `/v0/management/plugins/usage-audit/summary` | 관리자 경로 집계 요약 |
-| `GET` | `/v0/management/plugins/usage-audit/records` | 관리자 경로 세부 요청 로그 |
+| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | Responsive usage audit dashboard |
+| `GET` | `/v0/resource/plugins/usage-audit/data/summary` | Aggregated summary for a period and filters |
+| `GET` | `/v0/resource/plugins/usage-audit/data/records` | Cursor-based request log |
+| `GET` | `/v0/management/plugins/usage-audit/dashboard` | Dashboard on the management path |
+| `GET` | `/v0/management/plugins/usage-audit/summary` | Aggregated summary on the management path |
+| `GET` | `/v0/management/plugins/usage-audit/records` | Request log on the management path |
 
 ## Operations & Tooling
 
-로그 파일에 민감 정보가 포함되어 있는지 비파괴적으로 검사하거나 살균할 수 있는 도구를 제공합니다:
+Tools to audit or sanitize log files for sensitive data without modifying them in place:
 
 ```bash
-# 샘플 데이터 드라이런 감사
+# Dry-run audit against the sample data
 make audit-dry-run
 
-# 운영 로그 감사 (읽기 전용)
+# Audit an operational log (read-only)
 make audit-dry-run USAGE_LOG_PATH=/path/to/usage.jsonl
 
-# 서비스 중지 경계 기반 안전 살균 드라이런
+# Safe sanitize dry-run based on a service-stop boundary
 make boundary-sanitize-dry-run USAGE_LOG_PATH=/path/to/usage.jsonl
 ```
 
-상세 운영 절차는 [Sanitization Runbook](docs/sanitization-runbook.md)을 참고하세요.
+See the [Sanitization Runbook](docs/sanitization-runbook.md) for the full procedure.
 
 ## Project Structure
 
 ```text
 cliproxyapi-plugin-usage-audit/
-├── main.go                     # c-shared C ABI 엔트리포인트 (usage.handle, management routes)
+├── main.go                     # c-shared C ABI entry point (usage.handle, management routes)
 ├── cmd/
-│   └── usage-audit-sanitize/   # 로그 감사 및 민감정보 살균 독립 CLI 도구
+│   └── usage-audit-sanitize/   # Standalone log audit and sanitizer CLI
 ├── internal/
-│   ├── plugin/                 # 플러그인 수명주기, 대시보드 서빙, 상위 K 쿼리
-│   ├── queue/                  # 비차단 링 버퍼 큐 구현
-│   └── store/                  # JSONL 파일 스토어, 로테이션, 스냅샷 디코더
-├── ui/                         # React 대시보드 원본 소스 및 빌드 파이프라인
-├── docs/                       # 대시보드 디자인, 구조적 견고화, 살균 런북
-├── scripts/                    # 감사/살균 스크립트 및 UI 회귀 테스트
-├── testdata/                   # 합성 사용량 샘플 데이터
-├── verification/               # dlopen 기반 네이티브 C ABI 스모크 테스트
-├── Makefile                    # 빌드, 검증, 스모크 테스트 타겟
-└── THIRD_PARTY_NOTICES.md      # SDK 및 번들 폰트 라이선스 고지
+│   ├── plugin/                 # Plugin lifecycle, dashboard serving, top-K queries
+│   │                           #   dashboard.html (generated UI regions), style.css, app.js
+│   ├── queue/                  # Non-blocking ring-buffer queue
+│   └── store/                  # JSONL file store, rotation, snapshot decoder
+├── ui/                         # React dashboard sources and build pipeline
+├── docs/                       # Dashboard design, structural hardening, sanitization runbook
+├── scripts/                    # Audit/sanitize scripts and UI regression tests
+├── testdata/                   # Synthetic usage sample data
+├── verification/               # dlopen-based native C ABI smoke test
+├── Makefile                    # Build, verify and smoke-test targets
+└── THIRD_PARTY_NOTICES.md      # SDK and bundled font license notices
 ```
 
 ## Documentation
 
-- [Dashboard Design](docs/dashboard-design.md): 대시보드 UI/UX 아키텍처 및 상태 흐름
-- [Structural Hardening](docs/structural-hardening.md): 저장소 장애 격리 및 큐 복구성 가이드
-- [Sanitization Runbook](docs/sanitization-runbook.md): 운영 로그 살균 작업 절차서
+- [Dashboard Design](docs/dashboard-design.md): dashboard UI/UX architecture and state flow
+- [Structural Hardening](docs/structural-hardening.md): storage fault isolation and queue recovery guide
+- [Sanitization Runbook](docs/sanitization-runbook.md): procedure for sanitizing operational logs
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE). You may use, modify and distribute this software for noncommercial purposes such as personal use, research and education. Commercial use is not permitted.
+
+The CLIProxyAPI SDK this plugin depends on is a separate project under its own license; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Security & Attribution
 
-- 실제 사용 로그, 계정 인증키, 프롬프트 원문은 저장소에 커밋하지 않습니다.
-- CLIProxyAPI SDK 및 내장 폰트 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 참고하세요.
+- Real usage logs, account keys and prompt bodies are never committed to this repository.
+- CLIProxyAPI SDK and bundled font licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
