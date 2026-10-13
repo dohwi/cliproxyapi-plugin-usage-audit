@@ -29,10 +29,9 @@ import (
 const (
 	pluginName    = "usage-audit"
 	pluginVersion = "0.1.0"
-	pluginAuthor  = "homelab/dohwi"
-	// upstreamReferenceURL identifies the host SDK/API this independent local plugin targets.
-	// The plugin itself is not represented as published in a public repository.
-	upstreamReferenceURL = "https://github.com/router-for-me/CLIProxyAPI"
+	pluginAuthor  = "dohwi"
+	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
+	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
 )
 
 // defaultDataDir is used when USAGE_AUDIT_DATA_DIR env is not set.
@@ -253,7 +252,7 @@ func buildRegistrationResponse(hostSchemaVersion uint32) []byte {
 			Name:             pluginName,
 			Version:          pluginVersion,
 			Author:           pluginAuthor,
-			GitHubRepository: upstreamReferenceURL,
+			GitHubRepository: pluginRepoURL,
 		},
 		Capabilities: map[string]bool{
 			"usage_plugin":   true,
