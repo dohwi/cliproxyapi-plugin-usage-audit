@@ -10,8 +10,11 @@ import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, Tab
 declare const state: { currentPreset: string };
 declare function setPreset(value: string): void;
 declare function applyFilters(): void;
+// Language helpers live in the host page script (see the i18n block in dashboard.go).
+declare function t(key: string, params?: Record<string, string | number>): string;
+declare function uiLocale(): string;
 const ALL = '__dashboard_all__';
-const presets = [['today', '오늘'], ['yesterday', '어제'], ['7d', '7일'], ['30d', '30일'], ['month', '이번 달'], ['custom', '직접']];
+const presetValues = ['today', 'yesterday', '7d', '30d', 'month', 'custom'];
 const parse = (v: string) => v ? new Date(...v.split('-').map((s, i) => Number(s) - (i === 1 ? 1 : 0)) as [number, number, number]) : null;
 
 // Existing query code owns the values. This adapter only bridges native form state to the
@@ -30,10 +33,10 @@ const presetHost = document.getElementById('presetGroup')!;
 const presetRoot = createRoot(presetHost);
 function renderPresets() {
   presetRoot.render(<SegmentedControl id="presetGroupControl" size="sm" fullWidth value={state.currentPreset}
-    aria-label="기간 선택" orientation="horizontal" onValueChange={setPreset}>
-    {presets.map(([value, label]) => <SegmentedControlItem key={value} value={value} data-preset={value}
+    aria-label={t('period.aria')} orientation="horizontal" onValueChange={setPreset}>
+    {presetValues.map(value => <SegmentedControlItem key={value} value={value} data-preset={value}
       className="preset-btn"
-      aria-controls={value === 'custom' ? 'customDateWrap' : undefined}>{label}</SegmentedControlItem>)}
+      aria-controls={value === 'custom' ? 'customDateWrap' : undefined}>{t('preset.' + value)}</SegmentedControlItem>)}
   </SegmentedControl>);
 }
 (window as any).renderDashboardPresets = renderPresets;
@@ -44,7 +47,8 @@ const to = document.getElementById('filterToDate') as HTMLInputElement;
 const dateRoot = createRoot(document.getElementById('dateRangeMount')!);
 function renderDate() {
   dateRoot.render(<DatePicker id="filterDateRangeTrigger" mode="range" value={{ from: parse(from.value), to: parse(to.value) }}
-    disabled={from.disabled || to.disabled} aria-label="조회 기간" calendarLabel="조회 기간 선택" locale="ko-KR"
+    disabled={from.disabled || to.disabled} aria-label={t('range.aria')} calendarLabel={t('range.pick')} placeholder={t('range.placeholder')} locale={uiLocale()}
+    previousMonthLabel={t('cal.prev')} nextMonthLabel={t('cal.next')} rangeHint={t('cal.hint')}
     onValueChange={range => {
       // Atomic commit: never dispatch the old per-endpoint change handler while only one
       // endpoint has been updated. DatePicker emits only a complete, ordered range.
@@ -76,28 +80,39 @@ function TableView({tableId, bodyId, label, wrapperClass, headers, rows, emptyTe
             ref={el=>{if(el && cell.tone && typeof (window as any).flashValue==='function') (window as any).flashValue(el,cell.tone,cell.label);}}>
             {cellContent(cell)}
           </TableCell>)}
-        </TableRow>) : <TableRow><TableCell colSpan={headers.length} className="text-muted table-empty">{emptyText || '데이터 없음'}</TableCell></TableRow>}
+        </TableRow>) : <TableRow><TableCell colSpan={headers.length} className="text-muted table-empty">{emptyText || t('empty.data')}</TableCell></TableRow>}
       </TableBody>
     </Table>
   </TableContainer>;
 }
-const AGG_HEADERS=[{text:'Provider'},{text:'요청',className:'text-right'},{text:'실패',className:'text-right'},{text:'토큰',className:'text-right'}];
-const ENDPOINT_HEADERS=[{text:'Endpoint/Source'},...AGG_HEADERS.slice(1)];
-const MODEL_HEADERS=[{text:'Model'},...AGG_HEADERS.slice(1)];
-const RECORD_HEADERS=[{text:'시간'},{text:'Provider'},{text:'Endpoint'},{text:'Model'},
-  {text:'신규 입력',className:'text-right'},{text:'캐시',className:'text-right'},
-  {text:'출력',className:'text-right'},{text:'합계',className:'text-right'},
-  {text:'지연',className:'text-right'},{text:'상태'}];
+type Header = {text:string; className?:string};
+// Headers, labels and loading rows depend on the active language, so they are built on demand.
+function buildHeaders() {
+  const AGG_HEADERS: Header[]=[{text:'Provider'},{text:t('th.requests'),className:'text-right'},{text:t('th.failed'),className:'text-right'},{text:t('th.tokens'),className:'text-right'}];
+  const ENDPOINT_HEADERS: Header[]=[{text:'Endpoint/Source'},...AGG_HEADERS.slice(1)];
+  const MODEL_HEADERS: Header[]=[{text:'Model'},...AGG_HEADERS.slice(1)];
+  const RECORD_HEADERS: Header[]=[{text:t('th.time')},{text:'Provider'},{text:'Endpoint'},{text:'Model'},
+    {text:t('th.fresh'),className:'text-right'},{text:t('th.cache'),className:'text-right'},
+    {text:t('th.output'),className:'text-right'},{text:t('th.total'),className:'text-right'},
+    {text:t('th.latency'),className:'text-right'},{text:t('th.status')}];
+  return {AGG_HEADERS,ENDPOINT_HEADERS,MODEL_HEADERS,RECORD_HEADERS};
+}
 // Keep the loading row's column count identical to the data table. A single colspan cell
 // makes browsers recalculate fixed-layout column widths when the first records arrive.
-const loadingAggRows=[{key:'loading',cells:[{text:'불러오는 중...',className:'text-muted table-empty'},{text:''},{text:''},{text:''}]}];
-const loadingRecordRows=[{key:'loading',cells:[{text:'데이터를 불러오는 중입니다...',className:'text-muted table-empty'},...Array.from({length:9},()=>({text:''}))]}];
-const tableConfigs: TableViewProps[] = [
-  {mountId:'providerAggTableMount',tableId:'providerAggTable',bodyId:'providerAggBody',label:'Provider 상세 집계',wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:AGG_HEADERS,rows:loadingAggRows},
-  {mountId:'endpointAggTableMount',tableId:'endpointAggTable',bodyId:'endpointAggBody',label:'Endpoint 상세 집계',wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:ENDPOINT_HEADERS,rows:loadingAggRows},
-  {mountId:'modelAggTableMount',tableId:'modelAggTable',bodyId:'modelAggBody',label:'Model 상세 집계',wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:MODEL_HEADERS,rows:loadingAggRows},
-  {mountId:'recordsTableMount',tableId:'recordsTable',bodyId:'recordsBody',label:'최근 요청 기록 테이블 스크롤 영역',wrapperClass:'usage-table-scroll table-responsive',headers:RECORD_HEADERS,rows:loadingRecordRows,tableClass:'records-table'},
-];
+const loadingAggRows=()=>[{key:'loading',cells:[{text:t('loading.agg'),className:'text-muted table-empty'},{text:''},{text:''},{text:''}]}];
+const loadingRecordRows=()=>[{key:'loading',cells:[{text:t('loading.records'),className:'text-muted table-empty'},...Array.from({length:9},()=>({text:''}))]}];
+function buildTableConfigs(): TableViewProps[] {
+  const {AGG_HEADERS,ENDPOINT_HEADERS,MODEL_HEADERS,RECORD_HEADERS}=buildHeaders();
+  return [
+    {mountId:'providerAggTableMount',tableId:'providerAggTable',bodyId:'providerAggBody',label:t('tbl.provider'),wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:AGG_HEADERS,rows:loadingAggRows()},
+    {mountId:'endpointAggTableMount',tableId:'endpointAggTable',bodyId:'endpointAggBody',label:t('tbl.endpoint'),wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:ENDPOINT_HEADERS,rows:loadingAggRows()},
+    {mountId:'modelAggTableMount',tableId:'modelAggTable',bodyId:'modelAggBody',label:t('tbl.model'),wrapperClass:'usage-table-scroll breakdown-table-wrap',headers:MODEL_HEADERS,rows:loadingAggRows()},
+    {mountId:'recordsTableMount',tableId:'recordsTable',bodyId:'recordsBody',label:t('tbl.records'),wrapperClass:'usage-table-scroll table-responsive',headers:RECORD_HEADERS,rows:loadingRecordRows(),tableClass:'records-table'},
+  ];
+}
+let tableConfigs: TableViewProps[] = buildTableConfigs();
+// Latest rows per table, so a language switch can re-render headers without refetching.
+const latestRows = new Map<string, {rows: TableRowData[]; emptyText?: string}>();
 for (const config of tableConfigs) {
   const mount=document.getElementById(config.mountId);
   if(!mount) continue;
@@ -106,9 +121,24 @@ for (const config of tableConfigs) {
 }
 (window as any).renderDohwiTable = (mountId:string, rows:TableRowData[], emptyText?:string) => {
   const root=tableRoots.get(mountId), config=tableConfigs.find(item=>item.mountId===mountId);
+  latestRows.set(mountId,{rows,emptyText});
   if(root && config) flushSync(()=>root.render(<TableView {...config} rows={rows} emptyText={emptyText}/>));
 };
-(window as any).dohwiTableHeaders={AGG_HEADERS,ENDPOINT_HEADERS,MODEL_HEADERS,RECORD_HEADERS};
+(window as any).dohwiTableHeaders=buildHeaders();
+for(const update of (window as any).pendingDohwiTableUpdates||[]) (window as any).renderDohwiTable(update[0],update[1],update[2]);
+(window as any).pendingDohwiTableUpdates=[];
+// Re-render everything this bundle owns after the language changed.
+(window as any).renderDashboardLanguage = () => {
+  tableConfigs = buildTableConfigs();
+  (window as any).dohwiTableHeaders=buildHeaders();
+  for (const config of tableConfigs) {
+    const root=tableRoots.get(config.mountId); if(!root) continue;
+    const latest=latestRows.get(config.mountId);
+    flushSync(()=>root.render(<TableView {...config} rows={latest ? latest.rows : config.rows} emptyText={latest?.emptyText}/>));
+  }
+  renderPresets();
+  renderDate();
+};
 for(const update of (window as any).pendingDohwiTableUpdates||[]) (window as any).renderDohwiTable(update[0],update[1],update[2]);
 (window as any).pendingDohwiTableUpdates=[];
 

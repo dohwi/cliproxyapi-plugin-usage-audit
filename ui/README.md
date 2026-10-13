@@ -4,7 +4,7 @@ The usage dashboard now consumes the actual exported dohwi-ui React components, 
 
 - `vendor/`: unchanged copies from `dohwi-ui/src/components/ui` (SegmentedControl, DatePicker, Calendar, Popover, Select and their local dependencies/styles).
 - `entry.tsx`: dashboard adapter. Native dates/selects remain query-state backing fields. A complete date range is written atomically and applied once; unfinished drafts are owned by DatePicker.
-- `build.mjs`: bundles React, Radix and the components into the marked CSS/JS regions in `usage-audit/internal/plugin/dashboard.go`. No CDN, external JS request or Node runtime is needed by the plugin.
+- `build.mjs`: bundles React, Radix and the components into the marked CSS/JS regions in `usage-audit/internal/plugin/dashboard.html`. `internal/plugin/dashboard.go` embeds that file together with `style.css` and `app.js` and assembles the page at start-up. No CDN, external JS request or Node runtime is needed by the plugin.
 
 Rebuild after adapter/vendor changes:
 

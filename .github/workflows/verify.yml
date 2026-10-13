@@ -26,6 +26,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '26.5.0'
+      - name: Generated dashboard is up to date
+        run: |
+          cd ui
+          npm ci
+          npm run build
+          git diff --exit-code -- ../internal/plugin/dashboard.html
       - name: Verify modules and sanitizer
         run: make verify
       - name: Verify native plugin ABI

@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'internal/plugin/dashboard.go'), 'utf8').split('const DashboardHTML = `')[1].split('`')[0];
+const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
 const LONG_MODEL = 'claude-super-long-enterprise-model-identifier-'.repeat(5);
 const LONG_ENDPOINT = '/enterprise/private/cluster/endpoint/resource/'.repeat(5);
 const now = new Date().toISOString();
@@ -93,7 +93,7 @@ async function preset(page, value, baseline) {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE || undefined, args: ['--no-sandbox'] });
   try {
     for (const width of selectedWidths) {
-      const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
+      const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce', locale: 'ko-KR' });
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       let fixture = full, failed = false, summaryRequests = 0, release, gate = new Promise(resolve => { release = resolve; });

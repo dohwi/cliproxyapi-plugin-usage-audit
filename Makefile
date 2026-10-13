@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: verify verify-sanitize build native-smoke audit-dry-run sanitize-dry-run boundary-sanitize-dry-run verify-layout clean
+.PHONY: verify-i18n release-check verify verify-sanitize build native-smoke audit-dry-run sanitize-dry-run boundary-sanitize-dry-run verify-layout clean
 
 verify:
 	go test -race -count=1 -timeout=120s ./...
@@ -46,6 +46,13 @@ boundary-sanitize-dry-run:
 
 verify-layout:
 	node scripts/test-usage-dashboard-layout.cjs
+
+verify-i18n:
+	node scripts/test-usage-dashboard-language.cjs
+
+# Usage: make release-check TAG=v0.1.0
+release-check:
+	./scripts/check-release-version.sh $(TAG)
 
 clean:
 	rm -rf artifacts

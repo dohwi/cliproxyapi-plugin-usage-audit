@@ -8,7 +8,7 @@ import { Calendar, formatDateKey, type CalendarBaseProps, type DateRange } from 
 export interface CompleteDateRange { from: Date; to: Date }
 
 export interface DatePickerBaseProps extends Omit<React.ComponentPropsWithoutRef<'button'>, 'value' | 'defaultValue' | 'onChange' | 'children'>,
-  Pick<CalendarBaseProps, 'min' | 'max' | 'isDateDisabled' | 'weekStartsOn' | 'locale'> {
+  Pick<CalendarBaseProps, 'min' | 'max' | 'isDateDisabled' | 'weekStartsOn' | 'locale' | 'previousMonthLabel' | 'nextMonthLabel' | 'rangeHint'> {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -52,7 +52,7 @@ function formatRange(range: DateRange, locale: string) {
 const DatePickerImpl = React.forwardRef<HTMLButtonElement, DatePickerImplProps>(
   ({
     className, mode = 'single', value, defaultValue, onValueChange, open, defaultOpen = false, onOpenChange, placeholder,
-    calendarLabel, name, min, max, isDateDisabled, weekStartsOn, locale = 'ko-KR', disabled, ...props
+    calendarLabel, name, min, max, isDateDisabled, weekStartsOn, locale = 'ko-KR', previousMonthLabel, nextMonthLabel, rangeHint, disabled, ...props
   }, ref) => {
     const isRange = mode === 'range';
     const [innerValue, setInnerValue] = React.useState<Date | DateRange | null>(defaultValue ?? null);
@@ -76,7 +76,7 @@ const DatePickerImpl = React.forwardRef<HTMLButtonElement, DatePickerImplProps>(
       if (open === undefined) setInnerOpen(next);
       onOpenChange?.(next);
     }
-    const calendarShared = { min, max, isDateDisabled, weekStartsOn, locale, 'aria-label': dialogLabel };
+    const calendarShared = { min, max, isDateDisabled, weekStartsOn, locale, previousMonthLabel, nextMonthLabel, rangeHint, 'aria-label': dialogLabel };
 
     return (
       <Popover open={isOpen} onOpenChange={setOpen}>

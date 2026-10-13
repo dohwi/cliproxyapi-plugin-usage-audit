@@ -4,7 +4,7 @@ Usage-audit embeds the actual exported dohwi-ui **SegmentedControl**, **DatePick
 
 ## Components and form state
 
-- `usage-audit/ui/vendor/` contains the dohwi-ui source components. `entry.tsx` connects them to the existing query state. `npm ci && npm run build` in that directory updates the marked CSS/JS regions in `usage-audit/internal/plugin/dashboard.go`.
+- `usage-audit/ui/vendor/` contains the dohwi-ui source components. `entry.tsx` connects them to the existing query state. `npm ci && npm run build` in that directory updates the marked CSS/JS regions in `usage-audit/internal/plugin/dashboard.html`.
 - The dashboard is self-contained: React/Radix are bundled, with no CDN or external JavaScript request. Normal Go builds use the checked-in bundle and need no Node tooling.
 - SegmentedControl owns its radio keyboard model and measured sliding indicator. The adapter only calls `setPreset` and supplies controlled values.
 - One range DatePicker replaces the two single-date popups. First selection is an uncommitted draft; hovering/focusing previews the range. Second selection orders both endpoints and commits them atomically, issuing one query. Escape/outside dismissal discards the draft. A same-day range is valid.

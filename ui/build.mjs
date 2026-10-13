@@ -18,7 +18,7 @@ extended = extended.replace(/\s*\.ui-color-picker-preset \{ min-width: 32px; min
 const ui = await readFile(path.join(dir, 'vendor/ui.css'), 'utf8');
 const select = ui.split('@media')[0].split('\n').filter(line => line.includes('.ui-select')).join('\n');
 const motion = await readFile(path.join(dir, 'vendor/motion.css'), 'utf8');
-let html = await readFile(path.join(dir, '../internal/plugin/dashboard.go'), 'utf8');
+let html = await readFile(path.join(dir, '../internal/plugin/dashboard.html'), 'utf8');
 // Retire the old handwritten popups; the bundled source components own behavior now.
 html = html.replace(/<script data-dohwi-ui="(?:select|date-picker)">[\s\S]*?<\/script>\n/g, '');
 html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style data-dohwi-ui="native">
@@ -102,18 +102,18 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
   #recordsTableMount .ui-table { min-width: 1100px; }
   #recordsTableMount .ui-table-head:first-child { width: 16%; }
   #recordsTableMount .ui-table-head:nth-child(2), #recordsTableMount .ui-table-head:nth-child(3) { width: 8%; }
-  #recordsTableMount .ui-table-head:nth-child(4) { width: 20%; }
+  #recordsTableMount .ui-table-head:nth-child(4) { width: 17%; }
   #recordsTableMount .ui-table-head:nth-child(5), #recordsTableMount .ui-table-head:nth-child(6), #recordsTableMount .ui-table-head:nth-child(7), #recordsTableMount .ui-table-head:nth-child(8) { width: 9%; }
   #recordsTableMount .ui-table-head:nth-child(9) { width: 7%; }
-  #recordsTableMount .ui-table-head:nth-child(10) { width: 5%; }
+  #recordsTableMount .ui-table-head:nth-child(10) { width: 8%; }
   @media (max-width: 1199px) and (min-width: 768px) {
     #recordsTableMount .ui-table { min-width: 680px; }
     #recordsPanel .ui-table-head:first-child { width: 9%; }
     #recordsPanel .ui-table-head:nth-child(2) { width: 12%; }
     #recordsPanel .ui-table-head:nth-child(4) { width: 20%; }
     #recordsPanel .ui-table-head:nth-child(5), #recordsPanel .ui-table-head:nth-child(6), #recordsPanel .ui-table-head:nth-child(7) { width: 12%; }
-    #recordsPanel .ui-table-head:nth-child(8) { width: 15%; }
-    #recordsPanel .ui-table-head:nth-child(10) { width: 8%; }
+    #recordsPanel .ui-table-head:nth-child(8) { width: 11%; }
+    #recordsPanel .ui-table-head:nth-child(10) { width: 12%; }
   }
   @media (max-width: 767px) {
     .usage-table-scroll.breakdown-table-wrap { height: 180px; flex: none; }
@@ -135,5 +135,5 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
 </style>`);
 html = html.replace(/(<style data-dohwi-ui="exported">)[\s\S]*?(<\/style>)/, (_, a, b) => a + '\n' + extended + '\n' + select + '\n' + motion + '\n' + b);
 html = html.replace(/(<script data-dohwi-ui="exported">)[\s\S]*?(<\/script>)/, (_, a, b) => a + '\n/* dohwi-ui Table primitives: TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell */\n' + js + b);
-await writeFile(path.join(dir, '../internal/plugin/dashboard.go'), html);
+await writeFile(path.join(dir, '../internal/plugin/dashboard.html'), html);
 console.log('Built actual dohwi-ui components:', js.length, 'JS bytes (self-contained, no CDN/runtime assets)');

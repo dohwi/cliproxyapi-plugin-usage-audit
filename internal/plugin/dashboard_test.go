@@ -26,10 +26,10 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 	body := string(resp.Body)
 
 	// 1. Title & Header verification
-	if !strings.Contains(body, "<title>토큰 사용량 대시보드</title>") {
+	if !strings.Contains(body, "<title>토큰 사용량 대시보드</title>") { // default (ko) title; localized at runtime
 		t.Errorf("Dashboard HTML missing title '토큰 사용량 대시보드'")
 	}
-	if strings.Count(body, "<h1>토큰 사용량</h1>") != 1 {
+	if strings.Count(body, `<h1 data-i18n="page.heading">토큰 사용량</h1>`) != 1 {
 		t.Errorf("Dashboard HTML must render one visible page heading")
 	}
 	if strings.Contains(body, "Usage Audit 대시보드") {
@@ -160,9 +160,9 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 	for _, token := range []string{
 		`<form id="filterForm" class="filter-panel" novalidate>`,
 		`<fieldset class="filter-section filter-period-section">`,
-		`<legend class="sr-only">기간 선택</legend>`,
+		`<legend class="sr-only" data-i18n="period.aria">기간 선택</legend>`,
 		`<fieldset class="filter-section filter-detail-section">`,
-		`<legend class="sr-only">세부 필터</legend>`,
+		`<legend class="sr-only" data-i18n="filter.detail">세부 필터</legend>`,
 		`class="filter-row filter-period-row"`,
 		`class="filter-row filter-fields-row"`,
 		`grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);`,
@@ -548,6 +548,18 @@ console.log('EXACT_FORMAT_TESTS_PASSED');
 // mustExtractJSFunc pulls a top-level `function NAME(...) { ... }` block verbatim
 // out of the dashboard HTML script. Each resolver function closes with a `}` at
 // column 0, so the non-greedy `\n\}` stop matches only the real function end.
+// i18nCoreJS returns the dashboard's real translation core (catalogs, t, tn, kvLabel)
+// so isolated-function Node tests exercise the same strings the page ships.
+func i18nCoreJS(t *testing.T, body string) string {
+	t.Helper()
+	start := strings.Index(body, "var LANG_KEY = ")
+	end := strings.Index(body, "function eachNode(")
+	if start < 0 || end < start {
+		t.Fatal("could not extract i18n core from dashboard HTML")
+	}
+	return body[start:end]
+}
+
 func mustExtractJSFunc(t *testing.T, body, name string) string {
 	t.Helper()
 	re := regexp.MustCompile(`(?s)function ` + regexp.QuoteMeta(name) + `\(.*?\n\}`)
@@ -1196,7 +1208,7 @@ func TestDashboardChartAndFreshnessPlacement(t *testing.T) {
 func TestDashboardReadableSharedHeadingsAndSemanticContrast(t *testing.T) {
 	body := plugin.DashboardHTML
 	for _, panel := range []string{"breakdownSection", "recordsPanel"} {
-		heading := regexp.MustCompile(`(?s)id="` + panel + `">\s*<div class="card-header panel-heading">\s*<div class="panel-heading-title">\s*<h2 class="card-title">`)
+		heading := regexp.MustCompile(`(?s)id="` + panel + `">\s*<div class="card-header panel-heading">\s*<div class="panel-heading-title">\s*<h2 class="card-title"[^>]*>`)
 		if !heading.MatchString(body) {
 			t.Errorf("%s must use the shared title baseline/heading layout", panel)
 		}
@@ -1291,8 +1303,8 @@ func TestDashboardUsesExportedDohwiUIFilterControls(t *testing.T) {
 		`role:"radiogroup"`, "ui-segmented-item", "ui-segmented-indicator",
 		`<div id="dateRangeMount"></div>`, "filterDateRangeTrigger", `mode:"range"`, "ui-date-picker-trigger", "ui-date-picker-content", "ui-calendar",
 		"dashboard-select-mount", "ui-select-trigger", "ui-select-content",
-		`<input type="date" id="filterFromDate" class="input" aria-label="시작일" hidden disabled>`,
-		`<input type="date" id="filterToDate" class="input" aria-label="종료일" hidden disabled>`,
+		`<input type="date" id="filterFromDate" class="input" aria-label="시작일" data-i18n-aria="date.from" hidden disabled>`,
+		`<input type="date" id="filterToDate" class="input" aria-label="종료일" data-i18n-aria="date.to" hidden disabled>`,
 		"#customDateWrap > input[hidden], .compact-select-wrap > select[hidden] { display: none; }",
 	} {
 		if !strings.Contains(body, required) {
@@ -1404,7 +1416,7 @@ func TestDashboardAboveFilterLabelsAndMobileNativeControls(t *testing.T) {
 		}
 	}
 	for _, field := range []string{"Provider", "Endpoint", "Model", "Status"} {
-		if !regexp.MustCompile(`<label for="filter` + field + `">[^<]+</label>\s*<div class="compact-select-wrap">\s*<select id="filter` + field + `"[^>]+aria-label="[^"]+"`).MatchString(body) {
+		if !regexp.MustCompile(`<label for="filter` + field + `"[^>]*>[^<]+</label>\s*<div class="compact-select-wrap">\s*<select id="filter` + field + `"[^>]+aria-label="[^"]+"`).MatchString(body) {
 			t.Errorf("%s must retain associated label and accessible native select", field)
 		}
 	}
@@ -1412,7 +1424,7 @@ func TestDashboardAboveFilterLabelsAndMobileNativeControls(t *testing.T) {
 
 func TestDashboardAppliedConditionsInFilterTopline(t *testing.T) {
 	body := plugin.DashboardHTML
-	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
+	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
 	if !topline.MatchString(body) {
 		t.Error("conditions must remain live metadata inside the filter topline, before detail controls")
 	}

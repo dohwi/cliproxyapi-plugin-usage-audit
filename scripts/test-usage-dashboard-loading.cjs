@@ -3,11 +3,11 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const fs=require('node:fs'); const path=require('node:path'); const assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
-const html=fs.readFileSync(root+'/internal/plugin/dashboard.go','utf8').split('const DashboardHTML = `')[1].split('`')[0];
+const html=require('./lib/dashboard-html.cjs').readDashboardHTML(root);
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{const browser=await chromium.launch({headless:true,args:['--no-sandbox']});try{
   for(const slow of ['records','summary']) {
-    const page=await browser.newPage({viewport:{width:1440,height:1000}}); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    const page=await browser.newPage({viewport:{width:1440,height:1000},locale:'ko-KR'}); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/*',async route=>{
       const u=new URL(route.request().url());
       if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -35,7 +35,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
     console.log('PASS progressive '+slow+' delayed 1800ms; fast panel painted '+timing.elapsed+'ms (DOMContentLoaded '+timing.dom+'ms)');
     await page.close();
   }
-  const page=await browser.newPage(); let calls=0;
+  const page=await browser.newPage({locale:'ko-KR'}); let calls=0;
   await page.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -55,7 +55,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   console.log('PASS stale request cannot overwrite panels'); await page.close();
   // A first-load failure cancels its delayed sibling; it must never paint afterwards.
   for (const failingKind of ['summary','records']) {
-    const first=await browser.newPage();
+    const first=await browser.newPage({locale:'ko-KR'});
     await first.route('**/*',async route=>{
       const u=new URL(route.request().url());
       if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -75,7 +75,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
     await first.close(); console.log('PASS first-load '+failingKind+' failure aborts sibling');
   }
   // Once loaded, a failed refresh must not mix new KPIs with retained records/cursor.
-  const refresh=await browser.newPage(); let failing=false;
+  const refresh=await browser.newPage({locale:'ko-KR'}); let failing=false;
   await refresh.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});

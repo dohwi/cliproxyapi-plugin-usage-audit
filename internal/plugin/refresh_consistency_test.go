@@ -27,6 +27,7 @@ func TestDashboardRefreshConsistencyNode(t *testing.T) {
 		}
 		functions = append(functions, fn)
 	}
+	functions = append([]string{i18nCoreJS(t, plugin.DashboardHTML)}, functions...)
 	setup := `
 const assert = require('node:assert/strict');
 var state = {currentPreset:'today',fromRFC3339:'',toRFC3339:'',provider:'old',endpoint:'',model:'',status:'',cursor:'old-cursor',hasMore:true,records:[{id:'old'}],recordsExpanded:false,requestID:0,inFlight:false,abortCtrl:null,hasLoadedData:true,pendingChanges:null};

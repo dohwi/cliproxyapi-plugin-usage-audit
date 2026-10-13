@@ -15,8 +15,8 @@ func TestDashboardStableInteractionLayout(t *testing.T) {
 		".filter-topline { display: contents; }",
 		`id="customDateWrap" class="custom-dates" aria-label="조회 기간"`,
 		`<div id="dateRangeMount"></div>`,
-		`aria-label="시작일" hidden disabled`, `aria-label="종료일" hidden disabled`,
-		"var description = conditions.length ? conditions.join(' · ') : '오늘 · 전체 Provider · 전체 Model';",
+		`aria-label="시작일" data-i18n-aria="date.from" hidden disabled`, `aria-label="종료일" data-i18n-aria="date.to" hidden disabled`,
+		"var description = conditions.length ? conditions.join(' · ') : t('filter.default');",
 		"#errorBox { position: fixed;", "#errorBox.is-hidden { display: none; }",
 		"#loadMoreBar.is-hidden { display: flex !important; visibility: hidden; }",
 		"height: 178px;", "height: clamp(280px, 45vh, 440px);",
@@ -28,12 +28,12 @@ func TestDashboardStableInteractionLayout(t *testing.T) {
 		`<div class="card" id="breakdownSection">`,
 		`<section id="chartCard" class="card chart-card-compact" aria-labelledby="chartTitle">`,
 		`gutter.indexOf('stable')!==-1?0:`,
-		`badge.setAttribute('aria-label', '적용 조건: ' + description)`,
+		`badge.setAttribute('aria-label', t('filter.activeAriaFull', { d: description }))`,
 		`if (!field) return;`,
 		`if (message) showError(message, false);`,
 		`retry.classList.toggle('is-hidden', retryable === false)`,
 		`if (!from.value || !to.value || from.value > to.value)`,
-		`<div id="dailyChartSummary" class="card-desc" tabindex="0">`,
+		`<div id="dailyChartSummary" class="card-desc" tabindex="0" data-i18n="chart.daily">`,
 	} {
 		if !strings.Contains(body, required) {
 			t.Errorf("missing selection-stable layout %q", required)
