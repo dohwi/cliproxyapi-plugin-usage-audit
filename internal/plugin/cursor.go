@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 // A process-local random HMAC key is sufficient: cursors deliberately expire on

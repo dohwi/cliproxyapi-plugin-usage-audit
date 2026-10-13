@@ -1,4 +1,4 @@
-module github.com/dohwi/cliproxyapi-usage-audit
+module github.com/dohwi/cliproxyapi-plugin-usage-audit
 
 go 1.26.0
 

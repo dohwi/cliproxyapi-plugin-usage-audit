@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 // referenceRecordsPage preserves the old full-filter/copy/sort implementation.

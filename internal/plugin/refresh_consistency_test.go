@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/plugin"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
 )
 
 func TestDashboardRefreshConsistencyNode(t *testing.T) {

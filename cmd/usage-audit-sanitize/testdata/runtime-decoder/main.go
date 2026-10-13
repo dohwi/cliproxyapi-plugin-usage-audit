@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 func main() {

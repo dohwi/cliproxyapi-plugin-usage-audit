@@ -1,7 +1,7 @@
 package plugin_test
 
 import (
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/plugin"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
 	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
 	"net/http"
 	"os"

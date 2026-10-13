@@ -1,11 +1,11 @@
 <div align="center">
-  <h1>cliproxyapi-usage-audit</h1>
+  <h1>cliproxyapi-plugin-usage-audit</h1>
   <p>CLIProxyAPI를 위한 토큰 사용량 감사·로그 집계 및 반응형 웹 대시보드 네이티브 Go 플러그인.</p>
 
   <p>
     <a href="https://go.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Go-1.26.5-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26.5" /></a>
     <a href="https://react.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" /></a>
-    <a href="https://github.com/dohwi/cliproxyapi-usage-audit/actions/workflows/verify.yml" target="_blank" rel="noreferrer"><img src="https://img.shields.io/github/actions/workflow/status/dohwi/cliproxyapi-usage-audit/verify.yml?branch=main&style=flat-square&label=verify" alt="Verification workflow" /></a>
+    <a href="https://github.com/dohwi/cliproxyapi-plugin-usage-audit/actions/workflows/verify.yml" target="_blank" rel="noreferrer"><img src="https://img.shields.io/github/actions/workflow/status/dohwi/cliproxyapi-plugin-usage-audit/verify.yml?branch=main&style=flat-square&label=verify" alt="Verification workflow" /></a>
     <a href="https://www.docker.com" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Ready" /></a>
   </p>
 
@@ -16,7 +16,7 @@
 
 ## Overview
 
-`cliproxyapi-usage-audit`는 CLIProxyAPI 호스트에 직접 로드되는 `c-shared` C ABI 기반 네이티브 Go 플러그인입니다. 프록시를 통과하는 모든 LLM 요청의 토큰 사용량(입력·캐시·추론·출력·총합), 지연 시간, 상태 코드, 공급자/모델별 세부 통계를 비동기 링 버퍼를 통해 무손실로 캡처·영속화하고, 임베디드 반응형 대시보드로 시각화합니다.
+`cliproxyapi-plugin-usage-audit`는 CLIProxyAPI 호스트에 직접 로드되는 `c-shared` C ABI 기반 네이티브 Go 플러그인입니다. 프록시를 통과하는 모든 LLM 요청의 토큰 사용량(입력·캐시·추론·출력·총합), 지연 시간, 상태 코드, 공급자/모델별 세부 통계를 비동기 링 버퍼를 통해 무손실로 캡처·영속화하고, 임베디드 반응형 대시보드로 시각화합니다.
 
 ## Preview
 
@@ -104,7 +104,7 @@ make boundary-sanitize-dry-run USAGE_LOG_PATH=/path/to/usage.jsonl
 ## Project Structure
 
 ```text
-cliproxyapi-usage-audit/
+cliproxyapi-plugin-usage-audit/
 ├── main.go                     # c-shared C ABI 엔트리포인트 (usage.handle, management routes)
 ├── cmd/
 │   └── usage-audit-sanitize/   # 로그 감사 및 민감정보 살균 독립 CLI 도구

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/queue"
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 func testStore(t *testing.T, maxBytes int64) *store.Store {

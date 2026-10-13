@@ -3,7 +3,7 @@ package plugin
 import (
 	"slices"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 // recordPageHeap keeps the oldest selected record at the root. Only indexes

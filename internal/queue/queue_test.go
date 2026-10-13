@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/queue"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
 )
 
 func TestOverflowDropsIncomingPreservingFIFO(t *testing.T) {

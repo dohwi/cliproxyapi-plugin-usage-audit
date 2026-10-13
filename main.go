@@ -55,7 +55,7 @@ import (
 	"encoding/json"
 	"unsafe"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/plugin"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
 )
 
 // abiVersion must match pluginabi.ABIVersion = 1.

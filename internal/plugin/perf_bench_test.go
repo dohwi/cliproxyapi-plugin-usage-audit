@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/queue"
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/store"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
 )
 
 // benchState seeds n synthetic records spread over the last 30 days.

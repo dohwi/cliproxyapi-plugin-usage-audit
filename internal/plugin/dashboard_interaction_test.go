@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dohwi/cliproxyapi-usage-audit/internal/plugin"
+	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
 )
 
 func TestDashboardStableInteractionLayout(t *testing.T) {
