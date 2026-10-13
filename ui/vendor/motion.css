@@ -1,0 +1,152 @@
+/* Library motion is opt-in. Scoped appearance also reaches Radix portals.
+   The documentation site enables its own motion independently of demos.
+   Theme tokens MUST NEVER transition: all surfaces, text and borders change
+   together in one paint. Animate interaction geometry and opacity only. */
+:root {
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-slow: 300ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+  --motion-ripple: 620ms;
+  --motion-dialog-shift: 8px;
+  --motion-dialog-scale: .98;
+  --motion-popup-scale: .97;
+  --motion-spring: cubic-bezier(.2, .8, .2, 1);
+}
+:where([data-motion-style='material']) {
+  --motion-fast: 180ms;
+  --motion-normal: 360ms;
+  --motion-slow: 460ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-dialog-shift: 18px;
+  --motion-dialog-scale: .94;
+  --motion-popup-scale: .9;
+  --motion-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+:where([data-motion-style='standard']) {
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-slow: 300ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+  --motion-dialog-shift: 8px;
+  --motion-dialog-scale: .98;
+  --motion-popup-scale: .97;
+  --motion-spring: cubic-bezier(.2, .8, .2, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Feedback stays small and never changes layout or scroll position. */
+  :where([data-motion='on']) .ui-button {
+    transition: transform var(--motion-fast) var(--motion-ease), opacity var(--motion-fast) ease;
+  }
+  /* Hover never moves a control or its icon; only press feedback scales in place. */
+  @media (hover: hover) {
+    :where([data-motion='on']) .ui-slider:not([data-disabled]) .ui-slider-thumb:hover { transform: scale(1.12); }
+  }
+  :where([data-motion='on']) .ui-button:active:not(:disabled) { transform: scale(.97); }
+  :where([data-motion='on']) :where(.ui-input, .ui-textarea, .ui-select-trigger, .ui-checkbox, .ui-switch, .ui-radio-group-item, .ui-tabs-trigger, .ui-segmented-item, .ui-calendar-day, .ui-pagination-link, .ui-dropdown-menu-item, .ui-select-item, .ui-dialog-close) {
+    transition: opacity var(--motion-fast) ease;
+  }
+  :where([data-motion='on']) .ui-segmented[data-indicator-animate] > .ui-segmented-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-tabs-list[data-indicator-animate] > .ui-tabs-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-switch-thumb { transition: transform var(--motion-normal) var(--motion-spring); }
+  :where([data-motion='on'][data-motion-style='material']) .ui-button:active:not(:disabled) { transform: scale(.94); }
+  :where([data-motion='on'][data-motion-style='material']) .ui-button-ripple { animation: ui-material-ripple var(--motion-ripple) var(--motion-ease); }
+  [data-motion='on'][data-motion-style='material'] .ui-checkbox-indicator[data-state='checked'],
+  [data-motion='on'][data-motion-style='material'] .ui-radio-group-indicator[data-state='checked'] { animation-name: ui-material-indicator; animation-duration: var(--motion-normal); }
+  :where([data-motion='on']) .ui-slider-thumb { transition: transform var(--motion-fast) var(--motion-spring); }
+  :where([data-motion='on']) .ui-progress-indicator { transition: transform var(--motion-slow) var(--motion-ease); }
+  :where([data-motion='on']) .ui-accordion-chevron { transition: transform var(--motion-normal) var(--motion-ease); }
+
+  /* Radix Presence keeps closing content mounted until animationend. */
+  :is(:where([data-motion='on']) .ui-dialog-overlay, .ui-dialog-overlay:where([data-motion='on']))[data-state='open'] { animation: ui-fade-in var(--motion-normal) ease; }
+  :is(:where([data-motion='on']) .ui-dialog-overlay, .ui-dialog-overlay:where([data-motion='on']))[data-state='closed'] { animation: ui-fade-out var(--motion-fast) ease; }
+  :is(:where([data-motion='on']) .ui-dialog-content, .ui-dialog-content:where([data-motion='on']))[data-state='open'] { animation: ui-dialog-in var(--motion-normal) var(--motion-ease); }
+  :is(:where([data-motion='on']) .ui-dialog-content, .ui-dialog-content:where([data-motion='on']))[data-state='closed'] { animation: ui-dialog-out var(--motion-fast) ease; }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on']) {
+    --popup-x: 0px;
+    --popup-y: 0px;
+    transform-origin: var(--radix-select-content-transform-origin, var(--radix-popover-content-transform-origin, var(--radix-dropdown-menu-content-transform-origin, var(--radix-tooltip-content-transform-origin, center))));
+  }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on'])[data-side='bottom'] { --popup-y: -4px; }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on'])[data-side='top'] { --popup-y: 4px; }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on'])[data-side='left'] { --popup-x: 4px; }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on'])[data-side='right'] { --popup-x: -4px; }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on']):is([data-state='open'], [data-state='delayed-open'], [data-state='instant-open']) { animation: ui-popup-in var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on'] :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content), :is(.ui-select-content, .ui-popover-content, .ui-dropdown-menu-content, .ui-tooltip-content)[data-motion='on'])[data-state='closed'] { animation: ui-popup-out var(--motion-fast) ease; }
+  :where([data-motion='on']) .ui-alert .ui-alert-dismiss > svg:last-child { transition: opacity var(--motion-fast) ease; }
+  :where([data-motion='on']) .ui-alert-stack-entry { transition: transform var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-alert[data-state='open'] { animation: ui-alert-in var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-alert[data-state='closed'] { animation: ui-alert-out var(--motion-fast) ease; }
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement='bottom'], .ui-alert-viewport[data-placement='bottom-start'], .ui-alert-viewport[data-placement='bottom-end']) .ui-alert[data-state='open'] { animation-name: ui-alert-in-up; }
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement='bottom'], .ui-alert-viewport[data-placement='bottom-start'], .ui-alert-viewport[data-placement='bottom-end']) .ui-alert[data-state='closed'] { animation-name: ui-alert-out-down; }
+  /* Dismissed alerts sweep off sideways toward the edge they are anchored to; centered placements keep the vertical exit. */
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement='inline'], .ui-alert-viewport[data-placement='top-end'], .ui-alert-viewport[data-placement='bottom-end']) .ui-alert[data-state='closed'] { animation: ui-alert-out-end var(--motion-normal) cubic-bezier(.4, 0, 1, 1) forwards; }
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement='top-start'], .ui-alert-viewport[data-placement='bottom-start']) .ui-alert[data-state='closed'] { animation: ui-alert-out-start var(--motion-normal) cubic-bezier(.4, 0, 1, 1) forwards; }
+  /* Scroll containers clip on both axes; release them while a card sweeps out so it can leave through the screen edge. */
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement='inline'], .ui-alert-viewport[data-placement$='-end'], .ui-alert-viewport[data-placement$='-start']):has(.ui-alert[data-state='closed']),
+  :where([data-motion='on']) :is(.ui-alert-viewport[data-placement$='-end'], .ui-alert-viewport[data-placement$='-start']):has(.ui-alert[data-state='closed']) .ui-alert-stack-list { overflow: visible; }
+  :where([data-motion='on']) .ui-accordion-content[data-state='open'] { animation: ui-accordion-open var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-accordion-content[data-state='closed'] { animation: ui-accordion-close var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-checkbox-indicator[data-state='checked'],
+  :where([data-motion='on']) .ui-radio-group-indicator[data-state='checked'] { animation: ui-indicator-in var(--motion-fast) var(--motion-ease); }
+  :where([data-motion='on']) .ui-checkbox-indicator[data-state='unchecked'],
+  :where([data-motion='on']) .ui-radio-group-indicator[data-state='unchecked'] { animation: ui-indicator-out var(--motion-fast) ease; }
+  :where([data-motion='on']) .ui-tabs-content[data-state='active'] { animation: ui-content-in var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-skeleton { animation: ui-pulse 1.8s ease-in-out infinite; }
+  :where([data-motion='on']) .ui-progress[data-state='indeterminate'] .ui-progress-indicator { animation: ui-progress-loading 1.5s ease-in-out infinite; }
+  :where([data-motion='on']) .ui-button .lucide-loader-circle { animation: ui-spin .9s linear infinite; }
+}
+
+/* OFF and accessibility preferences also stop animations already in flight.
+   A nested OFF region intentionally takes precedence over an outer ON region. */
+:where([data-motion='off']):where([class^='ui-'], [class*=' ui-']),
+:where([data-motion='off']) :where([class^='ui-'], [class*=' ui-'], .ui-button svg) {
+  animation: none !important;
+  transition: none !important;
+}
+:where([data-motion='off']) :where(.ui-button, .ui-button .lucide-arrow-right, .ui-slider-thumb) { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :where([class^='ui-'], [class*=' ui-'], .ui-button svg) { animation: none !important; transition: none !important; }
+}
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ui-dialog-in { from { opacity: 0; transform: translate(-50%, calc(-50% + var(--motion-dialog-shift))) scale(var(--motion-dialog-scale)); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ui-dialog-out { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, calc(-50% + 4px)) scale(.98); } }
+@keyframes ui-popup-in { from { opacity: 0; transform: translate(var(--popup-x), var(--popup-y)) scale(var(--motion-popup-scale)); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
+@keyframes ui-popup-out { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--popup-x), var(--popup-y)) scale(.98); } }
+@keyframes ui-accordion-open { from { height: 0; } to { height: var(--radix-accordion-content-height); } }
+@keyframes ui-accordion-close { from { height: var(--radix-accordion-content-height); } to { height: 0; } }
+@keyframes ui-indicator-in { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
+@keyframes ui-indicator-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.65); } }
+@keyframes ui-alert-in { from { opacity: 0; transform: translateY(calc(-1 * var(--motion-dialog-shift))); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ui-alert-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
+/* Bottom placements rise from below instead of dropping from above. */
+@keyframes ui-alert-in-up { from { opacity: 0; transform: translateY(var(--motion-dialog-shift)); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ui-alert-out-down { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(4px); } }
+@keyframes ui-alert-out-end { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(calc(100% + 24px)); } }
+@keyframes ui-alert-out-start { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(calc(-100% - 24px)); } }
+@keyframes ui-content-in { from { opacity: 0; transform: translate(var(--tabs-enter-x, 8px), var(--tabs-enter-y, 0px)); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes ui-material-ripple { 0% { opacity: .24; transform: translate(-50%, -50%) scale(0); } 45% { opacity: .16; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ui-material-indicator { 0% { opacity: 0; transform: scale(.4); } 65% { opacity: 1; transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes ui-pulse { 50% { opacity: .45; } }
+@keyframes ui-progress-loading { 0% { transform: translateX(-100%) scaleX(.35); } 100% { transform: translateX(100%) scaleX(.35); } }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* Navbar indicator + menu, NoticeBar flow. NoticeBar also gates itself in script (data-animated). */
+@media (prefers-reduced-motion: no-preference) {
+  :where([data-motion='on']) .ui-navbar-content[data-indicator-animate] > .ui-navbar-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
+  :where([data-motion='on']) .ui-navbar-content[data-state='open'] { animation: ui-content-in var(--motion-normal) var(--motion-ease); --tabs-enter-x: 0px; --tabs-enter-y: -6px; }
+  :where([data-motion='on']) .ui-notice-bar[data-animated][data-effect='marquee'] .ui-notice-bar-track { animation: ui-notice-marquee var(--notice-duration, 20s) linear infinite; }
+  :where([data-motion='on']) .ui-notice-bar[data-animated][data-effect='marquee']:is([data-direction='right'], [data-direction='down']) .ui-notice-bar-track { animation-direction: reverse; }
+  :where([data-motion='on']) .ui-notice-bar[data-animated][data-effect='marquee'] .ui-notice-bar-track:dir(rtl) { animation-name: ui-notice-marquee-rtl; }
+  :where([data-motion='on']) .ui-notice-bar[data-animated][data-effect='marquee']:is([data-direction='up'], [data-direction='down']) .ui-notice-bar-track { animation-name: ui-notice-marquee-vertical; }
+  :where([data-motion='on']) .ui-notice-bar[data-animated][data-effect='marquee'][data-holding] .ui-notice-bar-track { animation-play-state: paused; }
+  :where([data-motion='on']) .ui-notice-bar-list[data-rotated] > .ui-notice-bar-item[data-state='active'] { animation: ui-notice-in var(--motion-slow) var(--motion-ease); }
+  :where([data-motion='on']) .ui-notice-bar-list[data-rotated] > .ui-notice-bar-item[data-state='leaving'] { animation: ui-notice-out var(--motion-slow) var(--motion-ease) forwards; }
+}
+@keyframes ui-notice-marquee-vertical { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@keyframes ui-notice-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes ui-notice-marquee-rtl { from { transform: translateX(0); } to { transform: translateX(50%); } }
+@keyframes ui-notice-in { from { opacity: 0; transform: translate(var(--notice-enter-x, 0px), var(--notice-enter-y, 0px)); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes ui-notice-out { from { opacity: 1; visibility: visible; transform: translate(0, 0); } to { opacity: 0; visibility: hidden; transform: translate(var(--notice-leave-x, 0px), var(--notice-leave-y, 0px)); } }

@@ -1,0 +1,14 @@
+{
+  "name": "usage-dashboard-dohwi-ui",
+  "private": true,
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": {
+    "@radix-ui/react-popover": "1.2.0",
+    "@radix-ui/react-radio-group": "1.4.8",
+    "@radix-ui/react-select": "2.2.6",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": { "esbuild": "0.28.2" }
+}
