@@ -8,7 +8,7 @@
     <a href="https://go.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Go-1.26.9-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26.9" /></a>
     <a href="https://react.dev" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://github.com/dohwi/cliproxyapi-plugin-usage-audit/actions/workflows/verify.yml" target="_blank" rel="noreferrer"><img src="https://img.shields.io/github/actions/workflow/status/dohwi/cliproxyapi-plugin-usage-audit/verify.yml?branch=main&style=flat-square&label=verify" alt="Verify workflow status" /></a>
-    <a href="LICENSE" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue?style=flat-square" alt="PolyForm Noncommercial 1.0.0" /></a>
+    <a href="LICENSE" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="MIT License" /></a>
   </p>
 
   <p><a href="#preview">Preview</a> · <a href="#features">Features</a> · <a href="#getting-started">Getting Started</a> · <a href="#routes">Routes</a> · <a href="#language">Language</a> · <a href="#operations--tooling">Operations</a></p>
@@ -160,7 +160,7 @@ cliproxyapi-plugin-usage-audit/
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE). You may use, modify and distribute this software for noncommercial purposes such as personal use, research and education. Commercial use is not permitted.
+[MIT](LICENSE). You may use, modify, distribute and sell this software, including commercially, as long as the copyright and license notice are kept.
 
 The CLIProxyAPI SDK this plugin depends on is a separate project under its own license; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
