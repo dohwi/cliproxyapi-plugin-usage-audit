@@ -960,8 +960,7 @@ func TestMobileFilterResponsiveAndNoInlineStyles(t *testing.T) {
 		`grid-template-columns: repeat(2, minmax(0, 1fr));`,
 		`custom-dates { grid-column: 1;`,
 		`filter-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }`,
-		`filter-reset-field { grid-column: 1; grid-row: 3; justify-self: start; }`,
-		`filter-language-field { grid-column: 2; grid-row: 3; justify-self: end; }`,
+		`filter-reset-field { grid-column: 2; justify-self: end; }`,
 		`text-overflow: ellipsis;`,
 		`filterForm.addEventListener('submit'`,
 	} {
@@ -1362,7 +1361,7 @@ func TestDashboardResponsiveDensity(t *testing.T) {
 
 func TestDashboardFluidNativeFilters(t *testing.T) {
 	body := plugin.DashboardHTML
-	for _, required := range []string{".filter-fields-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 0.8fr) 86px auto;", ".filter-field { position: relative; width: 100%; min-width: 0; display: grid; gap: 5px; }", ".compact-select { width: 100%; min-width: 0;", "text-align: left; text-align-last: left;", ".active-filter-badge {\n    width: 100%;\n    max-width: 100%;\n    height: 24px;\n    overflow: auto;"} {
+	for _, required := range []string{".filter-fields-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 0.8fr) 86px;", ".filter-field { position: relative; width: 100%; min-width: 0; display: grid; gap: 5px; }", ".compact-select { width: 100%; min-width: 0;", "text-align: left; text-align-last: left;", ".active-filter-badge {\n    width: 100%;\n    max-width: 100%;\n    height: 24px;\n    overflow: auto;"} {
 		if !strings.Contains(body, required) {
 			t.Errorf("missing current layout contract %q", required)
 		}
@@ -1425,7 +1424,7 @@ func TestDashboardAboveFilterLabelsAndMobileNativeControls(t *testing.T) {
 
 func TestDashboardAppliedConditionsInFilterTopline(t *testing.T) {
 	body := plugin.DashboardHTML
-	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
+	topline := regexp.MustCompile(`(?s)<div class="filter-topline">.*?<div class="filter-topmeta">\s*<div id="activeFilterBadge"[^>]*role="status"[^>]*aria-live="polite"[^>]*>\s*<span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>\s*<span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>\s*</div>\s*(?:<div class="filter-language-field">.*?</div>\s*</div>\s*)?</div>\s*</div>\s*<fieldset class="filter-section filter-detail-section">`)
 	if !topline.MatchString(body) {
 		t.Error("conditions must remain live metadata inside the filter topline, before detail controls")
 	}
