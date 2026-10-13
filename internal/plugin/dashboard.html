@@ -616,10 +616,6 @@
 
   <header class="page-heading">
     <div class="page-heading-copy"><h1 data-i18n="page.heading">토큰 사용량</h1><p data-i18n="page.sub">요청과 토큰 사용량을 한눈에 확인하세요.</p></div>
-    <div class="lang-switch" role="group" aria-label="언어" data-i18n-aria="lang.label">
-      <button type="button" class="lang-btn" data-lang="ko" lang="ko" aria-pressed="true">한국어</button>
-      <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
-    </div>
   </header>
   <div id="dashboardContent" aria-busy="true">
     <!-- Filter Panel -->
@@ -686,6 +682,13 @@
             </div>
             <div class="filter-reset-field">
               <button type="button" class="btn btn-sm btn-secondary btn-reset filter-reset-button" id="resetFiltersBtn" aria-label="모든 세부 필터 초기화" data-i18n-aria="filter.resetAria" data-i18n="filter.reset">초기화</button>
+            </div>
+            <div class="filter-language-field">
+              <span class="filter-label" id="languageLabel" data-i18n="lang.label">언어</span>
+              <div class="lang-switch" role="group" aria-labelledby="languageLabel">
+                <button type="button" class="lang-btn" data-lang="ko" lang="ko" aria-pressed="true">한국어</button>
+                <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
+              </div>
             </div>
           </div>
         </fieldset>

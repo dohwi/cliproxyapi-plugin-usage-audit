@@ -6,6 +6,7 @@ const fs = require('fs'), path = require('path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
+const verifyLanguagePlacement = require('./lib/host-toolbar.cjs');
 const now = new Date().toISOString();
 const metric = (provider, model) => ({ provider, model, requests: 120, failures: 3, generate_count: 100, input_tokens: 9000, fresh_input_tokens: 7000, output_tokens: 3000, cached_tokens: 2000, reasoning_tokens: 500, total_tokens: 12500 });
 const summary = {
@@ -104,6 +105,7 @@ const hangul = s => /[가-힣]/.test(s);
             document.querySelectorAll('.page-heading, .lang-switch, .filter-card, .kpi-group, #activeFilterBadge, .card-header').forEach(e => { if (e.scrollWidth > e.clientWidth + 1) out.push(e.className.toString().slice(0, 30) + ' ' + e.scrollWidth + '>' + e.clientWidth); });
             return out;
           });
+          await verifyLanguagePlacement(page, '.filter-card');
           if (over.length) fail.push(`${locale}/${lang}/${width}px overflow: ${over.join(' | ')}`);
         }
         await page.setViewportSize({ width: 1280, height: 900 });
