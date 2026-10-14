@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -1040,7 +1041,7 @@ func TestUsageSelectOptionPopulationNodeContract(t *testing.T) {
 	}
 	nodeScript := `
 const vm=require('vm');
-const script=process.argv[1];
+const script=require('fs').readFileSync(process.argv[1],'utf8');
 function node(tag){const n={tagName:tag.toUpperCase(),children:[],style:{},dataset:{},setCustomValidity(){},classList:{add(){},remove(){},toggle(){}},appendChild(c){this.children.push(c);this.firstChild=this.children[0]||null;return c;},replaceChildren(){this.children=[];this.firstChild=null;},addEventListener(){},setAttribute(){},getAttribute(){return null;}};Object.defineProperty(n,'selectedOptions',{get(){return this.children.filter(o=>o.value===(this.value||''))}});Object.defineProperty(n,'textContent',{get(){return this._text||''},set(v){this._text=String(v)}});return n;}
 const ids={filterProvider:node('select'),filterEndpoint:node('select'),filterModel:node('select'),filterStatus:node('select')};
 const document={hidden:false,activeElement:null,addEventListener(){},createElement:node,getElementById(id){return ids[id]||node('div')},querySelectorAll(){return[]}};
@@ -1068,7 +1069,12 @@ let resetPreset='';ctx.setPreset=function(p){resetPreset=p};ctx.resetFilters();
 for(const field of Object.values(ids)){assert(field.value==='','reset value');assert(field.title==='전체','reset tooltip')}
 assert(ctx.state.provider==='' && ctx.state.endpoint==='' && ctx.state.model==='' && ctx.state.status==='','reset state');assert(resetPreset==='today','reset date preset unchanged');
 console.log('OK_NATIVE_SELECTS');`
-	cmd := exec.Command(nodePath, "-e", nodeScript, "--", matches[1])
+	// The dashboard script is passed by file: a Windows command line is limited to ~32K.
+	scriptFile := filepath.Join(t.TempDir(), "dashboard.js")
+	if err := os.WriteFile(scriptFile, []byte(matches[1]), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(nodePath, "-e", nodeScript, "--", scriptFile)
 	out, err := cmd.CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "OK_NATIVE_SELECTS") {
 		t.Fatalf("native select node contract failed: %v\n%s", err, out)

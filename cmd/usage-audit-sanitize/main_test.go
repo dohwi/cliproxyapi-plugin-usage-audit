@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,9 @@ func fileSHA256(t *testing.T, path string) string {
 func runRuntimeDecoderProbe(t *testing.T, logPath string) []byte {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "runtime-decoder")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
 
 	// Bound cold standard-library compilation separately, leaving headroom
 	// within the package's 120-second test timeout on slower CI runners.
@@ -179,7 +183,8 @@ func TestRewriteWithBackup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat rewritten file: %v", err)
 	}
-	if info.Mode().Perm() != origPerm {
+	// Windows has no Unix permission bits (files always report 0666/0444).
+	if info.Mode().Perm() != origPerm && runtime.GOOS != "windows" {
 		t.Errorf("expected permission %v, got %v", origPerm, info.Mode().Perm())
 	}
 
