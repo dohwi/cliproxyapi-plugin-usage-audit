@@ -1,5 +1,26 @@
 SHELL := /bin/bash
 
+# Library extension and loader flags follow the build host (GOOS). Override with
+# `make build GOOS=...` only for a matching native toolchain: the plugin is a CGO
+# c-shared library and must be built natively per platform.
+GOOS ?= $(shell go env GOOS)
+ifeq ($(GOOS),windows)
+LIB_EXT := dll
+SMOKE_EXE := .exe
+SMOKE_LIBS :=
+else ifeq ($(GOOS),darwin)
+LIB_EXT := dylib
+SMOKE_EXE :=
+SMOKE_LIBS :=
+else
+LIB_EXT := so
+SMOKE_EXE :=
+SMOKE_LIBS := -ldl
+endif
+LIB := artifacts/usage-audit.$(LIB_EXT)
+SMOKE := artifacts/native-smoke$(SMOKE_EXE)
+SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo "shasum -a 256")
+
 .PHONY: verify-i18n release-check verify verify-sanitize build native-smoke audit-dry-run sanitize-dry-run boundary-sanitize-dry-run verify-layout clean
 
 verify:
@@ -12,13 +33,12 @@ verify-sanitize:
 
 build:
 	mkdir -p artifacts
-	go build -trimpath -ldflags='-s -w' -buildmode=c-shared -o artifacts/usage-audit.so .
-	sha256sum artifacts/usage-audit.so
+	go build -trimpath -ldflags='-s -w' -buildmode=c-shared -o $(LIB) .
+	$(SHA256) $(LIB)
 
-native-smoke: build
-	gcc -O2 -Wall -Wextra -Werror -o /tmp/usage-audit-native-smoke verification/native_smoke.c -ldl
-	data_dir="$$(mktemp -d)"; trap 'rm -rf "$$data_dir"' EXIT; USAGE_AUDIT_DATA_DIR="$$data_dir" /tmp/usage-audit-native-smoke artifacts/usage-audit.so
-	rm -f /tmp/usage-audit-native-smoke
+native-smoke:
+	scripts/build-native.sh
+
 
 audit-dry-run sanitize-dry-run:
 	@if [ -n "$$USAGE_LOG_PATH" ]; then \
@@ -55,6 +75,5 @@ release-check:
 	./scripts/check-release-version.sh $(TAG)
 
 clean:
-	rm -rf artifacts
+	rm -rf artifacts dist
 	rm -rf scripts/.bin
-	rm -f /tmp/usage-audit-native-smoke

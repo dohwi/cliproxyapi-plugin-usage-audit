@@ -40,16 +40,16 @@
 
 | Domain | Technology / Specification |
 |---|---|
-| Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so`) |
+| Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so` / `.dylib` / `.dll`) |
 | Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK dependency) |
 | Embedded UI | React 19, Radix UI primitives, esbuild bundle |
 | Persistence | Rotating JSONL log, in-memory snapshot cache |
 | Bundled Typography | SUIT Regular/SemiBold, Manrope Variable (self-hosted WOFF2) |
-| Verification | Go race/vet, Node contract and i18n tests, native C smoke test (`dlopen`) |
+| Verification | Go race/vet, Node contract, i18n and auth-gate tests, native C smoke test (`dlopen` / `LoadLibrary`) on every platform |
 
 ## Getting Started
 
-Build on the same OS, architecture and C runtime as the host process (Linux amd64, glibc).
+The plugin is a CGO `c-shared` library, so build it natively on the platform you target (Linux, macOS or Windows; amd64 or arm64) with a C compiler (gcc or clang).
 
 Bootstrap the local runtimes with [mise](https://mise.jdx.dev):
 
@@ -58,12 +58,13 @@ Bootstrap the local runtimes with [mise](https://mise.jdx.dev):
 mise trust
 mise install
 
-# Ubuntu/Debian native build tools
+# Native build tools: Ubuntu/Debian
 sudo apt-get update && sudo apt-get install -y build-essential
+# macOS: xcode-select --install      Windows: 64-bit mingw-w64 gcc (e.g. MSYS2 UCRT64) and Git Bash
 
-# Run tests and the native ABI smoke test
+# Run tests and the native ABI smoke test (the script also works where make is missing)
 make verify
-make native-smoke
+scripts/build-native.sh
 ```
 
 ### Build
@@ -72,7 +73,7 @@ make native-smoke
 make build
 ```
 
-The build writes `artifacts/usage-audit.so` and the header `artifacts/usage-audit.h`.
+The build writes `artifacts/usage-audit.so` (`.dylib` on macOS, `.dll` on Windows) and the matching header.
 
 ### Rebuilding the dashboard UI
 
@@ -88,9 +89,33 @@ This rewrites the marked regions of `internal/plugin/dashboard.html`. Do not edi
 
 ## Install
 
-Once listed in the [CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store), install `usage-audit` from the host's plugin page. To install manually, download `usage-audit_<version>_linux_amd64.zip` and `checksums.txt` from the [latest release](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest), run `sha256sum -c checksums.txt`, and unzip `usage-audit.so` into the host's plugin directory.
+Once listed in the [CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store), install `usage-audit` from the host's plugin page. To install manually, download `usage-audit_<version>_<os>_<arch>.zip` and `checksums.txt` from the [latest release](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest), verify with `sha256sum -c checksums.txt` (`shasum -a 256 -c` on macOS), and unzip the library into the host's plugin directory.
 
-The Linux build targets glibc 2.36 or older (the official Debian bookworm image). Only `linux/amd64` is published; other platforms must build from source.
+Every release publishes all five store platforms; the Release workflow refuses to publish unless all of them built and passed the native smoke test:
+
+| Platform | Asset | Library |
+|---|---|---|
+| Linux x64 | `usage-audit_<version>_linux_amd64.zip` | `usage-audit.so` |
+| Linux arm64 | `usage-audit_<version>_linux_arm64.zip` | `usage-audit.so` |
+| macOS Intel | `usage-audit_<version>_darwin_amd64.zip` | `usage-audit.dylib` |
+| macOS Apple silicon | `usage-audit_<version>_darwin_arm64.zip` | `usage-audit.dylib` |
+| Windows x64 | `usage-audit_<version>_windows_amd64.zip` | `usage-audit.dll` |
+
+The Linux builds require glibc 2.36 or older (the official Debian bookworm image).
+
+### Data directory
+
+Usage records are stored in `usage.jsonl` (rotated to `.1`, `.2`, ...) in the directory given by the `USAGE_AUDIT_DATA_DIR` environment variable of the host process. When it is unset the plugin uses a per-user default, `<user-config-dir>/cliproxyapi/usage-audit` (`~/.config/cliproxyapi/usage-audit` on Linux, `~/Library/Application Support/cliproxyapi/usage-audit` on macOS, `%AppData%\cliproxyapi\usage-audit` on Windows). If neither is available the plugin runs without storage and logs a message. Earlier builds defaulted to a fixed `/var/lib/homelab/...` path; set `USAGE_AUDIT_DATA_DIR` to keep using an existing directory.
+
+### Releasing
+
+Bump `pluginVersion` in `internal/plugin/plugin.go`, merge, then push a matching tag:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The tag must match `pluginVersion` and be a dotted numeric version (`vX.Y.Z`); the workflow builds each platform on a native runner, packages `<id>_<version>_<os>_<arch>.zip`, writes `checksums.txt` and creates the GitHub release.
 
 ## Language
 
@@ -98,21 +123,22 @@ The dashboard ships in English and Korean. A single translate icon button in the
 
 - **Selection order**: saved choice, then browser language (Korean selects Korean, anything else selects English), then Korean.
 - **Shared setting**: the choice is stored in the browser under `cpa_plugin_lang`, the same key used by the [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) dashboard. Changing it in one open dashboard updates the other. This only applies when both dashboards are served from the same origin.
-- **Privacy**: this key is the only thing the page writes to browser storage.
+- **Privacy**: the language key is the only thing the page writes to `localStorage`. The management key is held in `sessionStorage` for the current tab only and is never written to `localStorage`, cookies or a URL.
 - **Not translated**: the plugin name shown in the host menu is registered once at load time, so it stays Korean ("토큰 사용량").
 
 ## Routes
 
-Once the CLIProxyAPI host has loaded the plugin, these resource and management routes are available:
+Once the CLIProxyAPI host has loaded the plugin, these routes are available. Only the static shell is unauthenticated; all usage data requires the management key:
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | Responsive usage audit dashboard |
-| `GET` | `/v0/resource/plugins/usage-audit/data/summary` | Aggregated summary for a period and filters |
-| `GET` | `/v0/resource/plugins/usage-audit/data/records` | Cursor-based request log |
+| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | Responsive usage audit dashboard (static shell, no data) |
+| `GET` | `/v0/management/plugins/usage-audit/data/summary` | Aggregated summary for a period and filters (dashboard) |
+| `GET` | `/v0/management/plugins/usage-audit/data/records` | Cursor-based request log (dashboard) |
 | `GET` | `/v0/management/plugins/usage-audit/dashboard` | Dashboard on the management path |
-| `GET` | `/v0/management/plugins/usage-audit/summary` | Aggregated summary on the management path |
-| `GET` | `/v0/management/plugins/usage-audit/records` | Request log on the management path |
+| `GET` | `/v0/management/plugins/usage-audit/summary` | Aggregated summary (management API) |
+| `GET` | `/v0/management/plugins/usage-audit/records` | Request log (management API) |
+| `DELETE` | `/v0/management/plugins/usage-audit/records` | Clear stored records |
 
 ## Operations & Tooling
 
@@ -145,9 +171,9 @@ cliproxyapi-plugin-usage-audit/
 │   └── store/                  # JSONL file store, rotation, snapshot decoder
 ├── ui/                         # React dashboard sources and build pipeline
 ├── docs/                       # Dashboard design, structural hardening, sanitization runbook
-├── scripts/                    # Audit/sanitize scripts and UI regression tests
+├── scripts/                    # Release packaging, native build, audit/sanitize scripts and UI regression tests
 ├── testdata/                   # Synthetic usage sample data
-├── verification/               # dlopen-based native C ABI smoke test
+├── verification/               # Cross-platform native C ABI smoke test (dlopen / LoadLibrary)
 ├── Makefile                    # Build, verify and smoke-test targets
 └── THIRD_PARTY_NOTICES.md      # SDK and bundled font license notices
 ```

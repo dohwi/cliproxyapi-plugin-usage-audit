@@ -238,13 +238,13 @@ func TestResourceBoundsCacheReuseAndSafeHealth(t *testing.T) {
 	now := time.Now().UTC()
 	appendTestRecord(t, st, store.LogRecord{T: now})
 	appendTestRecord(t, st, store.LogRecord{T: now.Add(-31 * 24 * time.Hour)})
-	req := managementHandleRequest{Path: resourceBase + "/data/summary"}
-	resp := responseForTest(t, handleGetResourceSummary(req))
+	req := managementHandleRequest{Path: mgmtBase + "/data/summary"}
+	resp := responseForTest(t, handleGetDashboardSummary(req))
 	if resp.StatusCode != 200 || !bytes.Contains(resp.Body, []byte(`"total_count":1`)) {
 		t.Fatal(string(resp.Body))
 	}
-	recordsReq := managementHandleRequest{Path: resourceBase + "/data/records"}
-	if r := responseForTest(t, handleGetResourceRecords(recordsReq)); r.StatusCode != 200 {
+	recordsReq := managementHandleRequest{Path: mgmtBase + "/data/records"}
+	if r := responseForTest(t, handleGetDashboardRecords(recordsReq)); r.StatusCode != 200 {
 		t.Fatal(string(r.Body))
 	}
 	h := st.Health()
@@ -256,25 +256,25 @@ func TestResourceBoundsCacheReuseAndSafeHealth(t *testing.T) {
 		{"from": {"2025-01-02"}, "to": {"2025-01-01"}},
 	} {
 		req.Query = query
-		if r := responseForTest(t, handleGetResourceSummary(req)); r.StatusCode != 400 {
+		if r := responseForTest(t, handleGetDashboardSummary(req)); r.StatusCode != 400 {
 			t.Fatalf("unbounded query accepted %s", r.Body)
 		}
 	}
 	for _, days := range []int{0, 30} {
 		req.Query = map[string][]string{"from": {now.AddDate(0, 0, -days).Format("2006-01-02")}, "to": {now.Format("2006-01-02")}}
-		if r := responseForTest(t, handleGetResourceSummary(req)); r.StatusCode != 200 {
+		if r := responseForTest(t, handleGetDashboardSummary(req)); r.StatusCode != 200 {
 			t.Fatalf("dashboard range broken %s", r.Body)
 		}
 	}
 	recordsReq.Query = map[string][]string{"limit": {"101"}}
-	if r := responseForTest(t, handleGetResourceRecords(recordsReq)); r.StatusCode != 400 {
+	if r := responseForTest(t, handleGetDashboardRecords(recordsReq)); r.StatusCode != 400 {
 		t.Fatal("limit accepted")
 	}
 	for i := 0; i < resourceSummaryMaxBuckets; i++ {
 		appendTestRecord(t, st, store.LogRecord{T: now, Model: fmt.Sprint(i)})
 	}
 	req.Query = nil
-	if r := responseForTest(t, handleGetResourceSummary(req)); r.StatusCode != 400 {
+	if r := responseForTest(t, handleGetDashboardSummary(req)); r.StatusCode != 400 {
 		t.Fatal("bucket overflow accepted")
 	}
 }

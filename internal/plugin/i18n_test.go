@@ -29,15 +29,16 @@ func runDashboardNode(t *testing.T, script string) {
 	}
 }
 
-// The dashboard must never persist credentials. The only permitted browser storage
-// is the language preference stored under LANG_KEY.
-func TestDashboardStorageLimitedToLanguagePreference(t *testing.T) {
+// The dashboard persists the language preference (localStorage, LANG_KEY) and, for the
+// current tab only, the management key (sessionStorage, KEY_STORAGE). The key must never
+// reach localStorage, which outlives the tab and is shared across tabs.
+func TestDashboardStorageContract(t *testing.T) {
 	html := plugin.DashboardHTML
-	if strings.Contains(html, "sessionStorage") {
-		t.Fatal("dashboard must not use sessionStorage")
-	}
 	if !strings.Contains(html, "var LANG_KEY = 'cpa_plugin_lang';") {
 		t.Fatal("shared language preference key is missing or renamed")
+	}
+	if !strings.Contains(html, "var KEY_STORAGE = 'cpa_usage_audit_mgmt_key';") {
+		t.Fatal("session key storage name is missing or renamed")
 	}
 	// The vendored React bundle is scanned separately: it must not touch storage at all.
 	script := regexp.MustCompile(`(?s)<script>(.*?)</script>`).FindStringSubmatch(html)
@@ -49,8 +50,14 @@ func TestDashboardStorageLimitedToLanguagePreference(t *testing.T) {
 	if total != len(allowed) || total != 2 {
 		t.Fatalf("localStorage references = %d (allowed LANG_KEY accessors = %d, want exactly 2)", total, len(allowed))
 	}
-	if strings.Contains(html[strings.Index(html, `<script data-dohwi-ui="exported">`):], "localStorage") {
-		t.Fatal("bundled UI code must not use localStorage")
+	sessionTotal := strings.Count(script[1], "sessionStorage")
+	sessionAllowed := regexp.MustCompile(`sessionStorage\.(?:getItem\(KEY_STORAGE\)|setItem\(KEY_STORAGE, key\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)
+	if sessionTotal != len(sessionAllowed) || sessionTotal != 3 {
+		t.Fatalf("sessionStorage references = %d (allowed KEY_STORAGE accessors = %d, want exactly 3)", sessionTotal, len(sessionAllowed))
+	}
+	bundle := html[strings.Index(html, `<script data-dohwi-ui="exported">`):]
+	if strings.Contains(bundle, "localStorage") || strings.Contains(bundle, "sessionStorage") {
+		t.Fatal("bundled UI code must not use web storage")
 	}
 }
 

@@ -37,6 +37,9 @@ state.snapshotFilterKey = snapshotFilterKey();
 const initialSnapshot = state.serverSnapshot;
 const requests = [], renders = [], errors = [], polls = [];
 var UA_POLL_RETRY_MS = 123;
+var mgmtKey = 'test-key';
+var keyVerified = true;
+var MGMT_BASE = '/v0/management/plugins/usage-audit';
 function fetchWithTimeout(url, signal) {
   return new Promise((resolve, reject) => requests.push({url,signal,resolve,reject}));
 }

@@ -45,6 +45,12 @@ var I18N = {
     'status.failed': '실패만',
     'validate.both': '시작일과 종료일을 모두 선택하세요.',
     'validate.order': '시작일은 종료일보다 늦을 수 없습니다.',
+    'auth.title': '관리 키가 필요합니다',
+    'auth.desc': '사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다.',
+    'auth.label': '관리 키',
+    'auth.submit': '확인',
+    'auth.empty': '관리 키를 입력하세요.',
+    'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
     'err.unavailable': '데이터 사용 불가',
     'err.http': '요청이 실패했습니다 (HTTP {s}).',
     'err.timeout': '요청 시간이 초과되었습니다. 다시 시도하세요.',
@@ -177,6 +183,12 @@ var I18N = {
     'status.failed': 'Failed only',
     'validate.both': 'Select both a start and an end date.',
     'validate.order': 'The start date cannot be after the end date.',
+    'auth.title': 'Management key required',
+    'auth.desc': 'Usage data requires management authentication. The key is kept only in this tab\'s session and is never written to the address or the server.',
+    'auth.label': 'Management key',
+    'auth.submit': 'Continue',
+    'auth.empty': 'Enter the management key.',
+    'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
     'err.unavailable': 'Data unavailable',
     'err.http': 'Request failed (HTTP {s}).',
     'err.timeout': 'The request timed out. Please try again.',
@@ -720,12 +732,71 @@ function hideSkeletons() {
   if (dataContent) dataContent.classList.remove('is-loading');
 }
 
+// ── Management authentication ───────────────────────────────────────────────
+// Data lives under /v0/management/..., which the host protects with the management
+// key. The page itself is an unauthenticated static shell, so the operator types the
+// key once; it is kept only in this tab's session storage and sent as a Bearer header
+// (never in a URL). Without a key no data request is sent at all, which also keeps
+// the host's failed-attempt counter from banning the operator's IP.
+var MGMT_BASE = '/v0/management/plugins/usage-audit';
+var KEY_STORAGE = 'cpa_usage_audit_mgmt_key';
+var mgmtKey = '';
+// The host counts every rejected request toward a 5-strike IP ban. A key is therefore
+// written to session storage only after the host accepted it, and until then the
+// summary and records requests are sent one after the other (a wrong key costs one
+// strike per attempt, not two).
+var keyVerified = false;
+function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
+function writeStoredKey(key) { try { if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE); } catch (e) {} }
+function authError() { var err = new Error('auth'); err.authRequired = true; return err; }
+function showAuthGate(messageKey) {
+  if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
+  if (state.abortCtrl) { state.abortCtrl.abort(); state.abortCtrl = null; }
+  state.inFlight = false;
+  clearError();
+  var gate = document.getElementById('authGate'), content = DOM.dashboardContent || document.getElementById('dashboardContent');
+  var message = document.getElementById('authMessage'), input = document.getElementById('authKeyInput');
+  if (content) content.classList.add('is-hidden');
+  if (gate) gate.classList.remove('is-hidden');
+  if (message) { message.textContent = messageKey ? t(messageKey) : ''; message.classList.toggle('is-hidden', !messageKey); }
+  if (input) { input.value = ''; try { input.focus(); } catch (e) {} }
+}
+function hideAuthGate() {
+  var gate = document.getElementById('authGate'), content = DOM.dashboardContent || document.getElementById('dashboardContent');
+  if (gate) gate.classList.add('is-hidden');
+  if (content) content.classList.remove('is-hidden');
+}
+function dropKeyAndPrompt() { mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid'); }
+function initAuthGate() {
+  mgmtKey = readStoredKey();
+  keyVerified = !!mgmtKey; // only keys the host already accepted are ever stored
+  var form = document.getElementById('authForm');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var input = document.getElementById('authKeyInput'), value = input ? String(input.value || '').trim() : '';
+    if (!value) { showAuthGate('auth.empty'); return; }
+    mgmtKey = value; keyVerified = false;
+    if (input) input.value = '';
+    hideAuthGate();
+    state.hasLoadedData = false; state.recordsExpanded = false;
+    loadData(false, true);
+  });
+}
+
 function fetchWithTimeout(url, signal) {
+  if (!mgmtKey) return Promise.reject(authError());
   var timedOut = false, timeoutCtrl = new AbortController(), timeout = setTimeout(function() { timedOut = true; timeoutCtrl.abort(); }, UA_FETCH_TIMEOUT_MS), relayAbort = function() { timeoutCtrl.abort(); };
   signal.addEventListener('abort', relayAbort, { once: true });
-  return fetch(url, { signal: timeoutCtrl.signal }).then(function(response) { if (!response.ok) return safeErrorMessage(response).then(function(message) { throw new Error(message); }); return response.json(); }).catch(function(err) { if (timedOut) throw new Error(t('err.timeout')); throw err; }).finally(function() { clearTimeout(timeout); signal.removeEventListener('abort', relayAbort); });
+  return fetch(url, { signal: timeoutCtrl.signal, cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { 'Authorization': 'Bearer ' + mgmtKey } }).then(function(response) { if (response.status === 401 || response.status === 403) throw authError(); if (!response.ok) return safeErrorMessage(response).then(function(message) { throw new Error(message); }); return response.json().then(function(data) { if (!keyVerified) { keyVerified = true; writeStoredKey(mgmtKey); } return data; }); }).catch(function(err) { if (timedOut) throw new Error(t('err.timeout')); throw err; }).finally(function() { clearTimeout(timeout); signal.removeEventListener('abort', relayAbort); });
 }
 function loadData(appendRecords, forceReplace) {
+  if (!mgmtKey) {
+    // Keep what the operator is typing if the gate is already open (e.g. tab refocus).
+    var openGate = document.getElementById('authGate');
+    if (!openGate || openGate.classList.contains('is-hidden')) showAuthGate('');
+    return;
+  }
   if (!appendRecords && state.recordsExpanded && !forceReplace && state.hasLoadedData && state.snapshotFilterKey === snapshotFilterKey()) { showError(t('err.expanded')); return; }
   if (state.inFlight && state.abortCtrl) state.abortCtrl.abort();
   var requestID = ++state.requestID; state.abortCtrl = new AbortController(); state.inFlight = true;
@@ -733,8 +804,8 @@ function loadData(appendRecords, forceReplace) {
   var signal = state.abortCtrl.signal, filterKey = snapshotFilterKey();
   var previous = state.snapshotFilterKey === filterKey ? state.serverSnapshot : null;
   var progressive = !state.hasLoadedData && !appendRecords;
-  var summaryUrl = '/v0/resource/plugins/usage-audit/data/summary' + buildQueryString(false);
-  var recordsUrl = '/v0/resource/plugins/usage-audit/data/records' + buildQueryString(true, appendRecords ? state.cursor : null);
+  var summaryUrl = MGMT_BASE + '/data/summary' + buildQueryString(false);
+  var recordsUrl = MGMT_BASE + '/data/records' + buildQueryString(true, appendRecords ? state.cursor : null);
   function currentRequest() { return requestID === state.requestID && !signal.aborted; }
   // Independent panels paint as soon as their own response arrives: a slow records
   // request must not hold the token KPIs/chart behind Promise.all (or vice versa).
@@ -744,7 +815,7 @@ function loadData(appendRecords, forceReplace) {
     renderSummary(summary); state.pendingChanges=null; hideSkeletons();
     return summary;
   });
-  var recordsReq = fetchWithTimeout(recordsUrl, signal).then(function(records) {
+  var recordsReq = (keyVerified ? fetchWithTimeout(recordsUrl, signal) : summaryReq.then(function() { return fetchWithTimeout(recordsUrl, signal); })).then(function(records) {
     if (!currentRequest() || !progressive) return records;
     state.pendingChanges=appendRecords ? {values:{},rows:{},records:{}} : diffUsageSnapshots(previous, makeUsageSnapshot(null, records));
     renderRecords(records, appendRecords); state.pendingChanges=null; hideSkeletons();
@@ -762,6 +833,7 @@ function loadData(appendRecords, forceReplace) {
     if (!appendRecords) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset));
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
+    if (err && err.authRequired) { dropKeyAndPrompt(); return; }
     // Prevent the surviving sibling response from painting after this request failed.
     if (state.abortCtrl) state.abortCtrl.abort(); state.pendingChanges=null; state.inFlight = false; setDashboardBusy(false);
     if (err.name !== 'AbortError') { hideSkeletons(); showError(err.message === 'The user aborted a request.' ? t('err.timeout') : t('err.load', { e: err.message })); scheduleNextPoll(UA_POLL_RETRY_MS); }
@@ -1248,6 +1320,7 @@ function bindDashboardEvents() {
 // The static DOM is already present: bind interactions before starting requests too.
 initLanguageControls();
 bindDashboardEvents();
+initAuthGate();
 // Start API requests before parsing/mounting the embedded React bundle. The DOM above is
 // already present; waiting for DOMContentLoaded would serialize network behind that work.
 initDashboard();

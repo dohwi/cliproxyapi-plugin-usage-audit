@@ -15,7 +15,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-TARGET_FILE="${USAGE_LOG_PATH:-/var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl}"
+# No built-in default: the data directory depends on the deployment (USAGE_AUDIT_DATA_DIR, or the
+# per-user default <user-config-dir>/cliproxyapi/usage-audit). Pass --file or set USAGE_LOG_PATH.
+TARGET_FILE="${USAGE_LOG_PATH:-}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/cliproxyapi}"
 CONTAINER_NAME="${CONTAINER_NAME:-cliproxyapi}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8317/v0/management/plugins/usage-audit/dashboard}"
@@ -31,7 +33,7 @@ Usage: $0 [options]
 Service-Stop Boundary Operational Log Sanitizer Template
 
 Options:
-  --file <path>              Target JSONL log file (default: ${TARGET_FILE})
+  --file <path>              Target JSONL log file (required unless USAGE_LOG_PATH is set)
   --backup-root <dir>        Backup directory base (default: ${BACKUP_ROOT})
   --container <name>         Container name to stop/start (default: ${CONTAINER_NAME})
   --dry-run, -n              Simulate the entire boundary sequence without stopping services or rewriting
@@ -88,6 +90,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -z "${TARGET_FILE}" ]; then
+  echo "ERROR: no log file given. Pass --file <path> or set USAGE_LOG_PATH" >&2
+  echo "       (the plugin writes <data dir>/usage.jsonl; see README, USAGE_AUDIT_DATA_DIR)." >&2
+  exit 2
+fi
 
 # -----------------------------------------------------------------------------
 # Anti-Cron & Operator Guard Enforcement

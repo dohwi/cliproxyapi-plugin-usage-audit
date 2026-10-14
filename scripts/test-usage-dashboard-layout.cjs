@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { seedKey } = require('./lib/seed-key.cjs');
 const root = path.resolve(__dirname, '..');
 const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
 const LONG_MODEL = 'claude-super-long-enterprise-model-identifier-'.repeat(5);
@@ -94,6 +95,7 @@ async function preset(page, value, baseline) {
   try {
     for (const width of selectedWidths) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce', locale: 'ko-KR' });
+      await seedKey(page);
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       let fixture = full, failed = false, summaryRequests = 0, release, gate = new Promise(resolve => { release = resolve; });

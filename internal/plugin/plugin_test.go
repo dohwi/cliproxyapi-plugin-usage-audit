@@ -278,8 +278,33 @@ func TestManagementRegister(t *testing.T) {
 	// Resource with Menu label must be declared so the management console
 	// renders it in the left sidebar via GET /v0/management/plugins.
 	resources, _ := result["resources"].([]any)
-	if len(resources) != 6 {
-		t.Fatalf("expected exactly 6 resources (dashboard, data, self-hosted fonts), got %d: %s", len(resources), raw)
+	if len(resources) != 4 {
+		t.Fatalf("expected exactly 4 resources (dashboard, self-hosted fonts), got %d: %s", len(resources), raw)
+	}
+	// /v0/resource/... is unauthenticated: it may only carry the static shell.
+	for _, r := range resources {
+		rm, _ := r.(map[string]any)
+		p, _ := rm["Path"].(string)
+		if strings.Contains(p, "/data") {
+			t.Errorf("unauthenticated resource route %q must not serve data", p)
+		}
+	}
+	// The data routes the dashboard polls must be management-authenticated.
+	wantMgmt := map[string]bool{
+		"GET /v0/management/plugins/usage-audit/data/summary": false,
+		"GET /v0/management/plugins/usage-audit/data/records": false,
+	}
+	for _, r := range routes {
+		rm, _ := r.(map[string]any)
+		key := rm["Method"].(string) + " " + rm["Path"].(string)
+		if _, ok := wantMgmt[key]; ok {
+			wantMgmt[key] = true
+		}
+	}
+	for key, seen := range wantMgmt {
+		if !seen {
+			t.Errorf("missing management route %s", key)
+		}
 	}
 	res, _ := resources[0].(map[string]any)
 	if res["Path"] != "/dashboard" {
@@ -1326,7 +1351,7 @@ func TestRotatedHistoryAPIsAndDeleteWriterResume(t *testing.T) {
 	t.Setenv("USAGE_AUDIT_DATA_DIR", dir)
 	callRegister(t)
 	t.Cleanup(plugin.Shutdown)
-	for _, prefix := range []string{"/v0/management/plugins/usage-audit", "/v0/resource/plugins/usage-audit/data"} {
+	for _, prefix := range []string{"/v0/management/plugins/usage-audit", "/v0/management/plugins/usage-audit/data"} {
 		resp := callManagement(t, pluginapi.ManagementRequest{Method: "GET", Path: prefix + "/records"})
 		if resp.StatusCode != 200 {
 			t.Fatalf("records: %d %s", resp.StatusCode, resp.Body)
@@ -1417,7 +1442,7 @@ func TestQuerySkipsCorruptedRetainedHistoryAndReportsDegradedHealth(t *testing.T
 	callRegister(t)
 	t.Cleanup(plugin.Shutdown)
 
-	for _, prefix := range []string{"/v0/management/plugins/usage-audit", "/v0/resource/plugins/usage-audit/data"} {
+	for _, prefix := range []string{"/v0/management/plugins/usage-audit", "/v0/management/plugins/usage-audit/data"} {
 		recordsResp := callManagement(t, pluginapi.ManagementRequest{Method: "GET", Path: prefix + "/records", Query: url.Values{"limit": {"2"}}})
 		if recordsResp.StatusCode != http.StatusOK || bytes.Contains(recordsResp.Body, []byte(secret)) || bytes.Contains(recordsResp.Body, []byte(path)) {
 			t.Fatalf("%s records unsafe/failing: %d %s", prefix, recordsResp.StatusCode, recordsResp.Body)
@@ -1664,10 +1689,10 @@ func TestOperationalTwoCorruptedLinesPreservationAndCursorStability(t *testing.T
 		t.Fatalf("p2 health recounted corruption: %+v", p2Body.Health)
 	}
 
-	// 3. Resource API endpoint: verify /v0/resource/plugins/usage-audit/data/records works identically.
+	// 3. Dashboard data endpoint (management-authenticated) returns the same page.
 	resResp := callManagement(t, pluginapi.ManagementRequest{
 		Method: "GET",
-		Path:   "/v0/resource/plugins/usage-audit/data/records",
+		Path:   "/v0/management/plugins/usage-audit/data/records",
 		Query:  url.Values{"limit": {"2"}},
 	})
 	if resResp.StatusCode != http.StatusOK {

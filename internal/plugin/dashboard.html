@@ -614,6 +614,17 @@
     <button id="retryLoadBtn" type="button" class="btn btn-sm btn-secondary" data-i18n="retry">다시 시도</button>
   </div>
 
+  <section id="authGate" class="card auth-gate is-hidden" aria-labelledby="authGateTitle">
+    <h2 id="authGateTitle" data-i18n="auth.title">관리 키가 필요합니다</h2>
+    <p class="auth-gate-desc" data-i18n="auth.desc">사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다.</p>
+    <form id="authForm" class="auth-gate-form" novalidate>
+      <label class="sr-only" for="authKeyInput" data-i18n="auth.label">관리 키</label>
+      <input id="authKeyInput" class="input" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="512">
+      <button type="submit" class="btn btn-secondary" data-i18n="auth.submit">확인</button>
+    </form>
+    <p id="authMessage" class="auth-gate-message is-hidden" role="alert"></p>
+  </section>
+
   <header class="page-heading">
     <div class="page-heading-copy"><h1 data-i18n="page.heading">토큰 사용량</h1><p data-i18n="page.sub">요청과 토큰 사용량을 한눈에 확인하세요.</p></div>
   </header>

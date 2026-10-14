@@ -622,26 +622,44 @@ func TestSummaryGroupResponsiveLayout(t *testing.T) {
 	}
 }
 
-func TestDashboardUsesUnauthenticatedResources(t *testing.T) {
+func TestDashboardUsesAuthenticatedManagementData(t *testing.T) {
 	body := plugin.DashboardHTML
+	// The unauthenticated /v0/resource prefix carries only the static shell.
 	for _, bad := range []string{
-		"/v0/management/", "Authorization", "Bearer ", "management_key",
+		"/v0/resource/plugins/usage-audit/data",
+		// The page must never scrape a key out of the host panel's storage.
 		"resolveManagementKey", "extractKeyFromParsed", "decodeAndParseStorageValue",
+		"X-Management-Key",
 	} {
 		if strings.Contains(body, bad) {
-			t.Errorf("dashboard contains forbidden auth/management reference %q", bad)
+			t.Errorf("dashboard contains forbidden reference %q", bad)
 		}
 	}
 	for _, good := range []string{
-		"/v0/resource/plugins/usage-audit/data/summary",
-		"/v0/resource/plugins/usage-audit/data/records",
+		"var MGMT_BASE = '/v0/management/plugins/usage-audit';",
+		"MGMT_BASE + '/data/summary'",
+		"MGMT_BASE + '/data/records'",
+		"'Authorization': 'Bearer ' + mgmtKey",
+		"credentials: 'omit'",
 		"endpoint=' + encodeURIComponent(state.endpoint)",
 		"cursor=' + encodeURIComponent(cursor)",
 		"limit=20",
 	} {
 		if !strings.Contains(body, good) {
-			t.Errorf("dashboard missing resource/query contract %q", good)
+			t.Errorf("dashboard missing management/query contract %q", good)
 		}
+	}
+	// The key travels only in a header: it must never be put in a URL or query string.
+	script := regexp.MustCompile(`(?s)<script>(.*?)</script>`).FindStringSubmatch(body)
+	if script == nil {
+		t.Fatal("main script not found")
+	}
+	if regexp.MustCompile(`(?i)['"?&]\s*(?:key|token|password|management_key)=\s*['"+]`).MatchString(script[1]) ||
+		regexp.MustCompile(`\+\s*mgmtKey`).FindAllString(script[1], -1) == nil {
+		t.Error("management key must only be used as the Bearer header value")
+	}
+	if n := len(regexp.MustCompile(`\+\s*mgmtKey`).FindAllString(script[1], -1)); n != 1 {
+		t.Errorf("mgmtKey concatenations = %d, want exactly 1 (the Authorization header)", n)
 	}
 }
 

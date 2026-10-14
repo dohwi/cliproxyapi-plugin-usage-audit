@@ -28,14 +28,24 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.1.1"
+	pluginVersion = "0.2.0"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
 )
 
-// defaultDataDir is used when USAGE_AUDIT_DATA_DIR env is not set.
-const defaultDataDir = "/var/lib/homelab/cliproxyapi/data/usage-audit"
+// defaultDataDir returns the per-user, OS-appropriate data directory used when
+// USAGE_AUDIT_DATA_DIR is not set (for example ~/.config/cliproxyapi/usage-audit
+// on Linux, ~/Library/Application Support/... on macOS, %AppData%\... on Windows).
+// It returns "" when the platform has no usable per-user directory; the plugin
+// then runs without storage instead of writing to a shared location.
+func defaultDataDir() string {
+	base, err := os.UserConfigDir()
+	if err != nil || strings.TrimSpace(base) == "" {
+		return ""
+	}
+	return filepath.Join(base, "cliproxyapi", "usage-audit")
+}
 
 // Font assets are embedded in the plugin binary and returned as raw bytes via
 // the binary-safe ManagementResponse Body field. The host's resource protocol
@@ -198,7 +208,11 @@ func handleRegister(request []byte) []byte {
 	// Resolve data directory.
 	dataDir := strings.TrimSpace(os.Getenv("USAGE_AUDIT_DATA_DIR"))
 	if dataDir == "" {
-		dataDir = defaultDataDir
+		dataDir = defaultDataDir()
+	}
+	if dataDir == "" {
+		log.Printf("usage-audit: no data directory; set USAGE_AUDIT_DATA_DIR")
+		return buildRegistrationResponse(req.SchemaVersion)
 	}
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		log.Printf("usage-audit: mkdir %s: %v", dataDir, err)
@@ -486,13 +500,15 @@ func handleManagementRegister(_ []byte) []byte {
 			{Method: "GET", Path: mgmtBase + "/records"},
 			{Method: "GET", Path: mgmtBase + "/summary"},
 			{Method: "DELETE", Path: mgmtBase + "/records"},
+			// Dashboard-shaped (bounded, auth_index-free) data for the browser UI.
+			{Method: "GET", Path: mgmtBase + "/data/summary"},
+			{Method: "GET", Path: mgmtBase + "/data/records"},
 		},
-		// Menu-less resources are intentionally hidden from the management UI.
-		// The host normalizes these to /v0/resource/plugins/usage-audit/... .
+		// /v0/resource/... is unauthenticated, so only the static page shell and
+		// fonts live here. All usage data is served from the authenticated
+		// /v0/management/plugins/usage-audit/... routes above.
 		Resources: []resourceRoute{
 			resourceDashboard,
-			{Path: "/data/summary", Menu: "", Description: ""},
-			{Path: "/data/records", Menu: "", Description: ""},
 			{Path: "/assets/fonts/manrope-variable.woff2", Menu: "", Description: ""},
 			{Path: "/assets/fonts/suit-regular.woff2", Menu: "", Description: ""},
 			{Path: "/assets/fonts/suit-semibold.woff2", Menu: "", Description: ""},
@@ -536,16 +552,16 @@ func handleManagementHandle(request []byte) []byte {
 		return handleGetRecords(req)
 	case method == "GET" && path == mgmtBase+"/summary":
 		return handleGetSummary(req)
-	case method == "GET" && path == resourceBase+"/data/records":
-		return handleGetResourceRecords(req)
-	case method == "GET" && path == resourceBase+"/data/summary":
-		return handleGetResourceSummary(req)
 	case method == "GET" && path == resourceBase+"/assets/fonts/manrope-variable.woff2":
 		return fontResourceResp(manropeVariableWOFF2)
 	case method == "GET" && path == resourceBase+"/assets/fonts/suit-regular.woff2":
 		return fontResourceResp(suitRegularWOFF2)
 	case method == "GET" && path == resourceBase+"/assets/fonts/suit-semibold.woff2":
 		return fontResourceResp(suitSemiboldWOFF2)
+	case method == "GET" && path == mgmtBase+"/data/records":
+		return handleGetDashboardRecords(req)
+	case method == "GET" && path == mgmtBase+"/data/summary":
+		return handleGetDashboardSummary(req)
 	case method == "DELETE" && path == mgmtBase+"/records":
 		return handleDeleteRecords()
 	default:
@@ -786,8 +802,7 @@ type tokenSemantics struct {
 }
 
 func handleGetSummary(req managementHandleRequest) []byte {
-	resource := strings.TrimRight(strings.TrimSpace(req.Path), "/") == resourceBase+"/data/summary"
-	status, body := summaryResult(req, resource)
+	status, body := summaryResult(req, false)
 	return jsonMgmtResp(status, body)
 }
 
@@ -1084,7 +1099,7 @@ func toResourceRecord(r store.LogRecord) resourceRecord {
 		Latency: r.LatencyMs, TTFT: r.TTFTMs, Failed: r.Failed, FailureStatus: r.FailureStatus}
 }
 
-func handleGetResourceRecords(req managementHandleRequest) []byte {
+func handleGetDashboardRecords(req managementHandleRequest) []byte {
 	stateMu.RLock()
 	ps := state
 	stateMu.RUnlock()
@@ -1124,7 +1139,7 @@ func handleGetResourceRecords(req managementHandleRequest) []byte {
 	return jsonResourceResp(200, resp)
 }
 
-func handleGetResourceSummary(req managementHandleRequest) []byte {
+func handleGetDashboardSummary(req managementHandleRequest) []byte {
 	status, body := summaryResult(req, true)
 	return jsonResourceResp(status, body)
 }

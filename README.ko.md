@@ -40,16 +40,16 @@
 
 | Domain | Technology / Specification |
 |---|---|
-| Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so`) |
+| Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so` / `.dylib` / `.dll`) |
 | Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK 의존성) |
 | Embedded UI | React 19, Radix UI Primitives, esbuild 번들링 |
 | Persistence | JSONL 로테이션 로그, 인메모리 스냅샷 캐시 |
 | Bundled Typography | SUIT Regular/SemiBold, Manrope Variable (self-hosted WOFF2) |
-| Verification | Go race/vet, Node 계약·i18n 테스트, Native C smoke test (`dlopen`) |
+| Verification | Go race/vet, Node 계약·i18n·인증 게이트 테스트, 모든 플랫폼의 Native C smoke test (`dlopen` / `LoadLibrary`) |
 
 ## Getting Started
 
-호스트 프로세스와 동일한 OS·아키텍처·C 런타임 환경(Linux amd64 glibc)에서 빌드해야 합니다.
+플러그인은 CGO `c-shared` 라이브러리이므로 대상 플랫폼(Linux, macOS, Windows · amd64/arm64)에서 C 컴파일러(gcc 또는 clang)로 직접 빌드해야 합니다.
 
 [mise](https://mise.jdx.dev)를 통해 로컬 런타임을 간편하게 부트스트랩할 수 있습니다:
 
@@ -58,12 +58,13 @@
 mise trust
 mise install
 
-# Ubuntu/Debian native build tools
+# 네이티브 빌드 도구: Ubuntu/Debian
 sudo apt-get update && sudo apt-get install -y build-essential
+# macOS: xcode-select --install      Windows: 64비트 mingw-w64 gcc(예: MSYS2 UCRT64)와 Git Bash
 
-# Run tests and native ABI smoke test
+# 테스트와 네이티브 ABI 스모크 테스트 (make가 없는 환경에서도 스크립트로 실행 가능)
 make verify
-make native-smoke
+scripts/build-native.sh
 ```
 
 ### Build
@@ -72,7 +73,7 @@ make native-smoke
 make build
 ```
 
-빌드 결과물은 `artifacts/usage-audit.so` 및 헤더 파일 `artifacts/usage-audit.h`로 생성됩니다.
+빌드 결과물은 `artifacts/usage-audit.so`(macOS는 `.dylib`, Windows는 `.dll`)와 해당 헤더 파일로 생성됩니다.
 
 ### 대시보드 UI 다시 빌드
 
@@ -88,9 +89,33 @@ npm run build
 
 ## Install
 
-[CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store)에 등록되면 호스트의 플러그인 페이지에서 `usage-audit`를 설치할 수 있습니다. 수동 설치는 [최신 릴리스](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest)에서 `usage-audit_<version>_linux_amd64.zip`과 `checksums.txt`를 받아 `sha256sum -c checksums.txt`로 확인한 뒤, `usage-audit.so`를 호스트의 플러그인 디렉터리에 풉니다.
+[CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store)에 등록되면 호스트의 플러그인 페이지에서 `usage-audit`를 설치할 수 있습니다. 수동 설치는 [최신 릴리스](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest)에서 `usage-audit_<version>_<os>_<arch>.zip`과 `checksums.txt`를 받아 `sha256sum -c checksums.txt`(macOS는 `shasum -a 256 -c`)로 확인한 뒤, 라이브러리를 호스트의 플러그인 디렉터리에 풉니다.
 
-Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)를 대상으로 하며 `linux/amd64`만 배포합니다. 다른 플랫폼은 소스에서 빌드해야 합니다.
+모든 릴리스는 스토어가 요구하는 5개 플랫폼을 함께 게시합니다. Release 워크플로는 5개가 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 게시합니다.
+
+| 플랫폼 | 에셋 | 라이브러리 |
+|---|---|---|
+| Linux x64 | `usage-audit_<version>_linux_amd64.zip` | `usage-audit.so` |
+| Linux arm64 | `usage-audit_<version>_linux_arm64.zip` | `usage-audit.so` |
+| macOS Intel | `usage-audit_<version>_darwin_amd64.zip` | `usage-audit.dylib` |
+| macOS Apple silicon | `usage-audit_<version>_darwin_arm64.zip` | `usage-audit.dylib` |
+| Windows x64 | `usage-audit_<version>_windows_amd64.zip` | `usage-audit.dll` |
+
+Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합니다.
+
+### 데이터 디렉터리
+
+사용량 기록은 호스트 프로세스의 `USAGE_AUDIT_DATA_DIR` 환경변수가 가리키는 디렉터리의 `usage.jsonl`(로테이션 시 `.1`, `.2`, ...)에 저장됩니다. 설정하지 않으면 사용자별 기본 경로 `<user-config-dir>/cliproxyapi/usage-audit`를 씁니다(Linux `~/.config/cliproxyapi/usage-audit`, macOS `~/Library/Application Support/cliproxyapi/usage-audit`, Windows `%AppData%\cliproxyapi\usage-audit`). 둘 다 사용할 수 없으면 저장소 없이 동작하며 로그를 남깁니다. 이전 빌드는 고정된 `/var/lib/homelab/...` 경로가 기본값이었으니, 기존 디렉터리를 계속 쓰려면 `USAGE_AUDIT_DATA_DIR`을 지정하세요.
+
+### 릴리스
+
+`internal/plugin/plugin.go`의 `pluginVersion`을 올려 병합한 뒤 같은 버전의 태그를 푸시합니다.
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+태그는 `pluginVersion`과 일치하는 점 구분 숫자 버전(`vX.Y.Z`)이어야 합니다. 워크플로가 플랫폼별 네이티브 러너에서 빌드해 `<id>_<version>_<os>_<arch>.zip`으로 패키징하고, `checksums.txt`를 만들어 GitHub 릴리스를 생성합니다.
 
 ## Language
 
@@ -98,21 +123,22 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)를 대상으
 
 - **선택 순서**: 저장된 선택 → 브라우저 언어(한국어면 한국어, 그 외는 영어) → 한국어.
 - **공유 설정**: 선택값은 브라우저의 `cpa_plugin_lang` 키에 저장되며, [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) 대시보드와 같은 키를 씁니다. 한쪽에서 바꾸면 열려 있는 다른 쪽도 따라갑니다. 두 대시보드가 같은 origin에서 제공될 때만 적용됩니다.
-- **개인정보**: 이 키가 페이지가 브라우저 저장소에 쓰는 유일한 값입니다.
+- **개인정보**: 언어 키가 페이지가 `localStorage`에 쓰는 유일한 값입니다. 관리 키는 현재 탭의 `sessionStorage`에만 보관되며 `localStorage`, 쿠키, URL에는 쓰이지 않습니다.
 - **번역되지 않는 항목**: 호스트 메뉴에 표시되는 플러그인 이름은 로드 시 한 번 등록되므로 한국어("토큰 사용량")로 유지됩니다.
 
 ## Routes
 
-CLIProxyAPI 호스트 로드 후 아래 리소스 및 관리 경로로 접근할 수 있습니다:
+CLIProxyAPI 호스트 로드 후 아래 경로로 접근할 수 있습니다. 인증 없이 열리는 것은 정적 셸뿐이며 모든 사용량 데이터는 관리 키가 필요합니다:
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | 사용량 감사 반응형 웹 대시보드 |
-| `GET` | `/v0/resource/plugins/usage-audit/data/summary` | 기간 및 필터 조건에 따른 집계 요약 |
-| `GET` | `/v0/resource/plugins/usage-audit/data/records` | 커서 기반 세부 요청 로그 목록 |
+| `GET` | `/v0/resource/plugins/usage-audit/dashboard` | 사용량 감사 반응형 대시보드 페이지 (정적 셸, 데이터 없음) |
+| `GET` | `/v0/management/plugins/usage-audit/data/summary` | 기간 및 필터 조건에 따른 집계 요약 (대시보드용) |
+| `GET` | `/v0/management/plugins/usage-audit/data/records` | 커서 기반 세부 요청 로그 목록 (대시보드용) |
 | `GET` | `/v0/management/plugins/usage-audit/dashboard` | 관리자 경로 대시보드 |
-| `GET` | `/v0/management/plugins/usage-audit/summary` | 관리자 경로 집계 요약 |
-| `GET` | `/v0/management/plugins/usage-audit/records` | 관리자 경로 세부 요청 로그 |
+| `GET` | `/v0/management/plugins/usage-audit/summary` | 집계 요약 (관리 API) |
+| `GET` | `/v0/management/plugins/usage-audit/records` | 세부 요청 로그 (관리 API) |
+| `DELETE` | `/v0/management/plugins/usage-audit/records` | 저장된 기록 삭제 |
 
 ## Operations & Tooling
 

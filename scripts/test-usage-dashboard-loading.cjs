@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Deterministic panel latency and stale-response regressions, no live backend required.
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const {seedKey}=require('./lib/seed-key.cjs');
 const fs=require('node:fs'); const path=require('node:path'); const assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 const html=require('./lib/dashboard-html.cjs').readDashboardHTML(root);
@@ -8,6 +9,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{const browser=await chromium.launch({headless:true,args:['--no-sandbox']});try{
   for(const slow of ['records','summary']) {
     const page=await browser.newPage({viewport:{width:1440,height:1000},locale:'ko-KR'}); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    await seedKey(page);
     await page.route('**/*',async route=>{
       const u=new URL(route.request().url());
       if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -36,6 +38,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
     await page.close();
   }
   const page=await browser.newPage({locale:'ko-KR'}); let calls=0;
+  await seedKey(page);
   await page.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -56,6 +59,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   // A first-load failure cancels its delayed sibling; it must never paint afterwards.
   for (const failingKind of ['summary','records']) {
     const first=await browser.newPage({locale:'ko-KR'});
+    await seedKey(first);
     await first.route('**/*',async route=>{
       const u=new URL(route.request().url());
       if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});
@@ -76,6 +80,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   }
   // Once loaded, a failed refresh must not mix new KPIs with retained records/cursor.
   const refresh=await browser.newPage({locale:'ko-KR'}); let failing=false;
+  await seedKey(refresh);
   await refresh.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(route.request().resourceType()==='document')return route.fulfill({contentType:'text/html',body:html});

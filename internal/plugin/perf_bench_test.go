@@ -47,11 +47,11 @@ func BenchmarkResourceSummary(b *testing.B) {
 	for _, n := range []int{50_000, 200_000} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			benchState(b, n)
-			req := managementHandleRequest{Method: "GET", Path: resourceBase + "/data/summary", Query: benchQuery(time.Now().Add(-24*time.Hour), time.Now())}
+			req := managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/summary", Query: benchQuery(time.Now().Add(-24*time.Hour), time.Now())}
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				handleGetResourceSummary(req)
+				handleGetDashboardSummary(req)
 			}
 		})
 	}
@@ -61,11 +61,11 @@ func BenchmarkResourceRecords(b *testing.B) {
 	for _, n := range []int{50_000, 200_000} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			benchState(b, n)
-			req := managementHandleRequest{Method: "GET", Path: resourceBase + "/data/records", Query: benchQuery(time.Now().Add(-24*time.Hour), time.Now())}
+			req := managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/records", Query: benchQuery(time.Now().Add(-24*time.Hour), time.Now())}
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				handleGetResourceRecords(req)
+				handleGetDashboardRecords(req)
 			}
 		})
 	}

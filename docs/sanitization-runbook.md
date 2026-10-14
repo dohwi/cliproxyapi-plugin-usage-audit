@@ -3,6 +3,7 @@
 **Document Version:** 2.0.0  
 **Target Systems:** CLIProxyAPI `usage-audit` storage environments  
 **Scope:** Remediation of `api_key_id` entries, concurrency protection, service-stop boundary enforcement, and rollback handling  
+**Paths:** examples use `$USAGE_AUDIT_DATA_DIR`, the directory holding `usage.jsonl`. Set it to the directory the plugin actually uses: the `USAGE_AUDIT_DATA_DIR` value the host runs with, or the per-user default (`<user-config-dir>/cliproxyapi/usage-audit`, e.g. `~/.config/cliproxyapi/usage-audit` on Linux).  
 
 ---
 
@@ -75,7 +76,7 @@ Rotated files (`usage.jsonl.1`, `usage.jsonl.2`, etc.) are closed and static. Th
 
 ```bash
 # Read-only inspection of rotated logs
-./usage-audit/scripts/audit-usage-logs.sh --file /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl.1
+./usage-audit/scripts/audit-usage-logs.sh --file "$USAGE_AUDIT_DATA_DIR/usage.jsonl.1"
 ```
 
 #### B. Auditing Active Log (Read-Only Dry-Run)
@@ -83,7 +84,7 @@ The active log can be audited in read-only mode while the service is running:
 
 ```bash
 # Read-only dry-run audit of active log
-./usage-audit/scripts/audit-usage-logs.sh --file /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl
+./usage-audit/scripts/audit-usage-logs.sh --file "$USAGE_AUDIT_DATA_DIR/usage.jsonl"
 ```
 
 *Note on Reading Active Logs:* Because the daemon writer is active, a transient "corrupted line" might rarely be reported if the audit reads exactly while a line is being flushed at EOF. If an EOF corrupted line is reported, rerun the dry-run command after a moment to confirm whether it was a transient buffer flush or an actual corrupt record.
@@ -113,7 +114,7 @@ When sanitizing active logs (or active + rotated logs together), the operator mu
    Simulate the boundary process to verify file paths and baseline exposure counts without stopping services:
    ```bash
    ./usage-audit/scripts/service-stop-sanitize-boundary.sh \
-     --file /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl \
+     --file "$USAGE_AUDIT_DATA_DIR/usage.jsonl" \
      --dry-run
    ```
    If `exposed_records == 0`, no rewrite is necessary!
@@ -122,7 +123,7 @@ When sanitizing active logs (or active + rotated logs together), the operator mu
    Execute manually with explicit confirmation:
    ```bash
    ./usage-audit/scripts/service-stop-sanitize-boundary.sh \
-     --file /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl \
+     --file "$USAGE_AUDIT_DATA_DIR/usage.jsonl" \
      --backup-root /var/backups/cliproxyapi \
      --container cliproxyapi \
      --operator-confirm
@@ -161,10 +162,10 @@ If an unexpected error occurs or the service fails health verification:
 
    # Restore verified backup
    cp -pf /var/backups/cliproxyapi/sanitizer-<TIMESTAMP>/usage.jsonl \
-          /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl
+          "$USAGE_AUDIT_DATA_DIR/usage.jsonl"
 
    # Verify restored permissions
-   chmod 640 /var/lib/homelab/cliproxyapi/data/usage-audit/usage.jsonl
+   chmod 640 "$USAGE_AUDIT_DATA_DIR/usage.jsonl"
 
    # Restart container
    docker start cliproxyapi
