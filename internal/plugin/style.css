@@ -653,14 +653,17 @@
   #errorBox.is-hidden { display: none; }
   #errorMessage { min-width: 0; }
   /* Management-key gate: shown instead of the dashboard until a key is accepted. */
-  .auth-gate { max-width: 560px; margin: 8vh auto 14px; padding: 16px 18px; }
+  .auth-gate { max-width: 560px; margin: 12vh auto 14px; padding: 16px 18px; }
   .auth-gate h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+  .auth-gate-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .auth-gate-head h2 { margin-bottom: 0; min-width: 0; }
+  .auth-gate-head .lang-toggle { flex: 0 0 auto; }
   .auth-gate-desc { color: var(--text-secondary); font-size: 0.8125rem; line-height: 20px; margin-bottom: 10px; }
   .auth-gate-form { display: flex; gap: 8px; align-items: stretch; }
   .auth-gate-form .input { flex: 1 1 auto; }
   .auth-gate-form .btn { flex: 0 0 auto; }
   .auth-gate-message { margin-top: 10px; color: var(--text-error); font-size: 0.8125rem; }
-  .auth-gate.is-hidden, .auth-gate-message.is-hidden { display: none !important; }
+  .auth-gate.is-hidden, .auth-gate-message.is-hidden, .page-heading.is-hidden { display: none !important; }
   .error-box .btn { flex: 0 0 auto; }
 
   /* Recent Records Table: dense 36-40px, sticky header, internal scroll ~520px */

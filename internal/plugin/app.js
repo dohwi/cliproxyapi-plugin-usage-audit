@@ -756,14 +756,19 @@ function showAuthGate(messageKey) {
   clearError();
   var gate = document.getElementById('authGate'), content = DOM.dashboardContent || document.getElementById('dashboardContent');
   var message = document.getElementById('authMessage'), input = document.getElementById('authKeyInput');
+  var heading = document.getElementById('pageHeading');
   if (content) content.classList.add('is-hidden');
+  // The dashboard title and subtitle have nothing to describe until a key is accepted.
+  if (heading) heading.classList.add('is-hidden');
   if (gate) gate.classList.remove('is-hidden');
   if (message) { message.textContent = messageKey ? t(messageKey) : ''; message.classList.toggle('is-hidden', !messageKey); }
   if (input) { input.value = ''; try { input.focus(); } catch (e) {} }
 }
 function hideAuthGate() {
   var gate = document.getElementById('authGate'), content = DOM.dashboardContent || document.getElementById('dashboardContent');
+  var heading = document.getElementById('pageHeading');
   if (gate) gate.classList.add('is-hidden');
+  if (heading) heading.classList.remove('is-hidden');
   if (content) content.classList.remove('is-hidden');
 }
 function dropKeyAndPrompt() { mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid'); }

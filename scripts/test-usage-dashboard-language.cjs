@@ -3,7 +3,7 @@
 // including switching while the dialog is open, shared-storage sync and persistence.
 // Install Playwright or set PLAYWRIGHT_MODULE; BROWSER_EXECUTABLE selects a system browser.
 const fs = require('fs'), path = require('path');
-const switchLang = (async (page, lang) => { if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('.lang-toggle'); await page.waitForFunction(l => document.documentElement.lang === l, lang); });
+const switchLang = (async (page, lang) => { if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('#languageToggle'); await page.waitForFunction(l => document.documentElement.lang === l, lang); });
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { seedKey } = require('./lib/seed-key.cjs');
 const root = path.resolve(__dirname, '..');
@@ -80,7 +80,7 @@ const hangul = s => /[가-힣]/.test(s);
           fail: await page.locator('#kpiSubFail').innerText(),
           chart: await page.locator('#dailyChartSummary').innerText(),
           time: await page.locator('#recordsBody tr >> nth=0 >> td >> nth=0').innerText(),
-          pressed: await page.locator('.lang-toggle').getAttribute('data-current-lang'),
+          pressed: await page.locator('#languageToggle').getAttribute('data-current-lang'),
         };
         if (checks.lang !== lang) fail.push(`${locale}/${lang}: html lang ${checks.lang}`);
         if (checks.pressed !== lang) fail.push(`${locale}/${lang}: pressed ${checks.pressed}`);
