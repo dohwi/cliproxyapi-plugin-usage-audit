@@ -161,7 +161,7 @@ func OpenWithOptions(path string, maxBytes int64, maxRotate int, opts Options) (
 }
 
 func (s *Store) openFile() error {
-	f, err := os.OpenFile(s.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
+	f, err := openAppend(s.path, 0o640, true)
 	if err != nil {
 		return fmt.Errorf("store: open %s: %w", s.path, err)
 	}

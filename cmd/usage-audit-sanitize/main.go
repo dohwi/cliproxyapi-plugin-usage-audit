@@ -517,6 +517,11 @@ func atomicSanitizeRewrite(path string, perm os.FileMode) error {
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("closing temp file: %w", err)
 	}
+	// Windows cannot replace a file that still has an open handle; the deferred Close
+	// below then only returns an ignored "already closed" error.
+	if err := in.Close(); err != nil {
+		return fmt.Errorf("closing source file: %w", err)
+	}
 	if err := os.Chmod(tmpPath, perm); err != nil {
 		return fmt.Errorf("setting permissions on temp file: %w", err)
 	}

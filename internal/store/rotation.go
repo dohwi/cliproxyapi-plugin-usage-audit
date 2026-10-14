@@ -41,7 +41,7 @@ func (s *Store) rotateLocked() (err error) {
 	}
 	// CreateTemp uses O_RDWR, not O_APPEND. Acquire the final append-only
 	// descriptor before touching the retained namespace.
-	appendWriter, err := os.OpenFile(replacementName, os.O_WRONLY|os.O_APPEND, 0)
+	appendWriter, err := openAppend(replacementName, 0, false)
 	if err != nil {
 		return err
 	}
