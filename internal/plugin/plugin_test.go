@@ -310,8 +310,8 @@ func TestManagementRegister(t *testing.T) {
 	if res["Path"] != "/dashboard" {
 		t.Errorf("resource Path = %v, want /dashboard", res["Path"])
 	}
-	if res["Menu"] != "토큰 사용량" {
-		t.Errorf("resource Menu = %v, want 토큰 사용량", res["Menu"])
+	if res["Menu"] != "Usage Audit" {
+		t.Errorf("resource Menu = %v, want Usage Audit", res["Menu"])
 	}
 	if desc, _ := res["Description"].(string); desc == "" {
 		t.Error("resource Description must be non-empty")
@@ -357,7 +357,7 @@ func TestDashboardAndAssetsCarrySecurityHeaders(t *testing.T) {
 
 	page := callManagement(t, pluginapi.ManagementRequest{Method: http.MethodGet, Path: "/v0/resource/plugins/usage-audit/dashboard"})
 	csp := page.Headers.Get("Content-Security-Policy")
-	for _, want := range []string{"default-src 'none'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "connect-src 'self'", "font-src 'self'"} {
+	for _, want := range []string{"default-src 'none'", "frame-ancestors 'self'", "base-uri 'none'", "form-action 'none'", "connect-src 'self'", "font-src 'self'"} {
 		if !strings.Contains(csp, want) {
 			t.Errorf("CSP missing %q: %q", want, csp)
 		}
@@ -367,7 +367,7 @@ func TestDashboardAndAssetsCarrySecurityHeaders(t *testing.T) {
 			t.Errorf("CSP must not contain %q: %q", bad, csp)
 		}
 	}
-	for header, want := range map[string]string{"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Cache-Control": "no-store"} {
+	for header, want := range map[string]string{"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "SAMEORIGIN", "Cache-Control": "no-store"} {
 		if got := page.Headers.Get(header); got != want {
 			t.Errorf("dashboard %s = %q, want %q", header, got, want)
 		}

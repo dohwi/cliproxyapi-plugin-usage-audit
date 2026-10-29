@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -29,6 +30,10 @@ const (
 	DefaultMaxRotation = 4                // keep .1 .. .4
 	defaultFlushEvery  = 256              // lines between explicit flushes
 )
+
+// observeInterval bounds how often Append re-checks the retained files for
+// out-of-band changes. Snapshot reads are never throttled.
+var observeInterval = time.Second
 
 // ErrCorruptJSONL is deliberately detail-free so strict-mode callers cannot
 // accidentally expose a file name, line number, raw record, or secret.
@@ -114,6 +119,7 @@ type Store struct {
 	lineCount    int
 	generation   string
 	manifest     []fileStamp
+	lastObserve  time.Time // last full manifest observation made by Append (throttle)
 	cache        []LogRecord
 	cacheValid   bool
 	cacheBytes   uint64 // estimated retained size of cache; maintained incrementally by Append
@@ -216,8 +222,17 @@ func (s *Store) Append(rec LogRecord) (err error) {
 	if s.closed {
 		return os.ErrClosed
 	}
-	if err := s.observeManifestLocked(); err != nil {
-		return err
+	// External-change detection on the write path is throttled: a full
+	// ReadDir+Stat of every retained file per record dominated Append CPU. Reads
+	// (snapshot) always run the full check, so a stale view is never served; the
+	// only behavioural difference is that an out-of-band rotation/rename/edit may
+	// go unnoticed by Append for up to observeInterval (the record is still
+	// appended through the already-open descriptor).
+	if s.manifest == nil || s.lastObserve.IsZero() || time.Since(s.lastObserve) >= observeInterval {
+		if err := s.observeManifestLocked(); err != nil {
+			return err
+		}
+		s.lastObserve = time.Now()
 	}
 	// Keep the decoded cache across a successful append instead of discarding it:
 	// dropping it forced every dashboard load after any new record to re-decode
@@ -259,10 +274,30 @@ func (s *Store) Append(rec LogRecord) (err error) {
 		s.needsNewline = false
 	}
 
+	// refreshManifestLocked adopts whatever is on disk as "our" state, which would
+	// silently swallow an out-of-band change made inside the throttle window. So
+	// whenever this write is about to touch the file (buffer spill), do the full
+	// observation first; pure buffered appends never reach the file.
+	spills := len(line) > s.bw.Available()
+	if spills {
+		if err := s.observeManifestLocked(); err != nil {
+			return err
+		}
+		s.lastObserve = time.Now()
+		if s.generation != keptGeneration {
+			extendCache = false
+		}
+	}
+	buffered := s.bw.Buffered()
 	n, err := s.bw.Write(line)
 	s.written += int64(n)
-	if e := s.refreshManifestLocked(); e != nil {
-		err = errors.Join(err, e)
+	// Buffered bytes do not touch the file, so the recorded size/mtime stay valid.
+	// Only when the bufio layer spilled to the file (buffer filled) did our own
+	// write change the file stamp; refresh just then instead of on every record.
+	if s.bw.Buffered() < buffered+len(line) || err != nil {
+		if e := s.refreshManifestLocked(); e != nil {
+			err = errors.Join(err, e)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("store: write: %w", err)
@@ -272,8 +307,12 @@ func (s *Store) Append(rec LogRecord) (err error) {
 	// round-tripped through the decoder so the cached record is identical to
 	// what a fresh decode would yield.
 	if extendCache && s.generation == keptGeneration {
-		var cached LogRecord
-		if json.Unmarshal(bytes.TrimSpace(line), &cached) == nil {
+		cached, ok := normalizeLikeDecode(rec)
+		if !ok {
+			// Rare shapes (non-UTC offsets) keep the exact decoder round trip.
+			ok = json.Unmarshal(bytes.TrimSpace(line), &cached) == nil
+		}
+		if ok {
 			cached.Sequence = uint64(len(keptCache) + 1)
 			cached.APIKeyID = ""
 			if total := keptBytes + recordCost(&cached); total <= maxSnapshotCacheBytes {
@@ -283,6 +322,11 @@ func (s *Store) Append(rec LogRecord) (err error) {
 	}
 	s.lineCount++
 	if s.lineCount%defaultFlushEvery == 0 {
+		// Same reasoning as the spill path: look before our own flush changes the file.
+		if err := s.observeManifestLocked(); err != nil {
+			return err
+		}
+		s.lastObserve = time.Now()
 		return errors.Join(s.flushLocked(), s.refreshManifestLocked())
 	}
 	return nil
@@ -647,4 +691,48 @@ func MatchRecord(r *LogRecord, opts *FilterOptions) bool {
 		return false
 	}
 	return true
+}
+
+// normalizeLikeDecode returns the record exactly as decode() would yield it
+// after json.Marshal + json.Unmarshal of rec, without the encode/decode work.
+// It reports false when equality cannot be guaranteed cheaply (a time carrying a
+// non-UTC location), in which case the caller falls back to the real round trip.
+// Differences it reproduces: monotonic clock readings are dropped, UTC times lose
+// their *Location pointer, invalid UTF-8 bytes become U+FFFD one by one, and
+// negative zero (omitted by omitempty) decodes as +0.
+func normalizeLikeDecode(r LogRecord) (LogRecord, bool) {
+	if r.T.Location() != time.UTC || r.RequestedAt.Location() != time.UTC {
+		return r, false
+	}
+	r.T, r.RequestedAt = r.T.Round(0).UTC(), r.RequestedAt.Round(0).UTC()
+	for _, p := range []*string{&r.Provider, &r.ExecutorType, &r.Model, &r.Alias, &r.APIKeyID, &r.SessionID,
+		&r.ParentSessionID, &r.AuthIndex, &r.AuthType, &r.Source, &r.ReasoningEffort, &r.ServiceTier} {
+		*p = validUTF8Like(*p)
+	}
+	if r.LatencyMs == 0 {
+		r.LatencyMs = 0
+	}
+	if r.TTFTMs == 0 {
+		r.TTFTMs = 0
+	}
+	return r, true
+}
+
+// validUTF8Like mirrors encoding/json, which writes U+FFFD for every single
+// invalid byte (strings.ToValidUTF8 would collapse runs, so it is not used).
+func validUTF8Like(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		c, size := utf8.DecodeRuneInString(s[i:])
+		if c == utf8.RuneError && size == 1 {
+			b.WriteString("\uFFFD")
+		} else {
+			b.WriteString(s[i : i+size])
+		}
+		i += size
+	}
+	return b.String()
 }

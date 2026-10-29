@@ -59,6 +59,7 @@ type fileStamp struct {
 func (s *Store) newGenerationLocked() {
 	s.generation = fmt.Sprintf("%d-%d", time.Now().UnixNano(), generationID.Add(1))
 	s.cache, s.manifest, s.cacheValid, s.cacheBytes = nil, nil, false, 0
+	s.lastObserve = time.Time{}
 }
 
 // recordCost estimates the retained heap size of one decoded record.
@@ -192,10 +193,20 @@ func (s *Store) snapshot(own bool) (snap Snapshot, err error) {
 		size += recordCost(r)
 	}
 	if size <= maxSnapshotCacheBytes {
-		s.cache = make([]LogRecord, len(records))
-		copy(s.cache, records)
 		s.cacheBytes = size
 		s.cacheValid = true
+		if own {
+			// The caller may mutate its copy, so the cache needs its own backing array.
+			s.cache = make([]LogRecord, len(records))
+			copy(s.cache, records)
+		} else {
+			// Read-only callers share the freshly decoded slice with the cache:
+			// no second O(n) allocation on a cold build. Capacity is clamped so a
+			// later Append can never write into the array a view may still hold.
+			n := len(records)
+			s.cache = records[:n:n]
+			return Snapshot{s.cache, s.generation, uint64(n)}, nil
+		}
 	}
 	return Snapshot{records, s.generation, uint64(len(records))}, nil
 }

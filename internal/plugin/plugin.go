@@ -28,7 +28,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.2.1"
+	pluginVersion = "0.2.5"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
@@ -267,6 +267,7 @@ func buildRegistrationResponse(hostSchemaVersion uint32) []byte {
 			Version:          pluginVersion,
 			Author:           pluginAuthor,
 			GitHubRepository: pluginRepoURL,
+			Logo:             pluginLogo,
 		},
 		Capabilities: map[string]bool{
 			"usage_plugin":   true,
@@ -489,7 +490,7 @@ const resourceBase = "/v0/resource/plugins/usage-audit"
 // plugin. Its Menu label makes it appear in the management console sidebar.
 var resourceDashboard = resourceRoute{
 	Path:        "/dashboard",
-	Menu:        "토큰 사용량",
+	Menu:        "Usage Audit", // matches the plugin store name; the host registers it once, so it cannot follow the page language
 	Description: "토큰 사용량 및 요청 로그 대시보드",
 }
 
@@ -575,28 +576,40 @@ func handleManagementHandle(request []byte) []byte {
 
 // dashboardSecurityHeaders hardens the self-contained page. The page is a single
 // HTML document with inline script/style, so script-src must allow 'unsafe-inline';
-// everything else is locked down: no external origins, no framing, no sniffing,
+// everything else is locked down: no external origins, framing only by the same origin (the management console embeds this page), no sniffing,
 // no referrer, no plugin content, no base-tag or form-target hijacking.
 var dashboardSecurityHeaders = map[string][]string{
-	"Content-Security-Policy": {"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"},
+	"Content-Security-Policy": {"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"},
 	"X-Content-Type-Options":  {"nosniff"},
 	"Referrer-Policy":         {"no-referrer"},
-	"X-Frame-Options":         {"DENY"},
+	"X-Frame-Options":         {"SAMEORIGIN"},
 }
 
+var (
+	dashboardRespOnce sync.Once
+	dashboardRespEnv  []byte
+)
+
+// handleGetDashboard returns the fully encoded dashboard envelope. Status,
+// headers (static CSP) and body (embedded assets) are constants that do not
+// depend on the request, language, key or plugin state, so the envelope is built
+// once. The result is read-only; the C bridge copies it and never mutates it.
 func handleGetDashboard() []byte {
-	headers := map[string][]string{
-		"Content-Type":  {"text/html; charset=utf-8"},
-		"Cache-Control": {"no-store"},
-	}
-	for k, v := range dashboardSecurityHeaders {
-		headers[k] = v
-	}
-	return OKEnvelope(managementResponse{
-		StatusCode: 200,
-		Headers:    headers,
-		Body:       []byte(DashboardHTML),
+	dashboardRespOnce.Do(func() {
+		headers := map[string][]string{
+			"Content-Type":  {"text/html; charset=utf-8"},
+			"Cache-Control": {"no-store"},
+		}
+		for k, v := range dashboardSecurityHeaders {
+			headers[k] = v
+		}
+		dashboardRespEnv = OKEnvelope(managementResponse{
+			StatusCode: 200,
+			Headers:    headers,
+			Body:       []byte(DashboardHTML),
+		})
 	})
+	return dashboardRespEnv
 }
 
 func parseTimeQuery(val string, isTo bool) (*time.Time, error) {

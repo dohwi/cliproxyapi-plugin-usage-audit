@@ -16,7 +16,7 @@ The unauthenticated `/v0/resource/.../data/*` routes do not exist (HTTP 404). Th
 
 ## Response hardening
 
-The dashboard page is served with a strict `Content-Security-Policy` (`default-src 'none'`; scripts and styles inline only, fonts/connect `'self'`, no framing, `base-uri 'none'`, `form-action 'none'`), plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`. Fonts and JSON responses are `nosniff`. The page loads no external origin.
+The dashboard page is served with a strict `Content-Security-Policy` (`default-src 'none'`; scripts and styles inline only, fonts/connect `'self'`, framing only by the same origin (the management console embeds the page in an iframe), `base-uri 'none'`, `form-action 'none'`), plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: SAMEORIGIN`. Fonts and JSON responses are `nosniff`. The page loads no external origin.
 
 ## Data handling
 
