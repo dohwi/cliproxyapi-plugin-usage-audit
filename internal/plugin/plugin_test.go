@@ -348,6 +348,45 @@ func TestResourceDashboardServedViaHostResourcePath(t *testing.T) {
 	}
 }
 
+// TestDashboardAndAssetsCarrySecurityHeaders locks the response hardening: the
+// page forbids framing, sniffing, referrers and every external origin, and the
+// JSON/font responses cannot be MIME-sniffed into something executable.
+func TestDashboardAndAssetsCarrySecurityHeaders(t *testing.T) {
+	t.Setenv("USAGE_AUDIT_DATA_DIR", t.TempDir())
+	callRegister(t)
+
+	page := callManagement(t, pluginapi.ManagementRequest{Method: http.MethodGet, Path: "/v0/resource/plugins/usage-audit/dashboard"})
+	csp := page.Headers.Get("Content-Security-Policy")
+	for _, want := range []string{"default-src 'none'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "connect-src 'self'", "font-src 'self'"} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("CSP missing %q: %q", want, csp)
+		}
+	}
+	for _, bad := range []string{"http:", "https:", "*", "unsafe-eval"} {
+		if strings.Contains(csp, bad) {
+			t.Errorf("CSP must not contain %q: %q", bad, csp)
+		}
+	}
+	for header, want := range map[string]string{"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Cache-Control": "no-store"} {
+		if got := page.Headers.Get(header); got != want {
+			t.Errorf("dashboard %s = %q, want %q", header, got, want)
+		}
+	}
+
+	font := callManagement(t, pluginapi.ManagementRequest{Method: http.MethodGet, Path: "/v0/resource/plugins/usage-audit/assets/fonts/suit-regular.woff2"})
+	if got := font.Headers.Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("font X-Content-Type-Options = %q, want nosniff", got)
+	}
+	// A JSON error response (store not ready / bad request) must also be nosniff.
+	bad := callManagement(t, pluginapi.ManagementRequest{Method: http.MethodGet, Path: "/v0/management/plugins/usage-audit/data/records", Query: url.Values{"limit": {"9999"}}})
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Fatalf("limit=9999 status = %d, want 400", bad.StatusCode)
+	}
+	if got := bad.Headers.Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("json X-Content-Type-Options = %q, want nosniff", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Test: usage.handle ingest → persistence → /records query
 // ---------------------------------------------------------------------------

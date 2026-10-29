@@ -163,6 +163,13 @@ func (s *Store) snapshot(own bool) (snap Snapshot, err error) {
 		s.health.TruncatedLines += report.truncatedLines
 		s.health.Degraded = true
 		s.failureLocked("corrupt_jsonl")
+	} else if err == nil && s.health.Degraded && s.health.LastError == "corrupt_jsonl" {
+		// A complete decode that found no corruption means the damaged data was
+		// rotated away, cleared or repaired. Counters stay as history, but the
+		// store is no longer degraded and the stale error category is dropped.
+		s.health.Degraded = false
+		s.health.LastError = ""
+		s.health.LastErrorAt = time.Time{}
 	}
 	if err != nil {
 		return snap, err

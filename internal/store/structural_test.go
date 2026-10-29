@@ -211,6 +211,41 @@ func TestRotationRollbackFailureFailsClosed(t *testing.T) {
 		t.Fatal("staged recovery file lost", matches, err)
 	}
 }
+
+// TestHealthRecoversWhenCorruptionIsRepaired verifies Degraded does not stay
+// latched forever: once a full decode finds no corrupt line (rotated away or
+// repaired), the store reports healthy again while keeping the history counters.
+func TestHealthRecoversWhenCorruptionIsRepaired(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "usage.jsonl"), DefaultMaxBytes, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := os.WriteFile(st.path, []byte("garbage\n{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Snapshot(); err != nil {
+		t.Fatal(err)
+	}
+	if h := st.Health(); !h.Degraded || h.CorruptLines != 1 {
+		t.Fatalf("expected degraded after corruption: %+v", h)
+	}
+	if err := os.WriteFile(st.path, []byte("{}\n{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := st.Snapshot()
+	if err != nil || len(snap.Records) != 2 {
+		t.Fatalf("repaired snapshot: %+v %v", snap, err)
+	}
+	h := st.Health()
+	if h.Degraded || h.LastError != "" || !h.LastErrorAt.IsZero() {
+		t.Fatalf("still degraded after repair: %+v", h)
+	}
+	if h.CorruptLines != 1 || h.DecodeFailures != 1 {
+		t.Fatalf("history counters must be preserved: %+v", h)
+	}
+}
+
 func TestHealthSanitizesDecodeAndFlushFailures(t *testing.T) {
 
 	st, err := Open(filepath.Join(t.TempDir(), "usage.jsonl"), DefaultMaxBytes, 2)

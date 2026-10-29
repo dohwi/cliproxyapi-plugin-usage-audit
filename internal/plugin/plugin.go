@@ -28,7 +28,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.2.0"
+	pluginVersion = "0.2.1"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
@@ -573,14 +573,29 @@ func handleManagementHandle(request []byte) []byte {
 // GET /dashboard — self-contained dashboard UI
 // ----------------------------------------------------------------------------
 
+// dashboardSecurityHeaders hardens the self-contained page. The page is a single
+// HTML document with inline script/style, so script-src must allow 'unsafe-inline';
+// everything else is locked down: no external origins, no framing, no sniffing,
+// no referrer, no plugin content, no base-tag or form-target hijacking.
+var dashboardSecurityHeaders = map[string][]string{
+	"Content-Security-Policy": {"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"},
+	"X-Content-Type-Options":  {"nosniff"},
+	"Referrer-Policy":         {"no-referrer"},
+	"X-Frame-Options":         {"DENY"},
+}
+
 func handleGetDashboard() []byte {
+	headers := map[string][]string{
+		"Content-Type":  {"text/html; charset=utf-8"},
+		"Cache-Control": {"no-store"},
+	}
+	for k, v := range dashboardSecurityHeaders {
+		headers[k] = v
+	}
 	return OKEnvelope(managementResponse{
 		StatusCode: 200,
-		Headers: map[string][]string{
-			"Content-Type":  {"text/html; charset=utf-8"},
-			"Cache-Control": {"no-store"},
-		},
-		Body: []byte(DashboardHTML),
+		Headers:    headers,
+		Body:       []byte(DashboardHTML),
 	})
 }
 
@@ -1147,8 +1162,9 @@ func fontResourceResp(font []byte) []byte {
 	return OKEnvelope(managementResponse{
 		StatusCode: 200,
 		Headers: map[string][]string{
-			"Content-Type":  {"font/woff2"},
-			"Cache-Control": {"public, max-age=31536000, immutable"},
+			"Content-Type":           {"font/woff2"},
+			"Cache-Control":          {"public, max-age=31536000, immutable"},
+			"X-Content-Type-Options": {"nosniff"},
 		},
 		Body: font,
 	})
@@ -1165,7 +1181,7 @@ func jsonResourceResp(status int, body any) []byte {
 	if e != nil {
 		b = []byte(`{"error":"marshal failed"}`)
 	}
-	return OKEnvelope(managementResponse{StatusCode: status, Headers: map[string][]string{"Content-Type": {"application/json"}, "Cache-Control": {"no-store"}}, Body: b})
+	return OKEnvelope(managementResponse{StatusCode: status, Headers: map[string][]string{"Content-Type": {"application/json"}, "Cache-Control": {"no-store"}, "X-Content-Type-Options": {"nosniff"}}, Body: b})
 }
 
 // ----------------------------------------------------------------------------
