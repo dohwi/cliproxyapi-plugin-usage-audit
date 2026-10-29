@@ -109,13 +109,9 @@ Usage records are stored in `usage.jsonl` (rotated to `.1`, `.2`, ...) in the di
 
 ### Releasing
 
-Bump `pluginVersion` in `internal/plugin/plugin.go`, merge, then push a matching tag:
+Bump `pluginVersion` in `internal/plugin/plugin.go` and push to `main`. That is all: the Release workflow reads the version, skips if `vX.Y.Z` already exists, otherwise tests it, builds each platform on a native runner, packages `<id>_<version>_<os>_<arch>.zip`, writes `checksums.txt`, and creates the tag and GitHub release. The CLIProxyAPI plugin store reads the latest release, so the plugin page then offers the update.
 
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-The tag must match `pluginVersion` and be a dotted numeric version (`vX.Y.Z`); the workflow builds each platform on a native runner, packages `<id>_<version>_<os>_<arch>.zip`, writes `checksums.txt` and creates the GitHub release.
+Pushing a matching `vX.Y.Z` tag by hand, or running the workflow manually, also works. The version must be a dotted numeric version (`vX.Y.Z`) and match `pluginVersion`; a release is only published after all five platforms built and passed the native smoke test.
 
 ## Language
 

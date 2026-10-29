@@ -109,13 +109,9 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합
 
 ### 릴리스
 
-`internal/plugin/plugin.go`의 `pluginVersion`을 올려 병합한 뒤 같은 버전의 태그를 푸시합니다.
+`internal/plugin/plugin.go`의 `pluginVersion`을 올려 `main`에 푸시하면 끝입니다. 릴리스 워크플로가 버전을 읽고, `vX.Y.Z`가 이미 있으면 건너뜁니다. 없으면 테스트 후 플랫폼별 네이티브 러너에서 빌드해 `<id>_<version>_<os>_<arch>.zip`으로 패키징하고, `checksums.txt`와 함께 태그와 GitHub 릴리스를 만듭니다. CLIProxyAPI 플러그인 스토어가 최신 릴리스를 읽으므로 플러그인 페이지에 업데이트가 표시됩니다.
 
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-태그는 `pluginVersion`과 일치하는 점 구분 숫자 버전(`vX.Y.Z`)이어야 합니다. 워크플로가 플랫폼별 네이티브 러너에서 빌드해 `<id>_<version>_<os>_<arch>.zip`으로 패키징하고, `checksums.txt`를 만들어 GitHub 릴리스를 생성합니다.
+같은 버전의 `vX.Y.Z` 태그를 직접 푸시하거나 워크플로를 수동 실행해도 됩니다. 버전은 점 구분 숫자(`vX.Y.Z`)이고 `pluginVersion`과 일치해야 하며, 5개 플랫폼이 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 릴리스가 게시됩니다.
 
 ## Language
 
