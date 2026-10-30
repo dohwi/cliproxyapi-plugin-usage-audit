@@ -5,7 +5,7 @@ var pendingDohwiTableUpdates = [];
 // ── i18n ────────────────────────────────────────────────────────────────────
 // The language preference is the only value this page persists (LANG_KEY). The key is
 // shared with the other CLIProxyAPI plugin dashboards so one choice applies to all of them.
-// Order: saved choice → browser language (ko* → ko, else en) → ko.
+// Order: saved choice → browser language (ko* → ko, else en) → en.
 var LANG_KEY = 'cpa_plugin_lang';
 var I18N = {
   ko: {
@@ -309,7 +309,7 @@ function detectLang() {
     var list = nav && (nav.languages && nav.languages.length ? nav.languages : [nav.language]);
     if (list && list[0]) return normalizeLang(list[0]) || 'en';
   } catch (e) {}
-  return 'ko';
+  return 'en';
 }
 currentLang = detectLang();
 function uiLocale() { return currentLang === 'en' ? 'en-US' : 'ko-KR'; }

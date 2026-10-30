@@ -107,7 +107,7 @@ function makeCtx(stored, navLangs) {
   return { ctx, store };
 }
 function assert(c, m) { if (!c) throw new Error(m); }
-assert(makeCtx(null, null).ctx.currentLang === 'ko', 'defaults to ko without navigator');
+assert(makeCtx(null, null).ctx.currentLang === 'en', 'defaults to en without navigator');
 assert(makeCtx(null, ['en-US', 'ko']).ctx.currentLang === 'en', 'en-US selects en');
 assert(makeCtx(null, ['ko-KR']).ctx.currentLang === 'ko', 'ko-KR selects ko');
 assert(makeCtx(null, ['fr-FR']).ctx.currentLang === 'en', 'unsupported browser language falls back to en');

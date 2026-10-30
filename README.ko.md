@@ -105,7 +105,7 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합
 
 ### 데이터 디렉터리
 
-사용량 기록은 호스트 프로세스의 `USAGE_AUDIT_DATA_DIR` 환경변수가 가리키는 디렉터리의 `usage.jsonl`(로테이션 시 `.1`, `.2`, ...)에 저장됩니다. 설정하지 않으면 사용자별 기본 경로 `<user-config-dir>/cliproxyapi/usage-audit`를 씁니다(Linux `~/.config/cliproxyapi/usage-audit`, macOS `~/Library/Application Support/cliproxyapi/usage-audit`, Windows `%AppData%\cliproxyapi\usage-audit`). 둘 다 사용할 수 없으면 저장소 없이 동작하며 로그를 남깁니다. 이전 빌드는 고정된 `/var/lib/homelab/...` 경로가 기본값이었으니, 기존 디렉터리를 계속 쓰려면 `USAGE_AUDIT_DATA_DIR`을 지정하세요.
+사용량 기록은 `usage.jsonl`(로테이션 시 `.1`, `.2`, ...)에 저장되며, 디렉터리는 호스트 프로세스의 `USAGE_AUDIT_DATA_DIR` 환경변수 → 호스트 `config.yaml`의 `plugins.configs.usage-audit.data_dir` → 사용자별 기본 경로 순으로 정해집니다. 기본 경로는 `<user-config-dir>/cliproxyapi/usage-audit`를 씁니다(Linux `~/.config/cliproxyapi/usage-audit`, macOS `~/Library/Application Support/cliproxyapi/usage-audit`, Windows `%AppData%\cliproxyapi\usage-audit`). **별도 설정은 필요 없습니다.** 같은 플러그인 설정에 `strict_decoding: true`를 넣으면 엄격한 레코드 디코딩을 켭니다. 모두 사용할 수 없으면 저장소 없이 동작하며 로그를 남깁니다. 이전 빌드는 고정된 `/var/lib/homelab/...` 경로가 기본값이었으니, 기존 디렉터리를 계속 쓰려면 `USAGE_AUDIT_DATA_DIR`을 지정하세요.
 
 ### 릴리스
 
@@ -117,7 +117,7 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합
 
 대시보드는 한국어와 영어를 지원하며, 필터 영역의 번역 아이콘 버튼 하나를 누를 때마다 한국어와 영어가 전환되며, 툴팁에 전환될 언어가 표시됩니다.
 
-- **선택 순서**: 저장된 선택 → 브라우저 언어(한국어면 한국어, 그 외는 영어) → 한국어.
+- **선택 순서**: 저장된 선택 → 브라우저 언어(한국어면 한국어, 그 외는 영어) → 영어.
 - **공유 설정**: 선택값은 브라우저의 `cpa_plugin_lang` 키에 저장되며, [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) 대시보드와 같은 키를 씁니다. 한쪽에서 바꾸면 열려 있는 다른 쪽도 따라갑니다. 두 대시보드가 같은 origin에서 제공될 때만 적용됩니다.
 - **개인정보**: 언어 키가 페이지가 `localStorage`에 쓰는 유일한 값입니다. 관리 키는 현재 탭의 `sessionStorage`에만 보관되며 `localStorage`, 쿠키, URL에는 쓰이지 않습니다.
 - **번역되지 않는 항목**: 호스트 메뉴에 표시되는 플러그인 이름은 로드 시 한 번 등록되므로 플러그인 스토어 이름("Usage Audit")으로 고정되며 언어에 따라 바뀌지 않습니다.

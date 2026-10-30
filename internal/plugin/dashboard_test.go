@@ -1048,7 +1048,7 @@ const document={hidden:false,activeElement:null,addEventListener(){},createEleme
 const ctx={document,window:{addEventListener(){}},console,Math,Number,String,Array,Object,Date,Intl,isNaN,setTimeout(){return 1},clearTimeout(){},AbortController:function(){this.signal={addEventListener(){},removeEventListener(){}};this.abort=function(){};}};
 // Exercise option/query helpers without starting live network initialization in this DOM mock.
 vm.createContext(ctx);vm.runInContext(script.replace(/^(?:initDashboard|bindDashboardEvents)\(\);$/gm, ''),ctx);
-ctx.state.provider='<img src=x onerror=alert(1)>';
+ctx.currentLang='ko';ctx.state.provider='<img src=x onerror=alert(1)>';
 ctx.extractFilterOptions({by_provider:[{key:'zeta'},{key:'Alpha'},{key:'zeta'}],by_endpoint:[{key:'warp2'},{key:'direct'}],by_model:[{key:'m2'},{key:'m1'}],summary:[]},{records:[]});
 function assert(ok,msg){if(!ok)throw new Error(msg)}
 assert(ids.filterProvider.children[0].value==='', 'all option first');

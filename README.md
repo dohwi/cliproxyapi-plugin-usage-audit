@@ -105,7 +105,7 @@ The Linux builds require glibc 2.36 or older (the official Debian bookworm image
 
 ### Data directory
 
-Usage records are stored in `usage.jsonl` (rotated to `.1`, `.2`, ...) in the directory given by the `USAGE_AUDIT_DATA_DIR` environment variable of the host process. When it is unset the plugin uses a per-user default, `<user-config-dir>/cliproxyapi/usage-audit` (`~/.config/cliproxyapi/usage-audit` on Linux, `~/Library/Application Support/cliproxyapi/usage-audit` on macOS, `%AppData%\cliproxyapi\usage-audit` on Windows). If neither is available the plugin runs without storage and logs a message. Earlier builds defaulted to a fixed `/var/lib/homelab/...` path; set `USAGE_AUDIT_DATA_DIR` to keep using an existing directory.
+Usage records are stored in `usage.jsonl` (rotated to `.1`, `.2`, ...) in the directory resolved in this order: the `USAGE_AUDIT_DATA_DIR` environment variable of the host process, then `data_dir` under `plugins.configs.usage-audit` in the host `config.yaml`, then a per-user default, `<user-config-dir>/cliproxyapi/usage-audit` (`~/.config/cliproxyapi/usage-audit` on Linux, `~/Library/Application Support/cliproxyapi/usage-audit` on macOS, `%AppData%\cliproxyapi\usage-audit` on Windows). **No setup is required**: the default works out of the box, and `strict_decoding: true` in the same plugin config enables strict record decoding. If none is available the plugin runs without storage and logs a message. Earlier builds defaulted to a fixed `/var/lib/homelab/...` path; set `USAGE_AUDIT_DATA_DIR` to keep using an existing directory.
 
 ### Releasing
 
@@ -117,7 +117,7 @@ Pushing a matching `vX.Y.Z` tag by hand, or running the workflow manually, also 
 
 The dashboard ships in English and Korean. A single translate icon button in the filter area switches between Korean and English; its tooltip names the language it switches to.
 
-- **Selection order**: saved choice, then browser language (Korean selects Korean, anything else selects English), then Korean.
+- **Selection order**: saved choice, then browser language (Korean selects Korean, anything else selects English), then English.
 - **Shared setting**: the choice is stored in the browser under `cpa_plugin_lang`, the same key used by the [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) dashboard. Changing it in one open dashboard updates the other. This only applies when both dashboards are served from the same origin.
 - **Privacy**: the language key is the only thing the page writes to `localStorage`. The management key is held in `sessionStorage` for the current tab only and is never written to `localStorage`, cookies or a URL.
 - **Not translated**: the plugin name shown in the host menu is registered once at load time, so it is fixed to the plugin store name ("Usage Audit") in every language.

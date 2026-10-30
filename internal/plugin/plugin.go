@@ -28,7 +28,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.2.5"
+	pluginVersion = "0.3.0"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
@@ -193,8 +193,10 @@ type registrationResponse struct {
 func handleRegister(request []byte) []byte {
 	var req struct {
 		SchemaVersion uint32 `json:"schema_version"`
+		ConfigYAML    []byte `json:"config_yaml"`
 	}
 	_ = json.Unmarshal(request, &req)
+	cfg := parsePluginConfig(req.ConfigYAML)
 
 	// Tear down any existing state (reconfigure path, or repeated register in tests).
 	stateMu.Lock()
@@ -206,12 +208,16 @@ func handleRegister(request []byte) []byte {
 	}
 
 	// Resolve data directory.
+	// Precedence: environment variable, plugin config (plugins.configs.usage-audit), per-user default.
 	dataDir := strings.TrimSpace(os.Getenv("USAGE_AUDIT_DATA_DIR"))
+	if dataDir == "" {
+		dataDir = cfg.dataDir
+	}
 	if dataDir == "" {
 		dataDir = defaultDataDir()
 	}
 	if dataDir == "" {
-		log.Printf("usage-audit: no data directory; set USAGE_AUDIT_DATA_DIR")
+		log.Printf("usage-audit: no data directory; set data_dir in the plugin config or USAGE_AUDIT_DATA_DIR")
 		return buildRegistrationResponse(req.SchemaVersion)
 	}
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
@@ -222,7 +228,7 @@ func handleRegister(request []byte) []byte {
 
 	logPath := filepath.Join(dataDir, "usage.jsonl")
 	st, err := store.OpenWithOptions(logPath, store.DefaultMaxBytes, store.DefaultMaxRotation, store.Options{
-		StrictDecoding: strictDecodingEnabled(),
+		StrictDecoding: strictDecodingEnabled() || cfg.strict,
 	})
 	if err != nil {
 		log.Printf("usage-audit: open store %s: %v", logPath, err)
@@ -255,6 +261,53 @@ func strictDecodingEnabled() bool {
 	}
 }
 
+// pluginConfigFields documents the optional plugin-owned settings shown by
+// management clients. Every field is optional: the plugin works out of the box.
+var pluginConfigFields = []pluginapi.ConfigField{
+	{Name: "data_dir", Type: pluginapi.ConfigFieldTypeString, Description: "Directory for usage.jsonl. Default: <user-config-dir>/cliproxyapi/usage-audit."},
+	{Name: "strict_decoding", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Quarantine records with unknown fields instead of tolerating them. Default false."},
+}
+
+type pluginConfig struct {
+	dataDir string
+	strict  bool
+}
+
+// parsePluginConfig reads the optional settings from the plugin's config_yaml
+// (JSON or simple top-level "key: value" YAML).
+func parsePluginConfig(raw []byte) pluginConfig {
+	var c pluginConfig
+	if len(raw) == 0 {
+		return c
+	}
+	var m map[string]any
+	if json.Unmarshal(raw, &m) == nil {
+		if v, ok := m["data_dir"].(string); ok {
+			c.dataDir = strings.TrimSpace(v)
+		}
+		if v, ok := m["strict_decoding"].(bool); ok {
+			c.strict = v
+		}
+		return c
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		k, v, ok := strings.Cut(line, ":")
+		if !ok || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+			continue
+		}
+		v = strings.Trim(strings.TrimSpace(v), `"'`)
+		switch strings.TrimSpace(k) {
+		case "data_dir":
+			if !strings.ContainsAny(v, "{[") {
+				c.dataDir = v
+			}
+		case "strict_decoding":
+			c.strict = strings.EqualFold(v, "true")
+		}
+	}
+	return c
+}
+
 func buildRegistrationResponse(hostSchemaVersion uint32) []byte {
 	sv := pluginabi.SchemaVersion
 	if hostSchemaVersion > 0 && hostSchemaVersion < sv {
@@ -268,6 +321,7 @@ func buildRegistrationResponse(hostSchemaVersion uint32) []byte {
 			Author:           pluginAuthor,
 			GitHubRepository: pluginRepoURL,
 			Logo:             pluginLogo,
+			ConfigFields:     pluginConfigFields,
 		},
 		Capabilities: map[string]bool{
 			"usage_plugin":   true,
