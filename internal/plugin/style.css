@@ -1194,7 +1194,7 @@
   }
 
   /* ---- Page & cards ---- */
-  :root { --main-card-h: 264px; }
+  :root { --main-card-h: 272px; }
 
   /* ---- Empty / loading / error states ---- */
   @media (min-width: 768px) {
@@ -1255,3 +1255,13 @@
   }
   /* The reserved load-more slot below the table (60px + padding) makes the space below the empty state larger; offset it so the state looks centered in the card. */
   @media (max-width: 767px) { body #recordsPanel .usage-table-scroll .ui-table-cell.table-empty:has(.empty-state.is-empty) { padding-top: 76px !important; } }
+
+  /* ---- Main card height (chart + breakdown + skeleton share --main-card-h): header + 3 rows + header-to-table gap, measured ---- */
+  @media (min-width: 768px) { :root { --main-card-h: 272px; } }
+  @media (min-width: 768px) and (max-width: 1099px) { :root { --main-card-h: 320px; } }
+
+  /* ---- Period presets (tablet): English labels need ~481px on one row; below 880px use a 3x2 grid like mobile ---- */
+  @media (min-width: 768px) and (max-width: 879px) {
+    body #presetGroupControl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    body #presetGroupControl .preset-btn { min-width: 0; }
+  }

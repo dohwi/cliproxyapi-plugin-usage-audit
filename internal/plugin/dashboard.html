@@ -474,6 +474,8 @@
   @media (max-width: 900px) and (min-width: 768px) {
     #chartCard, #breakdownSection { height: 280px; }
   }
+  /* 768-1099px: title and tabs always stack (deterministic header height), so the card height variable below can be exact. */
+  @media (min-width: 768px) and (max-width: 1099px) { #breakdownSection .panel-heading-title { flex: 1 1 100%; } }
   #breakdownSection .tab-pane.active,
   #breakdownSection .tab-pane.active > div {
     display: flex;
@@ -490,6 +492,8 @@
   #breakdownSection .ui-table-head:nth-child(2) { width: 20%; }
   #breakdownSection .ui-table-head:nth-child(3) { width: 20%; }
   #breakdownSection .ui-table-head:nth-child(4) { width: 20%; }
+  /* Narrow cards (768-899px): tighter cell padding and wider numeric columns so '820,000' and 'Requests' are never clipped. */
+  @media (min-width: 768px) and (max-width: 899px) { #breakdownSection .usage-table-scroll .ui-table-head, #breakdownSection .usage-table-scroll .ui-table-cell { padding-inline: 4px; } #breakdownSection .usage-table-scroll .ui-table-head { font-size: .72rem; } #breakdownSection .ui-table-head:first-child { width: 24%; } #breakdownSection .ui-table-head:nth-child(2) { width: 26%; } #breakdownSection .ui-table-head:nth-child(3) { width: 21%; } #breakdownSection .ui-table-head:nth-child(4) { width: 29%; } }
   #recordsTableMount .ui-table { min-width: 1100px; }
   /* Widths sum to 100%: model column is 19% so claude-3-5-sonnet-20241022 fits from 1200px up. */
   #recordsTableMount .ui-table-head:first-child { width: 14%; }
