@@ -491,20 +491,38 @@
   #breakdownSection .ui-table-head:nth-child(3) { width: 20%; }
   #breakdownSection .ui-table-head:nth-child(4) { width: 20%; }
   #recordsTableMount .ui-table { min-width: 1100px; }
-  #recordsTableMount .ui-table-head:first-child { width: 16%; }
-  #recordsTableMount .ui-table-head:nth-child(2), #recordsTableMount .ui-table-head:nth-child(3) { width: 8%; }
-  #recordsTableMount .ui-table-head:nth-child(4) { width: 17%; }
-  #recordsTableMount .ui-table-head:nth-child(5), #recordsTableMount .ui-table-head:nth-child(6), #recordsTableMount .ui-table-head:nth-child(7), #recordsTableMount .ui-table-head:nth-child(8) { width: 9%; }
+  /* Widths sum to 100%: model column is 19% so claude-3-5-sonnet-20241022 fits from 1200px up. */
+  #recordsTableMount .ui-table-head:first-child { width: 14%; }
+  #recordsTableMount .ui-table-head:nth-child(2) { width: 8%; }
+  #recordsTableMount .ui-table-head:nth-child(3) { width: 9%; }
+  #recordsTableMount .ui-table-head:nth-child(4) { width: 19%; }
+  #recordsTableMount .ui-table-head:nth-child(5) { width: 9%; }
+  #recordsTableMount .ui-table-head:nth-child(6), #recordsTableMount .ui-table-head:nth-child(7) { width: 8%; }
+  #recordsTableMount .ui-table-head:nth-child(8) { width: 9%; }
   #recordsTableMount .ui-table-head:nth-child(9) { width: 7%; }
-  #recordsTableMount .ui-table-head:nth-child(10) { width: 8%; }
+  #recordsTableMount .ui-table-head:nth-child(10) { width: 9%; }
+  /* Desktop/tablet records table: text columns left, numeric columns right, status centered; header and value share alignment and padding. */
+  @media (min-width: 768px) {
+    #recordsPanel .usage-table-scroll .ui-table-head, #recordsPanel .usage-table-scroll .ui-table-cell { padding-inline: 12px; }
+    #recordsPanel .usage-table-scroll :is(.ui-table-head, .ui-table-cell):nth-child(-n+4) { text-align: left; }
+    #recordsPanel .usage-table-scroll :is(.ui-table-head, .ui-table-cell):nth-child(n+5):nth-child(-n+9) { text-align: right; }
+    #recordsPanel .usage-table-scroll :is(.ui-table-head, .ui-table-cell):nth-child(10) { text-align: center; }
+    #recordsPanel .usage-table-scroll .ui-table-cell.table-empty { text-align: center; }
+  }
   @media (max-width: 1199px) and (min-width: 768px) {
-    #recordsTableMount .ui-table { min-width: 680px; }
+    /* Tablet: endpoint/latency hidden; model column wide enough for the longest model id, narrower cell padding. */
+    #recordsTableMount .ui-table { min-width: 0; }
+    #recordsPanel .usage-table-scroll .ui-table-head, #recordsPanel .usage-table-scroll .ui-table-cell { padding-inline: 6px; }
+    #recordsPanel .usage-table-scroll .ui-table-head { font-size: .72rem; letter-spacing: -.01em; }
     #recordsPanel .ui-table-head:first-child { width: 9%; }
-    #recordsPanel .ui-table-head:nth-child(2) { width: 12%; }
-    #recordsPanel .ui-table-head:nth-child(4) { width: 20%; }
-    #recordsPanel .ui-table-head:nth-child(5), #recordsPanel .ui-table-head:nth-child(6), #recordsPanel .ui-table-head:nth-child(7) { width: 12%; }
-    #recordsPanel .ui-table-head:nth-child(8) { width: 11%; }
-    #recordsPanel .ui-table-head:nth-child(10) { width: 12%; }
+    #recordsPanel .ui-table-head:nth-child(2) { width: 11%; }
+    #recordsPanel .ui-table-head:nth-child(4) { width: 30%; }
+    #recordsPanel .ui-table-head:nth-child(5) { width: 11%; }
+    #recordsPanel .ui-table-head:nth-child(6), #recordsPanel .ui-table-head:nth-child(7) { width: 8%; }
+    #recordsPanel .ui-table-head:nth-child(8) { width: 9%; }
+    #recordsPanel .ui-table-head:nth-child(10) { width: 14%; }
+    #recordsPanel .usage-table-scroll .ui-table-cell { font-size: .78rem; }
+    #recordsPanel .ui-table-cell:nth-child(10) .badge { padding-inline: 6px; }
   }
   @media (max-width: 767px) {
     .usage-table-scroll.breakdown-table-wrap { height: 180px; flex: none; }
