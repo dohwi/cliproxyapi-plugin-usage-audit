@@ -481,10 +481,15 @@
     flex: 1 1 auto;
     min-height: 0;
   }
-  #breakdownSection .ui-table-head:first-child { width: 34%; }
+  /* Breakdown: name column left, numeric columns right; header and value share the same alignment and padding. */
+  #breakdownSection .usage-table-scroll .ui-table-head, #breakdownSection .usage-table-scroll .ui-table-cell { padding-inline: 16px; }
+  #breakdownSection .usage-table-scroll .ui-table-head:first-child, #breakdownSection .usage-table-scroll .ui-table-cell:first-child { text-align: left; }
+  #breakdownSection .usage-table-scroll .ui-table-head:nth-child(n+2), #breakdownSection .usage-table-scroll .ui-table-cell:nth-child(n+2) { text-align: right; }
+  #breakdownSection .usage-table-scroll .ui-table-cell.table-empty { text-align: center; }
+  #breakdownSection .ui-table-head:first-child { width: 40%; }
   #breakdownSection .ui-table-head:nth-child(2) { width: 20%; }
-  #breakdownSection .ui-table-head:nth-child(3) { width: 16%; }
-  #breakdownSection .ui-table-head:nth-child(4) { width: 30%; }
+  #breakdownSection .ui-table-head:nth-child(3) { width: 20%; }
+  #breakdownSection .ui-table-head:nth-child(4) { width: 20%; }
   #recordsTableMount .ui-table { min-width: 1100px; }
   #recordsTableMount .ui-table-head:first-child { width: 16%; }
   #recordsTableMount .ui-table-head:nth-child(2), #recordsTableMount .ui-table-head:nth-child(3) { width: 8%; }
@@ -517,7 +522,7 @@
   /* Fixed table layout already bounds each column; a second 140px cap clipped Endpoint inside wide columns. */
   #recordsBody .ui-table-cell.cell-ellipsis, #breakdownSection .ui-table-cell.cell-ellipsis { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #recordsBody tr { cursor: pointer; }
-  @media (max-width: 767px) { #recordsTableMount .ui-table { min-width: 0; width: 100%; table-layout: fixed; } #recordsPanel .ui-table-head:nth-child(4), #recordsPanel .ui-table-cell:nth-child(4) { text-align: left; } #recordsPanel .ui-table-head:nth-child(8), #recordsPanel .ui-table-cell:nth-child(8) { text-align: right; } #recordsPanel .ui-table-head:nth-child(10), #recordsPanel .ui-table-cell:nth-child(10) { text-align: center; } #recordsPanel .ui-table-head:first-child { width: 20%; } #recordsPanel .ui-table-head:nth-child(4) { width: 28%; } #recordsPanel .ui-table-head:nth-child(8) { width: 24%; } #recordsPanel .ui-table-head:nth-child(10) { width: 28%; } #recordsPanel .ui-table-cell:nth-child(10) .badge { padding: 2px 5px; font-size: 0.6875rem; white-space: nowrap; } }
+  @media (max-width: 767px) { #breakdownSection .usage-table-scroll .ui-table-head, #breakdownSection .usage-table-scroll .ui-table-cell { padding-inline: 4px; } #recordsPanel .ui-table-head:first-child, #recordsPanel .ui-table-cell:first-child { text-align: left; } #recordsTableMount .ui-table { min-width: 0; width: 100%; table-layout: fixed; } #recordsPanel .ui-table-head:nth-child(4), #recordsPanel .ui-table-cell:nth-child(4) { text-align: left; } #recordsPanel .ui-table-head:nth-child(8), #recordsPanel .ui-table-cell:nth-child(8) { text-align: right; } #recordsPanel .ui-table-head:nth-child(10), #recordsPanel .ui-table-cell:nth-child(10) { text-align: center; } #recordsPanel .ui-table-head:first-child { width: 20%; } #recordsPanel .ui-table-head:nth-child(4) { width: 28%; } #recordsPanel .ui-table-head:nth-child(8) { width: 24%; } #recordsPanel .ui-table-head:nth-child(10) { width: 28%; } #recordsPanel .ui-table-cell:nth-child(10) .badge { padding: 2px 5px; font-size: 0.6875rem; white-space: nowrap; } }
 </style>
 <style data-dohwi-motion="material">
   /* Material motion tokens copied from dohwi-ui/src/components/ui/motion.css.
