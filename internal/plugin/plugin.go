@@ -15,6 +15,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	// Embed the IANA tz database so time.LoadLocation works on hosts without
+	// system zoneinfo (minimal containers, Windows, etc.).
+	_ "time/tzdata"
 
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
@@ -28,7 +31,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.3.0"
+	pluginVersion = "0.3.1"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
