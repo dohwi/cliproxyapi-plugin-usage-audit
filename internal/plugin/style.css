@@ -1265,3 +1265,23 @@
     body #presetGroupControl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
     body #presetGroupControl .preset-btn { min-width: 0; }
   }
+
+  /* ---- Mobile filter footer: "조회 조건" text on the left, [reset][language] buttons on the right, one row ---- */
+  @media (max-width: 767px) {
+    body .filter-panel { position: relative; }
+    /* The reset button is lifted out of the fields grid into the footer row, left of the language toggle (44px + 8px gap). */
+    body .filter-reset-field { position: absolute; right: calc(var(--filter-control-height) + var(--space-1)); bottom: 0; width: 72px; z-index: 1; grid-column: auto; }
+    body .filter-reset-field .btn, body #filterForm .filter-reset-button { width: 72px; min-width: 72px; padding: 0 8px; }
+    body .filter-topmeta { gap: var(--space-1); min-height: var(--filter-control-height); }
+    body .filter-topmeta .active-filter-badge { padding-right: calc(72px + var(--space-1)); }
+    body .active-filter-badge { height: auto; min-height: 24px; max-height: 44px; flex: 1 1 auto; align-items: center; overflow: hidden; }
+    body .active-filter-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  }
+
+  /* ---- Breakdown tabs: full-width equal tabs wherever the heading stacks (<1100px) ---- */
+  @media (max-width: 1099px) {
+    body #breakdownSection .panel-heading .tab-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; max-width: 100%; align-self: stretch; }
+    body #breakdownSection .tab-nav .tab-btn { width: 100%; min-width: 0; padding-inline: 4px; }
+  }
+  /* The tab group has a 1px border on each side that is not part of the card's content box; compensate so it spans the content width. */
+  @media (max-width: 1099px) { body #breakdownSection .panel-heading .tab-nav { box-sizing: border-box; width: 100%; margin-inline: 0; border: 0; } }
