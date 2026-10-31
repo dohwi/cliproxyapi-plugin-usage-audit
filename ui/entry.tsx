@@ -70,6 +70,17 @@ function cellContent(cell: TableCellData) {
   if (cell.badge) return <span className={cell.badge.className}>{cell.badge.text}</span>;
   return cell.content ?? cell.text ?? ''; // cellContent(cell); title={cell.title}; flashValue(el,cell.tone,cell.label)
 }
+const EMPTY_ICONS: Record<string, React.ReactNode> = {
+  empty: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>,
+  loading: <svg className="empty-spinner" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg>,
+};
+function EmptyState({kind, title, hint}: {kind: 'empty'|'loading'; title: string; hint?: string}) {
+  return <div className={'empty-state is-' + kind} role={kind === 'loading' ? 'status' : undefined}>
+    <span className="empty-state-icon">{EMPTY_ICONS[kind]}</span>
+    <strong className="empty-state-title">{title}</strong>
+    {hint ? <span className="empty-state-hint">{hint}</span> : null}
+  </div>;
+}
 function TableView({tableId, bodyId, label, wrapperClass, headers, rows, emptyText, tableClass}: TableViewProps) {
   return <TableContainer role="region" aria-label={label} className={wrapperClass}>
     <Table id={tableId} className={tableClass}>
@@ -78,9 +89,9 @@ function TableView({tableId, bodyId, label, wrapperClass, headers, rows, emptyTe
         {rows.length ? rows.map(row=><TableRow key={row.key} tabIndex={row.tabIndex} data-index={row.dataIndex} data-row-key={row.key} onClick={row.onClick} onKeyDown={row.onKeyDown}>
           {row.cells.map((cell, i)=><TableCell key={i} colSpan={cell.colSpan} className={cell.className} title={cell.title} data-change-key={cell.changeKey}
             ref={el=>{if(el && cell.tone && typeof (window as any).flashValue==='function') (window as any).flashValue(el,cell.tone,cell.label);}}>
-            {cellContent(cell)}
+            {cell.className && cell.className.indexOf('cell-ellipsis')>=0 && !cell.content && !cell.time && !cell.badge ? <span className="cell-clamp">{cellContent(cell)}</span> : cellContent(cell)}
           </TableCell>)}
-        </TableRow>) : <TableRow><TableCell colSpan={headers.length} className="text-muted table-empty">{emptyText || t('empty.data')}</TableCell></TableRow>}
+        </TableRow>) : <TableRow><TableCell colSpan={headers.length} className="text-muted table-empty"><EmptyState kind="empty" title={emptyText || t('empty.data')} hint={emptyText === t('empty.records') ? t('empty.records.hint') : t('empty.data.hint')}/></TableCell></TableRow>}
       </TableBody>
     </Table>
   </TableContainer>;
@@ -88,10 +99,10 @@ function TableView({tableId, bodyId, label, wrapperClass, headers, rows, emptyTe
 type Header = {text:string; className?:string};
 // Headers, labels and loading rows depend on the active language, so they are built on demand.
 function buildHeaders() {
-  const AGG_HEADERS: Header[]=[{text:'Provider'},{text:t('th.requests'),className:'text-right'},{text:t('th.failed'),className:'text-right'},{text:t('th.tokens'),className:'text-right'}];
-  const ENDPOINT_HEADERS: Header[]=[{text:'Endpoint/Source'},...AGG_HEADERS.slice(1)];
-  const MODEL_HEADERS: Header[]=[{text:'Model'},...AGG_HEADERS.slice(1)];
-  const RECORD_HEADERS: Header[]=[{text:t('th.time')},{text:'Provider'},{text:'Endpoint'},{text:'Model'},
+  const AGG_HEADERS: Header[]=[{text:t('th.provider')},{text:t('th.requests'),className:'text-right'},{text:t('th.failed'),className:'text-right'},{text:t('th.tokens'),className:'text-right'}];
+  const ENDPOINT_HEADERS: Header[]=[{text:t('th.endpointSource')},...AGG_HEADERS.slice(1)];
+  const MODEL_HEADERS: Header[]=[{text:t('th.model')},...AGG_HEADERS.slice(1)];
+  const RECORD_HEADERS: Header[]=[{text:t('th.time')},{text:t('th.provider')},{text:t('th.endpoint')},{text:t('th.model')},
     {text:t('th.fresh'),className:'text-right'},{text:t('th.cache'),className:'text-right'},
     {text:t('th.output'),className:'text-right'},{text:t('th.total'),className:'text-right'},
     {text:t('th.latency'),className:'text-right'},{text:t('th.status')}];
@@ -99,8 +110,8 @@ function buildHeaders() {
 }
 // Keep the loading row's column count identical to the data table. A single colspan cell
 // makes browsers recalculate fixed-layout column widths when the first records arrive.
-const loadingAggRows=()=>[{key:'loading',cells:[{text:t('loading.agg'),className:'text-muted table-empty'},{text:''},{text:''},{text:''}]}];
-const loadingRecordRows=()=>[{key:'loading',cells:[{text:t('loading.records'),className:'text-muted table-empty'},...Array.from({length:9},()=>({text:''}))]}];
+const loadingAggRows=()=>[{key:'loading',cells:[{colSpan:4,className:'text-muted table-empty',content:<EmptyState kind="loading" title={t('loading.agg')} hint={t('loading.hint')}/>}]}];
+const loadingRecordRows=()=>[{key:'loading',cells:[{colSpan:10,className:'text-muted table-empty',content:<EmptyState kind="loading" title={t('loading.records')} hint={t('loading.hint')}/>}]}];
 function buildTableConfigs(): TableViewProps[] {
   const {AGG_HEADERS,ENDPOINT_HEADERS,MODEL_HEADERS,RECORD_HEADERS}=buildHeaders();
   return [

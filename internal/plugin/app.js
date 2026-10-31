@@ -105,6 +105,13 @@ var I18N = {
     'tip.cache': '캐시 (보고값, 비가산): ',
     'tip.reasoning': '추론 (보고값, 비가산): ',
     'th.time': '시간',
+    'th.provider': '제공자',
+    'th.endpoint': '엔드포인트',
+    'th.endpointSource': '엔드포인트/출처',
+    'th.model': '모델',
+    'lbl.provider': '제공자',
+    'lbl.endpoint': '엔드포인트',
+    'lbl.model': '모델',
     'th.requests': '요청',
     'th.failed': '실패',
     'th.tokens': '토큰',
@@ -122,6 +129,10 @@ var I18N = {
     'loading.records': '데이터를 불러오는 중입니다...',
     'empty.data': '데이터 없음',
     'empty.records': '표시할 기록이 없습니다.',
+    'empty.records.hint': '기간이나 필터를 바꿔 다시 조회해 보세요.',
+    'empty.data.hint': '선택한 조건에 맞는 집계가 없습니다.',
+    'loading.hint': '잠시만 기다려 주세요.',
+    'chart.empty.hint': '기간을 넓히거나 필터를 바꿔 보세요.',
     'records.title': '최근 요청 기록',
     'records.count': '{n}건',
     'records.desc': '최신 20건 · 필터와 더보기로 전체 로그 추적',
@@ -137,14 +148,16 @@ var I18N = {
     'dlg.status': '상태',
     'dlg.failureStatus': '실패 상태',
     'dlg.tokens': '토큰 및 응답 속도',
-    'dlg.total': '총 토큰 (Authoritative)',
-    'dlg.input': '입력(캐시 포함) (Input)',
-    'dlg.fresh': '신규 입력 (Fresh)',
-    'dlg.output': '출력 토큰 (Output)',
-    'dlg.reasoning': '추론 토큰 (Reasoning)',
-    'dlg.cached': '캐시 입력 (Cached)',
-    'dlg.latency': '총 Latency',
-    'dlg.ttft': 'TTFT (첫 토큰 시간)'
+    'dlg.total': '총 토큰',
+    'dlg.input': '입력(캐시 포함)',
+    'dlg.fresh': '신규 입력',
+    'dlg.output': '출력',
+    'dlg.reasoning': '추론',
+    'dlg.cached': '캐시 입력',
+    'dlg.alias': '별칭',
+    'dlg.endpointSource': '엔드포인트·출처',
+    'dlg.latency': '총 지연',
+    'dlg.ttft': '첫 토큰 시간'
   },
   en: {
     'page.title': 'Token Usage Dashboard',
@@ -243,6 +256,13 @@ var I18N = {
     'tip.cache': 'Cached (reported, non-additive): ',
     'tip.reasoning': 'Reasoning (reported, non-additive): ',
     'th.time': 'Time',
+    'th.provider': 'Provider',
+    'th.endpoint': 'Endpoint',
+    'th.endpointSource': 'Endpoint/Source',
+    'th.model': 'Model',
+    'lbl.provider': 'Provider',
+    'lbl.endpoint': 'Endpoint',
+    'lbl.model': 'Model',
     'th.requests': 'Requests',
     'th.failed': 'Failed',
     'th.tokens': 'Tokens',
@@ -260,6 +280,10 @@ var I18N = {
     'loading.records': 'Loading data...',
     'empty.data': 'No data',
     'empty.records': 'No records to display.',
+    'empty.records.hint': 'Try changing the period or filters.',
+    'empty.data.hint': 'No aggregates match the selected conditions.',
+    'loading.hint': 'Please wait a moment.',
+    'chart.empty.hint': 'Try a wider period or different filters.',
     'records.title': 'Recent requests',
     'records.count': '{n} records',
     'records.count.one': '1 record',
@@ -282,6 +306,8 @@ var I18N = {
     'dlg.output': 'Output tokens',
     'dlg.reasoning': 'Reasoning tokens',
     'dlg.cached': 'Cached input',
+    'dlg.alias': 'Alias',
+    'dlg.endpointSource': 'Endpoint / Source',
     'dlg.latency': 'Total latency',
     'dlg.ttft': 'TTFT (time to first token)'
   }
@@ -1059,12 +1085,12 @@ function getDailyChartGeometry(days, width) {
   var svgWidth = count <= 7 ? availableWidth : Math.max(availableWidth, count * 40 + 36);
   var inset = Math.min(18, svgWidth / 4), slot = (svgWidth - inset * 2) / count;
   var barWidth = Math.min(36, Math.max(16, slot * 0.55));
-  var labelStride = Math.max(1, Math.ceil(count / (svgWidth / 60)));
+  var labelStride = Math.max(1, Math.ceil(count / (svgWidth / (count <= 7 ? 44 : 60))));
   var centers = [], labelIndices = [];
   for (var k = 0; k < count; k++) {
     centers.push(inset + (k + 0.5) * slot);
     // Keep endpoint labels, but omit the last intermediate label if it would collide.
-    if (k === 0 || k === count - 1 || (k % labelStride === 0 && (count - 1 - k) * slot >= 60)) labelIndices.push(k);
+    if (k === 0 || k === count - 1 || (k % labelStride === 0 && (count - 1 - k) * slot >= (count <= 7 ? 38 : 60))) labelIndices.push(k);
   }
   return { width: svgWidth, slot: slot, barWidth: barWidth, labelStride: labelStride, centers: centers, labelIndices: labelIndices };
 }
@@ -1087,7 +1113,7 @@ function renderChartFromDaily(dailyMap) {
   days.forEach(function(day) { var requests = Number(dailyMap[day].requests) || 0; maxVal = Math.max(maxVal, requests); totalRequests += requests; });
   if (summary) summary.textContent = totalRequests ? t('chart.summary', { d: days.length, r: formatExactNumber(totalRequests), m: formatExactNumber(maxVal) }) : t('chart.empty');
   chartCard.classList.remove('is-hidden');
-  if (!maxVal) { appendText(chartArea, 'chart-empty-state', t('chart.empty')); return; }
+  if (!maxVal) { appendText(chartArea, 'chart-empty-state', t('chart.empty')); appendText(chartArea, 'chart-empty-hint', t('chart.empty.hint')); return; }
   var geometry = getDailyChartGeometry(days.length, chartCard.clientWidth > 24 ? chartCard.clientWidth - 24 : 280);
   var svgWidth = geometry.width, svgHeight = 135, barWidth = geometry.barWidth, chartBottom = 110, chartTop = 15;
   var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('width', String(svgWidth)); svg.setAttribute('height', String(svgHeight)); svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', t('chart.aria')); svg.setAttribute('aria-describedby', 'dailyChartTooltip');
@@ -1098,8 +1124,8 @@ function renderChartFromDaily(dailyMap) {
     rect.setAttribute('x',String(x));rect.setAttribute('y',String(y));rect.setAttribute('width',String(barWidth));rect.setAttribute('height',String(barH));rect.setAttribute('fill',detail.requests ? 'var(--accent-blue, #3b6593)' : '#cbd5e1');rect.setAttribute('rx','3');rect.setAttribute('class','daily-chart-bar');rect.setAttribute('tabindex','0');rect.setAttribute('role','button');rect.setAttribute('data-day',day);rect.setAttribute('aria-describedby','dailyChartTooltip');rect.setAttribute('aria-label',t('chart.bar',{date:detail.date,n:formatExactNumber(detail.requests)}));
     if (day === focusedDay) focusedBar = rect;
     rect.addEventListener('pointerenter',function(){showDailyChartTooltip(detail,rect);});rect.addEventListener('pointerleave',closeDailyChartTooltip);rect.addEventListener('focus',function(){showDailyChartTooltip(detail,rect);});rect.addEventListener('click',function(e){e.stopPropagation();showDailyChartTooltip(detail,rect);});rect.addEventListener('blur',closeDailyChartTooltip);rect.addEventListener('keydown',function(e){if(e.key === 'Enter'||e.key === ' '){e.preventDefault();showDailyChartTooltip(detail,rect);}if(e.key === 'Escape'){e.preventDefault();closeDailyChartTooltip();rect.blur();}}); svg.appendChild(rect);
-    if (geometry.slot >= 64) {
-      var value=document.createElementNS('http://www.w3.org/2000/svg','text');value.setAttribute('x',String(geometry.centers[k]));value.setAttribute('y',String(y-4));value.setAttribute('text-anchor','middle');value.setAttribute('font-size','10');value.setAttribute('font-variant-numeric','tabular-nums');value.setAttribute('fill','#6b7280');value.textContent=formatExactNumber(detail.requests);svg.appendChild(value);
+    if (geometry.slot >= 36) {
+      var value=document.createElementNS('http://www.w3.org/2000/svg','text');value.setAttribute('x',String(geometry.centers[k]));value.setAttribute('y',String(y-4));value.setAttribute('text-anchor','middle');value.setAttribute('font-size',geometry.slot >= 64 ? '10' : '9');value.setAttribute('font-variant-numeric','tabular-nums');value.setAttribute('fill','#6b7280');value.textContent=formatExactNumber(detail.requests);svg.appendChild(value);
     }
     if (geometry.labelIndices.indexOf(k) !== -1) {
       var label=document.createElementNS('http://www.w3.org/2000/svg','text');label.setAttribute('x',String(geometry.centers[k]));label.setAttribute('y',String(chartBottom+14));label.setAttribute('text-anchor','middle');label.setAttribute('font-size','10');label.setAttribute('fill','#6b7280');label.textContent=detail.date.length>=5?detail.date.slice(5):detail.date;svg.appendChild(label);
@@ -1169,13 +1195,13 @@ function loadMoreRecords() {
   loadData(true);
 }
 // Record detail modal: focus-safe dialog/sheet with reversible body scroll lock.
-function detailRow(key, value, className) { var row=document.createElement('div'), keyEl=document.createElement('div'), valueEl=document.createElement('div');row.className='detail-row';keyEl.className='detail-key';keyEl.textContent=key;valueEl.className='detail-val'+(className?' '+className:'');valueEl.textContent=value;row.appendChild(keyEl);row.appendChild(valueEl);return row; }
+function detailRow(key, value, className, sub) { var row=document.createElement('div'), keyEl=document.createElement('div'), valueEl=document.createElement('div');row.className='detail-row';keyEl.className='detail-key';keyEl.textContent=key;valueEl.className='detail-val'+(className?' '+className:'');valueEl.textContent=value;if(sub){var subEl=document.createElement('small');subEl.className='detail-val-sub';subEl.textContent=sub;valueEl.appendChild(subEl);}row.appendChild(keyEl);row.appendChild(valueEl);return row; }
 function detailSection(title, rows) { var section=document.createElement('section'), heading=document.createElement('div');section.className='detail-section';heading.className='detail-section-title';heading.textContent=title;section.appendChild(heading);rows.forEach(function(row){section.appendChild(row);});return section; }
 function lockBodyScroll() { if (state.dialogScrollLock) return; state.dialogScrollLock={overflow:document.body.style.overflow,paddingRight:document.body.style.paddingRight}; var gutter=typeof getComputedStyle==='function'?getComputedStyle(document.documentElement).scrollbarGutter:'';var width=gutter&&gutter.indexOf('stable')!==-1?0:window.innerWidth-document.documentElement.clientWidth; document.body.style.overflow='hidden'; if(width>0)document.body.style.paddingRight=width+'px'; }
 function unlockBodyScroll() { if(!state.dialogScrollLock)return; document.body.style.overflow=state.dialogScrollLock.overflow;document.body.style.paddingRight=state.dialogScrollLock.paddingRight;state.dialogScrollLock=null; }
 function showRecordDetail(idx, opener) {
   var rec=state.records[idx];if(!rec)return;state.openRecordIdx=idx;var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay'),body=DOM.dialogBody||document.getElementById('dialogBody'),rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp,rawProv=rec.provider||rec.Provider||'-',displayProv=formatProvider(rawProv),model=rec.model||rec.Model||'-',alias=rec.alias||rec.Alias||'-',endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-',failed=!!(rec.failed||rec.Failed),latency=formatLatency(rec.latency_ms != null?rec.latency_ms:(rec.latency != null?rec.latency:rec.Latency)),ttft=formatLatency(rec.ttft_ms != null?rec.ttft_ms:(rec.ttft != null?rec.ttft:rec.TTFT));
-  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;body.replaceChildren();var grid=document.createElement('div');grid.className='detail-grid';grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT)+' ('+String(rawT||'-')+')'),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow('Provider',displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow('Model',String(model)),detailRow('Alias',String(alias)),detailRow('Endpoint / Source',String(endpoint))]));grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));body.appendChild(grid);lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
+  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;body.replaceChildren();var grid=document.createElement('div');grid.className='detail-grid';grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT),'detail-val-time',String(rawT||'-')),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow(t('lbl.provider'),displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow(t('lbl.model'),String(model)),detailRow(t('dlg.alias'),String(alias)),detailRow(t('dlg.endpointSource'),String(endpoint))]));grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));body.appendChild(grid);lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
 }
 function closeDrawer() { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');var wasOpen=!!(overlay&&overlay.classList.contains('open'));if(dialog)dialog.setAttribute('aria-hidden','true');if(overlay){overlay.classList.remove('open');overlay.setAttribute('aria-hidden','true');}unlockBodyScroll();var opener=state.drawerOpener;state.drawerOpener=null;state.openRecordIdx=null;if(wasOpen&&opener&&document.contains(opener))opener.focus(); }
 function trapDrawerFocus(e) { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');if(e.key!=='Tab'||!dialog||!overlay||!overlay.classList.contains('open'))return;var items=dialog.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');if(!items.length){e.preventDefault();return;}var first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();} }

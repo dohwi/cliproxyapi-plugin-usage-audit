@@ -1490,7 +1490,7 @@ for (const width of [280, 1400]) {
     assert(g.barWidth>=16&&g.barWidth<=36, 'bounded bar width');
     assert(g.centers.length===days, 'one slot per calendar day');
     assert(Math.abs(g.centers[0]+g.centers[days-1]-g.width)<1e-6, 'symmetric full-width extent');
-    assert(g.labelStride===Math.max(1,Math.ceil(days/(g.width/60))), 'date label stride');
+    assert(g.labelStride===Math.max(1,Math.ceil(days/(g.width/(days<=7?44:60)))), 'date label stride');
     assert(g.labelIndices[0]===0&&g.labelIndices.at(-1)===days-1, 'first and last dates visible');
     assert(g.centers[0]-g.barWidth/2>=0&&g.centers.at(-1)+g.barWidth/2<=g.width, 'bars inside SVG');
     if(days===1) assert(g.centers[0]===width/2, 'single day centered');
@@ -1525,7 +1525,7 @@ func TestDashboardDailyChartResponsiveAndEmptyContract(t *testing.T) {
 	for _, required := range []string{
 		`id="dailyChartSummary" class="card-desc"`, "일 · 총 ", "건 · 최고 ", "선택 기간 요청 없음",
 		"if (!maxVal) { appendText(chartArea, 'chart-empty-state'", "chartCard.clientWidth - 24 : 280",
-		"geometry.slot >= 64", "var(--accent-blue, #3b6593)", "'#cbd5e1'", "barH = Math.max(6,",
+		"geometry.slot >= 36", "var(--accent-blue, #3b6593)", "'#cbd5e1'", "barH = Math.max(6,",
 		"setAttribute('role','button')", "setAttribute('data-day',day)", "chartArea.contains(document.activeElement)",
 		"focusedBar.focus({ preventScroll: true })", "cancelAnimationFrame(dailyChartRedrawFrame)",
 		"new ResizeObserver", "chartResizeObserver.observe(chartCard)",

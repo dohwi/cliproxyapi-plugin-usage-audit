@@ -37,6 +37,14 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
   .usage-table-scroll .ui-table-head, .usage-table-scroll .ui-table-cell { text-align: center; vertical-align: middle; font-variant-numeric: tabular-nums; }
   .usage-table-scroll .ui-table-head.text-right, .usage-table-scroll .ui-table-cell.text-right, .usage-table-scroll .ui-table-cell.num-cell { text-align: center; }
   .usage-table-scroll .ui-table-cell .badge { margin-inline: auto; }
+  /* Quiet table: no outer box, no header fill; hairlines only between rows. */
+  .usage-table-scroll .ui-table { border: 0; border-radius: 0; }
+  .usage-table-scroll .ui-table-head { background: #fff; color: var(--text-muted); font-size: .75rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 8px 16px; }
+  .usage-table-scroll .ui-table-cell { padding: 8px 16px; border-bottom: 1px solid var(--border-subtle); }
+  .usage-table-scroll .ui-table-row:last-child > .ui-table-cell { border-bottom: 0; }
+  .usage-table-scroll .ui-table-body .ui-table-row:hover { background: #f8fafc; }
+  .usage-table-scroll .ui-table-cell.table-empty { text-align: center; }
+  .usage-table-scroll .ui-table-body .ui-table-row:has(.table-empty):hover { background: transparent; }
 
   /* KPI Semantic Cards: centered metrics, balanced typography, and responsive stability */
   .kpi-group-head {
@@ -95,10 +103,10 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
     flex: 1 1 auto;
     min-height: 0;
   }
-  #breakdownSection .ui-table-head:first-child { width: 28%; }
+  #breakdownSection .ui-table-head:first-child { width: 34%; }
   #breakdownSection .ui-table-head:nth-child(2) { width: 20%; }
   #breakdownSection .ui-table-head:nth-child(3) { width: 16%; }
-  #breakdownSection .ui-table-head:nth-child(4) { width: 36%; }
+  #breakdownSection .ui-table-head:nth-child(4) { width: 30%; }
   #recordsTableMount .ui-table { min-width: 1100px; }
   #recordsTableMount .ui-table-head:first-child { width: 16%; }
   #recordsTableMount .ui-table-head:nth-child(2), #recordsTableMount .ui-table-head:nth-child(3) { width: 8%; }
@@ -131,7 +139,7 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
   /* Fixed table layout already bounds each column; a second 140px cap clipped Endpoint inside wide columns. */
   #recordsBody .ui-table-cell.cell-ellipsis, #breakdownSection .ui-table-cell.cell-ellipsis { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #recordsBody tr { cursor: pointer; }
-  @media (max-width: 767px) { #recordsTableMount .ui-table { min-width: 980px; } }
+  @media (max-width: 767px) { #recordsTableMount .ui-table { min-width: 0; width: 100%; table-layout: fixed; } #recordsPanel .ui-table-head:nth-child(4), #recordsPanel .ui-table-cell:nth-child(4) { text-align: left; } #recordsPanel .ui-table-head:nth-child(8), #recordsPanel .ui-table-cell:nth-child(8) { text-align: right; } #recordsPanel .ui-table-head:nth-child(10), #recordsPanel .ui-table-cell:nth-child(10) { text-align: center; } #recordsPanel .ui-table-head:first-child { width: 20%; } #recordsPanel .ui-table-head:nth-child(4) { width: 28%; } #recordsPanel .ui-table-head:nth-child(8) { width: 24%; } #recordsPanel .ui-table-head:nth-child(10) { width: 28%; } #recordsPanel .ui-table-cell:nth-child(10) .badge { padding: 2px 5px; font-size: 0.6875rem; white-space: nowrap; } }
 </style>`);
 html = html.replace(/(<style data-dohwi-ui="exported">)[\s\S]*?(<\/style>)/, (_, a, b) => a + '\n' + extended + '\n' + select + '\n' + motion + '\n' + b);
 html = html.replace(/(<script data-dohwi-ui="exported">)[\s\S]*?(<\/script>)/, (_, a, b) => a + '\n/* dohwi-ui Table primitives: TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell */\n' + js + b);

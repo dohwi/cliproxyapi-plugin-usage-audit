@@ -103,7 +103,7 @@
   .page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; margin-bottom: 18px; min-width: 0; }
   /* Keep language controls in normal filter flow, below the host's floating tools. */
   .filter-language-field { flex: 0 0 auto; min-width: 0; }
-  .lang-toggle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--filter-control-border); border-radius: var(--filter-control-radius); background: var(--filter-control-bg); color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s; }
+  .lang-toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--filter-control-height, 38px); height: var(--filter-control-height, 38px); padding: 0; border: 1px solid var(--filter-control-border); border-radius: var(--filter-control-radius); background: var(--filter-control-bg); color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s; }
   .lang-toggle:hover { background: var(--filter-control-hover-bg); color: var(--accent-blue); }
   .lang-toggle:focus-visible { outline: 2px solid var(--filter-control-focus); outline-offset: 1px; }
   .lang-toggle svg { display: block; pointer-events: none; }
@@ -577,6 +577,7 @@
     cursor: pointer;
     transition: all 0.15s ease;
   }
+  .tab-btn { min-height: 34px; padding: 3px 14px; }
   .tab-btn:hover {
     color: var(--accent-blue-hover);
     background-color: var(--surface-hover);
@@ -766,6 +767,7 @@
   .dialog-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border-color); background: #fcfcfd; }
   .dialog-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
   .dialog-close { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; padding: 4px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 1.25rem; line-height: 1; cursor: pointer; }
+  .dialog-close { min-width: 36px; min-height: 36px; }
   .dialog-close:hover { color: var(--text-primary); background: var(--surface-hover); border-color: var(--border-color); }
   .dialog-body { min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; }
   .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -916,3 +918,340 @@
     .kpi-group.panel-pulse, #breakdownSection.panel-pulse, #recordsPanel.panel-pulse { animation: none; }
   }
 
+  /* Controls on one row share a single height (Radix select trigger was 40px next to 38px buttons). */
+  #filterForm .compact-select.ui-select-trigger { height: var(--filter-control-height); min-height: var(--filter-control-height); padding-top: 0; padding-bottom: 0; }
+  #filterForm .filter-reset-button { min-width: 72px; white-space: nowrap; }
+  @media (max-width: 767px) { .tab-btn { min-height: 40px; } #loadMoreBtn { min-height: 44px; } .dialog-close { min-width: 44px; min-height: 44px; } }
+
+  /* One text size for every control in the filter row (date picker was 14px, selects 16px). */
+  #filterForm .compact-select.ui-select-trigger, #filterForm button.ui-date-picker-trigger { font-size: 0.9375rem; font-family: inherit; }
+  #filterForm button.ui-date-picker-trigger > span { font-size: inherit; }
+  @media (max-width: 767px) { #filterForm .compact-select.ui-select-trigger, #filterForm button.ui-date-picker-trigger { font-size: 1rem; } }
+
+  /* KPI cards: keep the original fixed heights (layout must not shift with value length); only pull the
+     number toward its label by bottom-aligning the label block. */
+  .kpi-metric-label-wrap { justify-content: flex-end; }
+  .kpi-value-wrap { align-items: flex-start; }
+
+  /* KPI: keep the original fixed label/value blocks (huge numbers must never move the layout), but
+     vertically centre the whole label+number unit in the row and pull the label toward the number. */
+  .kpi-metric-row { justify-content: center; }
+  .kpi-metric-label-wrap { justify-content: flex-end; }
+  .kpi-value-wrap { align-items: flex-start; min-height: 24px; }
+  .kpi-metric-label-wrap { min-height: 38px; }
+
+
+  /* ===== Design refresh overrides (cascade order preserved; dead declarations removed) ===== */
+  /* ---- Page & cards ---- */
+  :root { --bg-page: #f5f6f8; --border-color: #e6e9ef; --border-subtle: #eef0f4; --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); --space-1: 8px; --space-2: 16px; --space-3: 24px; }
+  body .card { border-color: var(--border-color); box-shadow: var(--card-shadow); padding: var(--space-3); margin-bottom: 0; }
+  body .page-heading { margin-bottom: var(--space-2); }
+  body .page-heading h1 { font-size: 1.625rem; }
+  body .page-heading p { margin-top: 4px; }
+  body #dashboardContent { display: grid; gap: var(--space-2); }
+  body #dashboardContent > * { min-width: 0; }
+
+  /* ---- Empty / loading / error states ---- */
+  body .kpi-groups, body .dashboard-main-grid, body .skeleton-kpi-groups { margin-bottom: 0; gap: var(--space-2); }
+  body .skeleton-main-grid { gap: var(--space-2); }
+
+  /* ---- Page & cards ---- */
+  body #usageDataContent { display: grid; gap: var(--space-2); }
+  body .card-title { font-size: 1.0625rem; letter-spacing: -0.02em; }
+
+  /* ---- Chart & breakdown cards ---- */
+  body .card-desc { margin-top: 0; }
+
+  /* ---- Page & cards ---- */
+  body .card-header { margin-bottom: var(--space-2); gap: var(--space-1); }
+
+  /* ---- Filters & buttons ---- */
+  body .filter-card { padding: var(--space-3); }
+  body .filter-panel { gap: var(--space-2); }
+  body .preset-group { border: 0; background: #f1f3f7; border-radius: 10px; gap: 4px; padding: 4px; }
+  body .preset-btn { border-radius: 8px; }
+  body .preset-btn.active, body #presetGroupControl .preset-btn.active { color: var(--accent-blue-hover); font-weight: 700; }
+  body .filter-field { gap: var(--space-1); }
+  body .filter-field label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+  body .filter-topmeta { min-height: var(--filter-control-height); border-top: 0; }
+  body .filter-fields-row { gap: var(--space-2); }
+  body .filter-period-row { gap: var(--space-2); }
+  body .active-filter-badge { height: 24px; align-items: center; overflow: auto; }
+  body .active-filter-label { color: var(--text-muted); }
+  body .active-filter-label::after { content: ""; display: inline-block; width: 3px; height: 3px; margin-left: 8px; border-radius: 50%; background: #c2c8d2; vertical-align: middle; }
+  body .active-filter-text { color: var(--text-primary); font-weight: 600; }
+  body .btn { gap: var(--space-1); }
+  body .btn-secondary, body .filter-reset-button { background: #fff; border-color: var(--filter-control-border); color: var(--text-primary); box-shadow: 0 1px 1px rgba(16, 24, 40, 0.03); }
+  body .btn-secondary:hover:not(:disabled), body .filter-reset-button:hover:not(:disabled) { background: var(--surface-hover); border-color: #98a2b3; color: var(--text-primary); }
+  body .btn:active:not(:disabled) { transform: translateY(1px); }
+  body .lang-toggle { border-color: var(--filter-control-border); }
+
+  /* ---- KPI ---- */
+  body .kpi-group { border-color: var(--border-color); box-shadow: var(--card-shadow); }
+  body .kpi-group-head, body .kpi-group-overview .kpi-group-head, body .kpi-group-input .kpi-group-head, body .kpi-group-output .kpi-group-head {
+    background: transparent;
+    border-bottom: 0;
+    padding: var(--space-2) var(--space-2) 0;
+  }
+  body .kpi-group-title-wrap { gap: var(--space-1); padding: 4px 12px 4px 8px; border-radius: var(--radius-pill); }
+  body .kpi-group-overview .kpi-group-title-wrap { background: #eef4fb; }
+  body .kpi-group-input .kpi-group-title-wrap { background: #f4f2fc; }
+  body .kpi-group-output .kpi-group-title-wrap { background: #eef8f2; }
+  body .kpi-group-title { font-size: 0.875rem; }
+  body .kpi-group-icon { width: 16px; height: 16px; opacity: 1; }
+  body .kpi-group-overview .kpi-group-icon { color: #3b6593; }
+  body .kpi-group-input .kpi-group-icon { color: #7c3aed; }
+  body .kpi-group-output .kpi-group-icon { color: #059669; }
+  body .kpi-group-metrics { padding: 0 var(--space-2) var(--space-1); }
+  body .kpi-metric-row + .kpi-metric-row { border-left: 0; }
+  body .kpi-label { font-size: 0.875rem; font-weight: 600; }
+  body .kpi-value { letter-spacing: -0.02em; }
+
+  /* ---- Chart & breakdown cards ---- */
+  body .chart-card-compact { padding: var(--space-3); }
+  body .chart-heading { min-height: 0; }
+  body .chart-card-compact > .card-desc { height: auto; min-height: 24px; margin: 0 0 var(--space-1); }
+  body .tab-nav { border: 0; background: #f1f3f7; padding: 4px; gap: 4px; }
+
+  /* ---- Filters & buttons ---- */
+  body .tab-btn { min-height: 32px; padding: 3px 16px; font-weight: 600; }
+  body .tab-btn.active { background: #fff; color: var(--accent-blue-hover); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08); }
+
+  /* ---- Chart & breakdown cards ---- */
+  body .panel-heading { min-height: 0; }
+
+  /* ---- Tables ---- */
+  body th, body td { border-bottom-color: var(--border-subtle); }
+  body #recordsBody tr:hover, body #breakdownSection tbody tr:hover { background: #f8fafc; }
+  body .badge { padding: 2px 10px; }
+  body .badge-tag { background: #f1f3f7; }
+  body .pagination-bar { padding: var(--space-2) 0 0; }
+
+  /* ---- Empty / loading / error states ---- */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 160px;
+    padding: var(--space-3) var(--space-2);
+    text-align: center;
+    color: var(--text-secondary);
+    white-space: normal;
+  }
+  .empty-state-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 8px; border-radius: 50%; background: #f1f3f7; color: #667085; }
+  .empty-state.is-loading .empty-state-icon { background: #eef4fb; color: var(--accent-blue); }
+  .empty-spinner { animation: emptySpin 0.9s linear infinite; }
+  @keyframes emptySpin { to { transform: rotate(360deg); } }
+  .empty-state-title { font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
+  .empty-state-hint { font-size: 0.8125rem; color: var(--text-muted); }
+  .chart-wrapper:has(.chart-empty-state) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+  .chart-empty-state { min-height: 0; padding: 0; flex-direction: column; gap: 4px; font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
+  .chart-empty-state::before {
+    content: "";
+    width: 40px;
+    height: 40px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    background: #f1f3f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V10M10 20V4M16 20v-7M22 20H2'/%3E%3C/svg%3E") center / 22px no-repeat;
+  }
+  .chart-empty-hint { font-size: 0.8125rem; color: var(--text-muted); }
+  td.table-empty, .ui-table-cell.table-empty { text-align: center !important; height: auto; padding: 0 !important; }
+  body #errorBox { align-items: center; padding: var(--space-2); border-radius: 12px; gap: var(--space-2); }
+  body #errorBox::before {
+    content: "!";
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: var(--text-error);
+    font-weight: 800;
+    font-size: 0.875rem;
+  }
+  body #errorMessage { flex: 1 1 auto; font-weight: 600; font-size: 0.875rem; }
+
+  /* ---- Record dialog ---- */
+  body .record-dialog { border: 0; border-radius: 16px; box-shadow: 0 24px 56px rgba(16, 24, 40, 0.22); }
+  body .dialog-header { padding: var(--space-2) var(--space-3); background: #fff; border-bottom: 1px solid var(--border-subtle); }
+  body .dialog-title { font-size: 1.0625rem; letter-spacing: -0.02em; }
+  body .dialog-body { padding: var(--space-3); background: #fff; }
+  body .detail-grid { gap: var(--space-2); }
+  body .detail-section { border: 0; background: #f7f8fa; border-radius: 12px; padding: var(--space-2); }
+  body .detail-section-title {
+    text-transform: none;
+    letter-spacing: 0;
+    border-bottom: 0;
+    margin-bottom: var(--space-1);
+    padding-bottom: 0;
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  body .detail-row { border-bottom: 0; padding: 4px 0; gap: var(--space-2); font-size: 0.8125rem; }
+  body .dialog-close { border-radius: 8px; }
+
+  /* ---- Tables ---- */
+  @media (min-width: 768px) {
+    body .breakdown-table-wrap { height: auto; }
+  }
+
+  /* ---- Empty / loading / error states ---- */
+  @media (max-width: 767px) {
+    body .card, body .filter-card, body .chart-card-compact { padding: var(--space-2); }
+    body .kpi-group-metrics { padding: 0 var(--space-1) var(--space-1); }
+    body .filter-fields-row { gap: var(--space-2) var(--space-1); }
+    body #dashboardContent, body #usageDataContent, body .kpi-groups, body .dashboard-main-grid { gap: var(--space-1) var(--space-1); }
+    body .dashboard-main-grid { gap: var(--space-2); }
+    body .dialog-header { padding: var(--space-1) var(--space-2) var(--space-2); }
+    body .dialog-body { padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom)); }
+    .empty-state { min-height: 144px; }
+  }
+
+  /* ---- Filters & buttons ---- */
+  body #presetGroupControl { border: 0; background: #f1f3f7; }
+
+  /* ---- Page & cards ---- */
+  body .dashboard-main-grid { align-items: stretch; }
+
+  /* ---- Tables ---- */
+  @media (max-width: 767px) {
+    body #breakdownSection .ui-table-head, body #breakdownSection .ui-table-cell { padding-inline: 8px; }
+  }
+  body .usage-table-scroll .ui-table-cell .badge { white-space: nowrap; }
+  @media (max-width: 900px) {
+    body #recordsPanel .ui-table-cell, body #recordsPanel .ui-table-head { padding-inline: 8px; }
+  }
+
+  /* ---- KPI ---- */
+  body .kpi-value-wrap { align-items: center; }
+  body .kpi-value { line-height: 1.3; }
+  body .kpi-value { font-size: clamp(0.95rem, 0.8rem + 0.35vw, 1.125rem); }
+  body .kpi-value-wrap { min-height: 62px; }
+  body .kpi-metric-row { justify-content: center; }
+  body .kpi-metric-label-wrap { height: auto; min-height: 38px; justify-content: flex-end; overflow: visible; }
+  body .kpi-value-wrap, body .kpi-value-wrap { min-height: 24px; align-items: center; }
+
+  /* ---- Chart & breakdown cards ---- */
+  body #chartCard { display: flex; flex-direction: column; }
+  body #chartCard .chart-wrapper { flex: 1 1 auto; height: auto; max-height: none; min-height: 135px; display: flex; align-items: center; justify-content: center; margin-top: 0; }
+  body #chartCard .chart-wrapper svg { margin-inline: auto; }
+  @media (max-width: 767px) {
+    body #chartCard { height: auto; }
+    body #chartCard .chart-wrapper { flex: 0 0 auto; }
+  }
+  @media (max-width: 767px) {
+    body #chartCard .chart-wrapper { height: auto; min-height: 135px; padding-top: 0; }
+    body #chartCard .chart-card-compact > .card-desc, body #chartCard > .card-desc { margin-bottom: 0; }
+  }
+
+  /* ---- Tables ---- */
+  @media (max-width: 767px) {
+    body .breakdown-table-wrap, body .usage-table-scroll.breakdown-table-wrap { height: 168px; max-height: none; }
+  }
+
+  /* ---- Chart & breakdown cards ---- */
+  @media (min-width: 768px) {
+    body #breakdownSection .tab-pane.active { padding-bottom: 8px; }
+  }
+
+  /* ---- Record dialog ---- */
+  body .detail-val { flex: 1 1 auto; max-width: none; }
+  body .detail-key { flex: 0 0 auto; white-space: nowrap; }
+  body .detail-val-sub { display: block; margin-top: 2px; color: var(--text-muted); font-size: 0.6875rem; font-weight: 400; overflow-wrap: anywhere; }
+  body .detail-val-time { font-weight: 600; }
+
+  /* ---- Tables ---- */
+  @media (min-width: 768px) {
+    body #breakdownSection .usage-table-scroll.breakdown-table-wrap { max-height: none; }
+  }
+  .badge-tag { white-space: nowrap; }
+  body .card-title .badge-tag { letter-spacing: 0; word-spacing: 0.2em; font-variant-numeric: tabular-nums; }
+
+  /* ---- KPI ---- */
+  @media (max-width: 767px) {
+    body .kpi-metric-row { min-height: 124px; }
+  }
+
+  /* ---- Tables ---- */
+  @media (min-width: 768px) {
+    body #breakdownSection .usage-table-scroll.breakdown-table-wrap { height: auto; min-height: 0; flex: 1 1 0; overflow: auto; }
+  }
+
+  /* ---- KPI ---- */
+  @media (max-width: 767px) {
+    body .kpi-group-input .kpi-metric-row { min-height: 148px; }
+  }
+
+  /* ---- Filters & buttons ---- */
+  @media (max-width: 767px) {
+    body #presetGroupControl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    body #presetGroupControl .preset-btn { min-width: 0; }
+  }
+
+  /* ---- Page & cards ---- */
+  :root { --main-card-h: 264px; }
+
+  /* ---- Empty / loading / error states ---- */
+  @media (min-width: 768px) {
+    body #chartCard, body #breakdownSection { height: var(--main-card-h); min-height: 0; }
+    body #breakdownSection .empty-state { min-height: 112px; padding: var(--space-2); }
+    body #breakdownSection .empty-state-icon { width: 40px; height: 40px; margin-bottom: 4px; }
+  }
+
+  /* ---- KPI ---- */
+  @media (max-width: 767px) {
+    body .kpi-value { white-space: nowrap; word-break: normal; overflow-wrap: normal; font-variant-numeric: tabular-nums; }
+    body .kpi-group-input .kpi-value { font-size: clamp(0.75rem, 3.4vw, 0.9rem); }
+    body .kpi-group-overview .kpi-value, body .kpi-group-output .kpi-value { font-size: clamp(0.8rem, 3.6vw, 0.95rem); }
+    body .kpi-group-input .kpi-metric-row, body .kpi-group-output .kpi-metric-row { min-height: 124px; }
+    body .kpi-group-overview .kpi-metric-row { min-height: 116px; }
+    body .kpi-value-wrap { min-height: 24px; }
+    body .kpi-metric-label-wrap { min-height: 38px; }
+    body #recordsPanel .ui-table-cell:nth-child(4) { white-space: normal; }
+    body #recordsPanel .cell-clamp {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      white-space: normal;
+      line-height: 1.3;
+    }
+    body #recordsPanel .ui-table-cell { height: 52px; }
+  }
+
+  /* ---- Tables ---- */
+  @media (max-width: 767px) {
+    body #recordsTableMount .ui-table { table-layout: fixed; }
+    body #recordsPanel .ui-table-cell:nth-child(4) { font-size: 0.75rem; }
+    body #recordsPanel .ui-table-head, body #recordsPanel .ui-table-cell { padding-inline: 4px; }
+  }
+  @media (max-width: 767px) {
+    body #recordsPanel .ui-table-head:first-child { width: 15%; }
+    body #recordsPanel .ui-table-head:nth-child(4) { width: 36%; }
+    body #recordsPanel .ui-table-head:nth-child(8) { width: 20%; }
+    body #recordsPanel .ui-table-head:nth-child(10) { width: 29%; }
+    body #recordsPanel .ui-table-cell:nth-child(10) .badge { padding-inline: 6px; }
+  }
+
+  /* ---- Empty / loading / error states ---- */
+  @media (min-width: 768px) {
+    body #chartCard .chart-wrapper { margin-top: 8px; }
+    body .skeleton-panel { height: var(--main-card-h); min-height: 0; }
+  }
+
+  /* ---- Empty records (mobile): height is unchanged (layout tests forbid it moving); the empty state is centered in the remaining viewport ---- */
+  @media (max-width: 767px) {
+    body #recordsPanel .usage-table-scroll.table-responsive:has(.empty-state.is-empty) { display: flex; flex-direction: column; }
+    body #recordsPanel .usage-table-scroll:has(.empty-state.is-empty) .ui-table { flex: 1 1 auto; height: 100%; }
+    body #recordsPanel .usage-table-scroll .ui-table-cell.table-empty { vertical-align: middle; }
+    body #recordsPanel .empty-state.is-empty { min-height: 0; padding: 0; }
+  }
+  /* The reserved load-more slot below the table (60px + padding) makes the space below the empty state larger; offset it so the state looks centered in the card. */
+  @media (max-width: 767px) { body #recordsPanel .usage-table-scroll .ui-table-cell.table-empty:has(.empty-state.is-empty) { padding-top: 76px !important; } }
