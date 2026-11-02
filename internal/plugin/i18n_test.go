@@ -29,13 +29,16 @@ func runDashboardNode(t *testing.T, script string) {
 	}
 }
 
-// The dashboard persists the language preference (localStorage, LANG_KEY) and, for the
-// current tab only, the management key (sessionStorage, KEY_STORAGE). The key must never
-// reach localStorage, which outlives the tab and is shared across tabs.
+// The dashboard persists the language preference (localStorage, LANG_KEY), theme preference
+// (localStorage, THEME_KEY), and the management key (sessionStorage and optionally localStorage
+// for persistence across tabs/sessions, KEY_STORAGE).
 func TestDashboardStorageContract(t *testing.T) {
 	html := plugin.DashboardHTML
 	if !strings.Contains(html, "var LANG_KEY = 'cpa_plugin_lang';") {
 		t.Fatal("shared language preference key is missing or renamed")
+	}
+	if !strings.Contains(html, "var THEME_KEY = 'cpa_plugin_theme';") {
+		t.Fatal("theme preference key is missing or renamed")
 	}
 	if !strings.Contains(html, "var KEY_STORAGE = 'cpa_usage_audit_mgmt_key';") {
 		t.Fatal("session key storage name is missing or renamed")
@@ -46,9 +49,9 @@ func TestDashboardStorageContract(t *testing.T) {
 		t.Fatal("main script not found")
 	}
 	total := strings.Count(script[1], "localStorage")
-	allowed := regexp.MustCompile(`localStorage\.(?:getItem\(LANG_KEY\)|setItem\(LANG_KEY, lang\))`).FindAllString(script[1], -1)
-	if total != len(allowed) || total != 2 {
-		t.Fatalf("localStorage references = %d (allowed LANG_KEY accessors = %d, want exactly 2)", total, len(allowed))
+	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|KEY_STORAGE)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, theme|KEY_STORAGE, key)\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)
+	if total != len(allowed) || total != 8 {
+		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 8)", total, len(allowed))
 	}
 	sessionTotal := strings.Count(script[1], "sessionStorage")
 	sessionAllowed := regexp.MustCompile(`sessionStorage\.(?:getItem\(KEY_STORAGE\)|setItem\(KEY_STORAGE, key\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)

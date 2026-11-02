@@ -7,6 +7,7 @@ var pendingDohwiTableUpdates = [];
 // shared with the other CLIProxyAPI plugin dashboards so one choice applies to all of them.
 // Order: saved choice → browser language (ko* → ko, else en) → en.
 var LANG_KEY = 'cpa_plugin_lang';
+var THEME_KEY = 'cpa_plugin_theme';
 var I18N = {
   ko: {
     'page.title': '토큰 사용량 대시보드',
@@ -46,11 +47,18 @@ var I18N = {
     'validate.both': '시작일과 종료일을 모두 선택하세요.',
     'validate.order': '시작일은 종료일보다 늦을 수 없습니다.',
     'auth.title': '관리 키가 필요합니다',
-    'auth.desc': '사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다.',
+    'auth.desc': '사용량 데이터는 관리 인증이 필요합니다. 관리 키는 브라우저에 안전하게 보관되며 주소나 서버에 기록되지 않습니다.',
     'auth.label': '관리 키',
     'auth.submit': '확인',
     'auth.empty': '관리 키를 입력하세요.',
     'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
+    'auth.remember': '관리 키 저장 (이 기기에서 자동 로그인)',
+    'theme.toDark': '다크 모드로 전환',
+    'theme.toLight': '라이트 모드로 전환',
+    'pagination.prev': '이전',
+    'pagination.next': '다음',
+    'pagination.page': '{page}페이지',
+    'pagination.aria': '최근 요청 페이지 탐색',
     'err.unavailable': '데이터 사용 불가',
     'err.http': '요청이 실패했습니다 (HTTP {s}).',
     'err.timeout': '요청 시간이 초과되었습니다. 다시 시도하세요.',
@@ -197,11 +205,18 @@ var I18N = {
     'validate.both': 'Select both a start and an end date.',
     'validate.order': 'The start date cannot be after the end date.',
     'auth.title': 'Management key required',
-    'auth.desc': 'Usage data requires management authentication. The key is kept only in this tab\'s session and is never written to the address or the server.',
+    'auth.desc': 'Usage data requires management authentication. The key is securely stored in your browser and is never written to the address or the server.',
     'auth.label': 'Management key',
     'auth.submit': 'Continue',
     'auth.empty': 'Enter the management key.',
     'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
+    'auth.remember': 'Remember management key on this device',
+    'theme.toDark': 'Switch to dark mode',
+    'theme.toLight': 'Switch to light mode',
+    'pagination.prev': 'Previous',
+    'pagination.next': 'Next',
+    'pagination.page': 'Page {page}',
+    'pagination.aria': 'Recent requests pagination',
     'err.unavailable': 'Data unavailable',
     'err.http': 'Request failed (HTTP {s}).',
     'err.timeout': 'The request timed out. Please try again.',
@@ -383,6 +398,7 @@ function applyStaticI18n() {
     btn.setAttribute('title', label);
     btn.setAttribute('data-current-lang', currentLang);
   });
+  applyStaticTheme();
 }
 function setLanguage(lang, fromStorage) {
   var next = normalizeLang(lang);
@@ -412,6 +428,74 @@ function initLanguageControls() {
   applyStaticI18n();
 }
 
+function applyStaticTheme() {
+  if (typeof document === 'undefined') return;
+  var root = document.documentElement;
+  if (root && root.setAttribute) {
+    root.setAttribute('data-theme', currentTheme);
+  }
+  eachNode('.theme-toggle', function(btn) {
+    var label = t(currentTheme === 'dark' ? 'theme.toLight' : 'theme.toDark');
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.setAttribute('data-current-theme', currentTheme);
+    btn.innerHTML = currentTheme === 'dark'
+      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+  });
+}
+
+function normalizeTheme(value) {
+  var v = String(value || '').toLowerCase();
+  if (v === 'dark' || v === 'light') return v;
+  return null;
+}
+function readStoredTheme() {
+  try { return normalizeTheme(localStorage.getItem(THEME_KEY)); } catch (e) { return null; }
+}
+function writeStoredTheme(theme) {
+  try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+}
+function detectTheme() {
+  var stored = readStoredTheme();
+  if (stored) return stored;
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+  } catch (e) {}
+  return 'light';
+}
+var currentTheme = detectTheme();
+
+function setTheme(theme, fromStorage) {
+  var next = normalizeTheme(theme);
+  if (!next || next === currentTheme) return;
+  currentTheme = next;
+  if (!fromStorage) writeStoredTheme(next);
+  applyStaticTheme();
+}
+
+function initThemeControls() {
+  applyStaticTheme();
+  eachNode('.theme-toggle', function(btn) {
+    btn.addEventListener('click', function() {
+      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    });
+  });
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('storage', function(e) {
+      if (e && e.key === THEME_KEY) setTheme(e.newValue, true);
+    });
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!readStoredTheme()) {
+          setTheme(e.matches ? 'dark' : 'light', true);
+        }
+      });
+    } catch (e) {}
+  }
+}
 
 // State management
 var state = {
@@ -426,6 +510,9 @@ var state = {
   hasMore: false,
   records: [],
   recordsExpanded: false,
+  recordsPage: 1,
+  pageSize: 20,
+  targetRecordsPage: null,
   drawerOpener: null,
   requestID: 0,
   pollTimer: null,
@@ -772,8 +859,21 @@ var mgmtKey = '';
 // summary and records requests are sent one after the other (a wrong key costs one
 // strike per attempt, not two).
 var keyVerified = false;
-function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
-function writeStoredKey(key) { try { if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE); } catch (e) {} }
+function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
+function writeStoredKey(key) {
+  try {
+    var remEl = document.getElementById('authRememberKey');
+    var shouldPersist = remEl ? remEl.checked : true;
+    if (key) {
+      sessionStorage.setItem(KEY_STORAGE, key);
+      if (shouldPersist) localStorage.setItem(KEY_STORAGE, key);
+      else localStorage.removeItem(KEY_STORAGE);
+    } else {
+      sessionStorage.removeItem(KEY_STORAGE);
+      localStorage.removeItem(KEY_STORAGE);
+    }
+  } catch (e) {}
+}
 function authError() { var err = new Error('auth'); err.authRequired = true; return err; }
 function showAuthGate(messageKey) {
   if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
@@ -1158,14 +1258,37 @@ function renderBreakdowns(data) {
 function renderRecords(data, append) {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar'), recordsList=[];
   if(Array.isArray(data)){recordsList=data;state.hasMore=false;state.cursor=null;}else if(data&&Array.isArray(data.records)){recordsList=data.records;state.hasMore=!!data.has_more;state.cursor=data.next_cursor||null;}
-  if(append){state.records=state.records.concat(recordsList);state.recordsExpanded=true;}else{state.records=recordsList;state.recordsExpanded=false;}
+  if(append){
+    state.records=state.records.concat(recordsList);
+    state.recordsExpanded=true;
+    if (state.targetRecordsPage) {
+      state.recordsPage = state.targetRecordsPage;
+      state.targetRecordsPage = null;
+    }
+  }else{
+    state.records=recordsList;
+    state.recordsExpanded=false;
+    state.recordsPage=1;
+    state.targetRecordsPage=null;
+  }
   paintRecords();
 }
 // Builds the table from state.records; reused when the language changes.
 function paintRecords() {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar');
-  countBadge.textContent=tn('records.count', state.records.length);
-  var rows=state.records.map(function(rec,idx) {
+  var totalRecords = (state.records && state.records.length) || 0;
+  countBadge.textContent=tn('records.count', totalRecords);
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
+  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+  var curPage = state.recordsPage;
+  var start = (curPage - 1) * pageSize;
+  var end = Math.min(start + pageSize, totalRecords);
+  var pageRecords = state.records.slice(start, end);
+
+  var rows=pageRecords.map(function(rec,relIdx) {
+    var idx = start + relIdx;
     var rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp, rawProv=rec.provider||rec.Provider||'-', displayProv=formatProvider(rawProv), model=rec.model||rec.Model||rec.alias||rec.Alias||'-', endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-', failed=!!(rec.failed||rec.Failed), recordKey='record:'+String(rec.id||rec.request_id||rawT||idx), changes=state.pendingChanges&&state.pendingChanges.records;
     var parsedTime=new Date(rawT), mobileTime=Number.isNaN(parsedTime.getTime())?'—':parsedTime.toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit',hour12:false}); // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
     // Compose semantic UI Table cells without HTML string concatenation (legacy: mobileTime.textContent). // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
@@ -1185,13 +1308,107 @@ function paintRecords() {
   });
   if(window.renderDohwiTable)window.renderDohwiTable('recordsTableMount',rows,t('empty.records'));else window.pendingDohwiTableUpdates=(window.pendingDohwiTableUpdates||[]).concat([['recordsTableMount',rows,t('empty.records')]]);
   var renderedRows=document.querySelectorAll('#recordsBody tr.ui-table-row');
-  renderedRows.forEach(function(row,index){row.dataset.index=String(index);row.dataset.rowKey=rows[index]?rows[index].key:'';var rec=state.records[index];if(rec&&state.pendingChanges&&state.pendingChanges.records['record:'+String(rec.id||rec.request_id||rec.requested_at||index)])applyPanelPulse(document.getElementById('recordsPanel'));});
-  loadMoreBar.classList.toggle('is-hidden', !state.hasMore);
+  renderedRows.forEach(function(row,relIndex){
+    var index = start + relIndex;
+    row.dataset.index=String(index);
+    row.dataset.rowKey=rows[relIndex]?rows[relIndex].key:'';
+    var rec=state.records[index];
+    if(rec&&state.pendingChanges&&state.pendingChanges.records['record:'+String(rec.id||rec.request_id||rec.requested_at||index)])applyPanelPulse(document.getElementById('recordsPanel'));
+  });
+  updatePaginationControls();
 }
+
+function updatePaginationControls() {
+  var loadMoreBar = DOM.loadMoreBar || document.getElementById('loadMoreBar');
+  if (!loadMoreBar) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
+  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+  var curPage = state.recordsPage;
+  var maxPage = state.hasMore ? loadedPages + 1 : loadedPages;
+
+  loadMoreBar.classList.toggle('is-hidden', totalRecords === 0 || (loadedPages <= 1 && !state.hasMore));
+
+  var prevBtn = document.getElementById('recordsPrevBtn');
+  var nextBtn = document.getElementById('recordsNextBtn');
+  var pageList = document.getElementById('recordsPageList');
+
+  if (prevBtn) {
+    var prevDisabled = curPage <= 1;
+    prevBtn.disabled = prevDisabled;
+    prevBtn.setAttribute('aria-disabled', prevDisabled ? 'true' : 'false');
+  }
+  if (nextBtn) {
+    var nextDisabled = curPage >= loadedPages && !state.hasMore;
+    nextBtn.disabled = nextDisabled;
+    nextBtn.setAttribute('aria-disabled', nextDisabled ? 'true' : 'false');
+  }
+
+  if (pageList) {
+    pageList.replaceChildren();
+    var pagesToShow = [];
+    if (maxPage <= 7) {
+      for (var p = 1; p <= maxPage; p++) pagesToShow.push(p);
+    } else {
+      var s = Math.max(1, curPage - 2);
+      var e = Math.min(maxPage, curPage + 2);
+      if (s > 1) { pagesToShow.push(1); if (s > 2) pagesToShow.push('...'); }
+      for (var p = s; p <= e; p++) pagesToShow.push(p);
+      if (e < maxPage) { if (e < maxPage - 1) pagesToShow.push('...'); pagesToShow.push(maxPage); }
+    }
+
+    pagesToShow.forEach(function(item) {
+      if (item === '...') {
+        var span = document.createElement('span');
+        span.className = 'records-page-ellipsis';
+        span.textContent = '…';
+        pageList.appendChild(span);
+      } else {
+        var pNum = item;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ui-pagination-link' + (pNum === curPage ? ' active' : '');
+        if (pNum === curPage) {
+          btn.setAttribute('data-active', 'true');
+          btn.setAttribute('aria-current', 'page');
+        }
+        btn.setAttribute('aria-label', t('pagination.page', { page: pNum }));
+        btn.textContent = String(pNum);
+        btn.addEventListener('click', function() {
+          if (pNum === curPage) return;
+          if (pNum <= loadedPages) {
+            state.recordsPage = pNum;
+            paintRecords();
+          } else if (pNum === loadedPages + 1 && state.hasMore) {
+            loadNextRecordsPage();
+          }
+        });
+        pageList.appendChild(btn);
+      }
+    });
+  }
+}
+
+function loadNextRecordsPage() {
+  if (state.inFlight) return;
+  if (!state.hasMore || !state.cursor) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  state.targetRecordsPage = loadedPages + 1;
+  loadData(true);
+}
+
 function loadMoreRecords() {
   if (state.inFlight) return;
   if (state.snapshotFilterKey !== snapshotFilterKey()) { loadData(false, true); return; }
   if (!state.hasMore || !state.cursor) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  state.targetRecordsPage = loadedPages + 1;
   loadData(true);
 }
 // Record detail modal: focus-safe dialog/sheet with reversible body scroll lock.
@@ -1347,8 +1564,33 @@ function bindDashboardEvents() {
     field.addEventListener('change', applyCustomDatesWhenReady);
     field.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); applyFilters(); } });
   });
+
+  var prevBtn = document.getElementById('recordsPrevBtn');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function() {
+      if (state.recordsPage > 1) {
+        state.recordsPage--;
+        paintRecords();
+      }
+    });
+  }
+  var nextBtn = document.getElementById('recordsNextBtn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function() {
+      var totalRecords = (state.records && state.records.length) || 0;
+      var pageSize = state.pageSize || 20;
+      var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+      if (state.recordsPage < loadedPages) {
+        state.recordsPage++;
+        paintRecords();
+      } else if (state.hasMore && state.cursor) {
+        loadNextRecordsPage();
+      }
+    });
+  }
 }
 // The static DOM is already present: bind interactions before starting requests too.
+initThemeControls();
 initLanguageControls();
 bindDashboardEvents();
 initAuthGate();

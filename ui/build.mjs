@@ -24,7 +24,7 @@ html = html.replace(/<script data-dohwi-ui="(?:select|date-picker)">[\s\S]*?<\/s
 html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style data-dohwi-ui="native">
   :root { --primary: var(--accent-blue); --primary-foreground: #ffffff; --secondary: var(--filter-control-hover-bg); --secondary-foreground: var(--text-primary); --focus-border: var(--filter-control-focus); }
   .ui-tabs-list { position: relative; isolation: isolate; }
-  .ui-tabs-indicator { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; border-radius: var(--radius-pill); background: #e8eef5; }
+  .ui-tabs-indicator { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; border-radius: var(--radius-pill); background: var(--surface-tab-active, #e8eef5); }
   .ui-tabs-list[data-indicator-ready] > .tab-btn.active { background: transparent; }
   .ui-button:focus-visible { outline: 2px solid var(--focus-border); outline-offset: 2px; }
   /* Layout-only adapter over actual dohwi-ui Table components. */
@@ -39,10 +39,10 @@ html = html.replace(/<style data-dohwi-ui="native">[\s\S]*?<\/style>/, `<style d
   .usage-table-scroll .ui-table-cell .badge { margin-inline: auto; }
   /* Quiet table: no outer box, no header fill; hairlines only between rows. */
   .usage-table-scroll .ui-table { border: 0; border-radius: 0; }
-  .usage-table-scroll .ui-table-head { background: #fff; color: var(--text-muted); font-size: .75rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 8px 16px; }
+  .usage-table-scroll .ui-table-head { background: var(--bg-card); color: var(--text-muted); font-size: .75rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 8px 16px; }
   .usage-table-scroll .ui-table-cell { padding: 8px 16px; border-bottom: 1px solid var(--border-subtle); }
   .usage-table-scroll .ui-table-row:last-child > .ui-table-cell { border-bottom: 0; }
-  .usage-table-scroll .ui-table-body .ui-table-row:hover { background: #f8fafc; }
+  .usage-table-scroll .ui-table-body .ui-table-row:hover { background: var(--surface-hover); }
   .usage-table-scroll .ui-table-cell.table-empty { text-align: center; }
   .usage-table-scroll .ui-table-body .ui-table-row:has(.table-empty):hover { background: transparent; }
 
