@@ -427,7 +427,7 @@ function initLanguageControls() {
 }
 
 // Theme: system (default) | light | dark, chosen with the toggle next to the language button.
-// "system" follows the host Management Center (light | white | dark; its auto resolves via the OS).
+// "system" follows the host Management Center (light | dark; its white variant counts as light; auto resolves via the OS).
 // Only this choice is stored (THEME_KEY); the host's own theme entry is read, never written.
 // Inside the console iframe the parent's data-theme wins; otherwise cli-proxy-theme, then the OS.
 var HOST_THEME_KEY = 'cli-proxy-theme';
@@ -444,11 +444,12 @@ function hostTheme() {
   try {
     if (window.parent && window.parent !== window) {
       var pt = window.parent.document.documentElement.getAttribute('data-theme');
-      return pt === 'dark' || pt === 'white' ? pt : 'light';
+      return pt === 'dark' ? 'dark' : 'light';
     }
   } catch (e) {} // cross-origin parent: fall through to the stored choice
   var saved = readHostStore(HOST_THEME_KEY), theme = saved && saved.state && saved.state.theme;
-  if (theme === 'dark' || theme === 'white' || theme === 'light') return theme;
+  if (theme === 'dark') return 'dark';
+  if (theme === 'white' || theme === 'light') return 'light';
   return theme === 'auto' || !theme ? osTheme() : 'light';
 }
 var THEME_ICONS = {
@@ -457,9 +458,30 @@ var THEME_ICONS = {
   dark: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
 };
 function themeName(mode) { return mode === 'dark' ? t('theme.dark') : mode === 'light' ? t('theme.light') : t('theme.system'); }
+function paintTheme(next) {
+  var root = document.documentElement;
+  if (next === 'light') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next);
+}
+// All surfaces/text/borders must change in the same paint: component-level colour transitions
+// (buttons, selects, tabs...) would otherwise run on their own 0.15s clocks while cards and the page
+// switch instantly. Freeze them for the swap; use a View Transition crossfade where available.
+function swapTheme(next) {
+  var root = document.documentElement, current = root.getAttribute('data-theme') || 'light';
+  if (current === next) return;
+  var reduce = false;
+  try { reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+  if (!reduce && typeof document.startViewTransition === 'function') {
+    try { document.startViewTransition(function() { paintTheme(next); }); return; } catch (e) {}
+  }
+  root.setAttribute('data-theme-switching', '');
+  paintTheme(next);
+  void root.offsetWidth; // flush styles while transitions are disabled
+  if (window.requestAnimationFrame) window.requestAnimationFrame(function() { window.requestAnimationFrame(function() { root.removeAttribute('data-theme-switching'); }); });
+  else root.removeAttribute('data-theme-switching');
+}
 function applyTheme() {
   var next = themeMode === 'system' ? hostTheme() : themeMode, root = typeof document !== 'undefined' && document.documentElement;
-  if (root && root.setAttribute) { if (next === 'light') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next); }
+  if (root && root.setAttribute) { if (root.hasAttribute('data-theme-ready')) swapTheme(next); else { paintTheme(next); root.setAttribute('data-theme-ready', ''); } }
   var after = THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length];
   eachNode('.theme-toggle', function(btn) {
     var label = t('theme.label', { mode: themeName(themeMode), next: themeName(after) });

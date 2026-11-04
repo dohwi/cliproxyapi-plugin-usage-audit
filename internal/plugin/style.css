@@ -999,6 +999,9 @@
   /* Snapshot pulses stay on the smallest meaningful visual group, never the dashboard. */
   .kpi-group.panel-pulse, #breakdownSection.panel-pulse, #recordsPanel.panel-pulse { animation: panelPulse 1s ease-out both; }
   @keyframes panelPulse { 0%, 100% { border-color: var(--border-color); } 45% { border-color: #94a3b8; } }
+  /* Theme switch: everything changes in one coordinated step (see swapTheme in app.js). */
+  :root[data-theme-switching] *, :root[data-theme-switching] *::before, :root[data-theme-switching] *::after { transition: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.24s; animation-timing-function: ease; mix-blend-mode: normal; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     .skeleton-line { animation: none; opacity: 0.45; }
