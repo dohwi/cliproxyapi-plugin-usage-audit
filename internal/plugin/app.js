@@ -462,22 +462,23 @@ function paintTheme(next) {
   var root = document.documentElement;
   if (next === 'light') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next);
 }
-// All surfaces/text/borders must change in the same paint: component-level colour transitions
-// (buttons, selects, tabs...) would otherwise run on their own 0.15s clocks while cards and the page
-// switch instantly. Freeze them for the swap; use a View Transition crossfade where available.
+// Every surface, text and border must change on ONE clock. Controls carry their own colour transitions
+// (0.15s) while cards and the page do not, so they used to lag behind each other. For the duration of the
+// swap a single uniform colour transition is forced on every element (see [data-theme-switching] in the
+// CSS), so everything fades together. (A View Transition crossfade was tried: it drops :hover while it
+// runs, so the control under the pointer snapped to its hover colour late, on its own.)
+var THEME_FADE_MS = 220, themeFadeTimer = 0;
 function swapTheme(next) {
   var root = document.documentElement, current = root.getAttribute('data-theme') || 'light';
   if (current === next) return;
   var reduce = false;
   try { reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
-  if (!reduce && typeof document.startViewTransition === 'function') {
-    try { document.startViewTransition(function() { paintTheme(next); }); return; } catch (e) {}
-  }
+  if (reduce) { paintTheme(next); return; }
   root.setAttribute('data-theme-switching', '');
+  void root.offsetWidth; // commit the uniform transition before the colours change
   paintTheme(next);
-  void root.offsetWidth; // flush styles while transitions are disabled
-  if (window.requestAnimationFrame) window.requestAnimationFrame(function() { window.requestAnimationFrame(function() { root.removeAttribute('data-theme-switching'); }); });
-  else root.removeAttribute('data-theme-switching');
+  clearTimeout(themeFadeTimer);
+  themeFadeTimer = setTimeout(function() { root.removeAttribute('data-theme-switching'); }, THEME_FADE_MS + 60);
 }
 function applyTheme() {
   var next = themeMode === 'system' ? hostTheme() : themeMode, root = typeof document !== 'undefined' && document.documentElement;
