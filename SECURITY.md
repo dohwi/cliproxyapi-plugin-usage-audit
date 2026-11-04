@@ -22,7 +22,7 @@ The dashboard page is served with a strict `Content-Security-Policy` (`default-s
 
 Raw API keys, auth IDs, prompts and failure response bodies are not persisted by the usage observer. Session/auth indexes and request metadata are operational data and must be protected. Store files are created with mode `0640` and directories with mode `0750`; use a trusted local data directory and restrict its ownership/group. Do not run sanitizing rewrites against an active writer: follow `docs/sanitization-runbook.md`.
 
-Never commit operational logs, auth files, tokens or real account identifiers. `testdata/usage-sample.jsonl` is synthetic. The dashboard persists its language and theme preferences (`localStorage`) and, for the current tab only, the accepted management key (`sessionStorage`).
+Never commit operational logs, auth files, tokens or real account identifiers. `testdata/usage-sample.jsonl` is synthetic. The dashboard persists its language and theme-mode (system/light/dark) preferences (`localStorage`); in "system" mode the theme is read from the host (`cli-proxy-theme`, or the parent console's `data-theme`). The accepted management key is kept for the current tab only (`sessionStorage`).
 
 ## Verification
 

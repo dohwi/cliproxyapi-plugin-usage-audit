@@ -52,8 +52,8 @@ var I18N = {
     'auth.submit': '확인',
     'auth.empty': '관리 키를 입력하세요.',
     'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
-    'theme.toDark': '다크 모드로 전환',
-    'theme.toLight': '라이트 모드로 전환',
+    'theme.system': '시스템', 'theme.light': '라이트', 'theme.dark': '다크',
+    'theme.label': '테마: {mode} (클릭하면 {next})',
     'pagination.prev': '이전',
     'pagination.next': '다음',
     'pagination.page': '{page}페이지',
@@ -209,8 +209,8 @@ var I18N = {
     'auth.submit': 'Continue',
     'auth.empty': 'Enter the management key.',
     'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
-    'theme.toDark': 'Switch to dark mode',
-    'theme.toLight': 'Switch to light mode',
+    'theme.system': 'System', 'theme.light': 'Light', 'theme.dark': 'Dark',
+    'theme.label': 'Theme: {mode} (click for {next})',
     'pagination.prev': 'Previous',
     'pagination.next': 'Next',
     'pagination.page': 'Page {page}',
@@ -389,6 +389,7 @@ function applyStaticI18n() {
     el.setAttribute('aria-label', kvLabel(el.getAttribute('data-i18n-label'), /\d/.test(shown) ? shown : '0'));
   });
   eachNode('[data-i18n-count]', function(el) { el.textContent = tn(el.getAttribute('data-i18n-count'), (state.records && state.records.length) || 0); });
+  if (typeof applyTheme === 'function') applyTheme();
   // One toggle button: label/tooltip name the language a click switches to.
   eachNode('.lang-toggle', function(btn) {
     var label = t(currentLang === 'ko' ? 'lang.toEn' : 'lang.toKo');
@@ -396,7 +397,6 @@ function applyStaticI18n() {
     btn.setAttribute('title', label);
     btn.setAttribute('data-current-lang', currentLang);
   });
-  applyStaticTheme();
 }
 function setLanguage(lang, fromStorage) {
   var next = normalizeLang(lang);
@@ -426,73 +426,73 @@ function initLanguageControls() {
   applyStaticI18n();
 }
 
-function applyStaticTheme() {
-  if (typeof document === 'undefined') return;
-  var root = document.documentElement;
-  if (root && root.setAttribute) {
-    root.setAttribute('data-theme', currentTheme);
-  }
-  eachNode('.theme-toggle', function(btn) {
-    var label = t(currentTheme === 'dark' ? 'theme.toLight' : 'theme.toDark');
-    btn.setAttribute('aria-label', label);
-    btn.setAttribute('title', label);
-    btn.setAttribute('data-current-theme', currentTheme);
-    btn.innerHTML = currentTheme === 'dark'
-      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-  });
+// Theme: system (default) | light | dark, chosen with the toggle next to the language button.
+// "system" follows the host Management Center (light | white | dark; its auto resolves via the OS).
+// Only this choice is stored (THEME_KEY); the host's own theme entry is read, never written.
+// Inside the console iframe the parent's data-theme wins; otherwise cli-proxy-theme, then the OS.
+var HOST_THEME_KEY = 'cli-proxy-theme';
+var THEME_MODES = ['system', 'light', 'dark'];
+function readThemeMode() {
+  try { var v = localStorage.getItem(THEME_KEY); return THEME_MODES.indexOf(v) >= 0 ? v : 'system'; } catch (e) { return 'system'; }
 }
-
-function normalizeTheme(value) {
-  var v = String(value || '').toLowerCase();
-  if (v === 'dark' || v === 'light') return v;
-  return null;
-}
-function readStoredTheme() {
-  try { return normalizeTheme(localStorage.getItem(THEME_KEY)); } catch (e) { return null; }
-}
-function writeStoredTheme(theme) {
-  try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
-}
-function detectTheme() {
-  var stored = readStoredTheme();
-  if (stored) return stored;
-  try {
-    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-  } catch (e) {}
+var themeMode = readThemeMode();
+function osTheme() {
+  try { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'; } catch (e) {}
   return 'light';
 }
-var currentTheme = detectTheme();
-
-function setTheme(theme, fromStorage) {
-  var next = normalizeTheme(theme);
-  if (!next || next === currentTheme) return;
-  currentTheme = next;
-  if (!fromStorage) writeStoredTheme(next);
-  applyStaticTheme();
+function hostTheme() {
+  try {
+    if (window.parent && window.parent !== window) {
+      var pt = window.parent.document.documentElement.getAttribute('data-theme');
+      return pt === 'dark' || pt === 'white' ? pt : 'light';
+    }
+  } catch (e) {} // cross-origin parent: fall through to the stored choice
+  var saved = readHostStore(HOST_THEME_KEY), theme = saved && saved.state && saved.state.theme;
+  if (theme === 'dark' || theme === 'white' || theme === 'light') return theme;
+  return theme === 'auto' || !theme ? osTheme() : 'light';
 }
-
+var THEME_ICONS = {
+  system: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  dark: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
+};
+function themeName(mode) { return mode === 'dark' ? t('theme.dark') : mode === 'light' ? t('theme.light') : t('theme.system'); }
+function applyTheme() {
+  var next = themeMode === 'system' ? hostTheme() : themeMode, root = typeof document !== 'undefined' && document.documentElement;
+  if (root && root.setAttribute) { if (next === 'light') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next); }
+  var after = THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length];
+  eachNode('.theme-toggle', function(btn) {
+    var label = t('theme.label', { mode: themeName(themeMode), next: themeName(after) });
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.setAttribute('data-theme-mode', themeMode);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + THEME_ICONS[themeMode] + '</svg>';
+  });
+}
+function setThemeMode(mode) {
+  if (THEME_MODES.indexOf(mode) < 0 || mode === themeMode) return;
+  themeMode = mode;
+  try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+  applyTheme();
+}
 function initThemeControls() {
-  applyStaticTheme();
+  applyTheme();
   eachNode('.theme-toggle', function(btn) {
     btn.addEventListener('click', function() {
-      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      setThemeMode(THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length]);
     });
   });
-  if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('storage', function(e) {
-      if (e && e.key === THEME_KEY) setTheme(e.newValue, true);
-    });
-    try {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-        if (!readStoredTheme()) {
-          setTheme(e.matches ? 'dark' : 'light', true);
-        }
-      });
-    } catch (e) {}
-  }
+  window.addEventListener('storage', function(e) {
+    if (!e) return;
+    if (e.key === THEME_KEY) { themeMode = readThemeMode(); applyTheme(); }
+    else if (e.key === HOST_THEME_KEY) applyTheme();
+  });
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme); } catch (e) {}
+  try {
+    if (window.parent && window.parent !== window) {
+      new MutationObserver(applyTheme).observe(window.parent.document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+  } catch (e) {}
 }
 
 // State management
@@ -865,10 +865,11 @@ function writeStoredKey(key) { try { if (key) sessionStorage.setItem(KEY_STORAGE
 var HOST_AUTH_KEY = 'cli-proxy-auth';
 var hostKeyFromStore = false; // true while the active key came from the host, not the form
 var hostKeyRejected = false;  // set after a host key was refused, so we never retry it
-function readHostKey() {
+// Parsed value of one of the host's own entries, undoing its optional enc::v1:: / enc::v2:: encoding.
+function readHostStore(name) {
   try {
-    var raw = localStorage.getItem(HOST_AUTH_KEY);
-    if (!raw) return '';
+    var raw = localStorage.getItem(name);
+    if (!raw) return null;
     var m = /^enc::v([12])::/.exec(raw);
     if (m) {
       var scope = m[1] === '2' ? 'v2|' + location.host : location.host + '|' + navigator.userAgent;
@@ -877,7 +878,12 @@ function readHostKey() {
       var bytes = Uint8Array.from(bin, function(c, i) { return c.charCodeAt(0) ^ secret[i % secret.length]; });
       raw = new TextDecoder().decode(bytes);
     }
-    var saved = JSON.parse(raw), auth = saved && (saved.state || saved);
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function readHostKey() {
+  try {
+    var saved = readHostStore(HOST_AUTH_KEY), auth = saved && (saved.state || saved);
     if (!auth || !auth.managementKey || auth.rememberPassword === false) return '';
     // A key saved for another server must not be sent to this one.
     if (auth.apiBase && new URL(auth.apiBase, location.origin).origin !== location.origin) return '';

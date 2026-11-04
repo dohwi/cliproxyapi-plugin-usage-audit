@@ -29,17 +29,17 @@ func runDashboardNode(t *testing.T, script string) {
 	}
 }
 
-// The dashboard persists the language preference (localStorage, LANG_KEY), the theme preference
-// (localStorage, THEME_KEY) and, for the current tab only, the management key (sessionStorage,
-// KEY_STORAGE). It may read, never write, the host's own key entry (localStorage, HOST_AUTH_KEY).
-// The key must never be written to localStorage.
+// The dashboard persists the language and theme-mode preferences (localStorage, LANG_KEY and
+// THEME_KEY) and, for the current tab only, the management key (sessionStorage, KEY_STORAGE).
+// "System" theme follows the host (cli-proxy-theme). It may read, never write, the host's own
+// entries (auth key and theme). The management key must never be written to localStorage.
 func TestDashboardStorageContract(t *testing.T) {
 	html := plugin.DashboardHTML
 	if !strings.Contains(html, "var LANG_KEY = 'cpa_plugin_lang';") {
 		t.Fatal("shared language preference key is missing or renamed")
 	}
-	if !strings.Contains(html, "var THEME_KEY = 'cpa_plugin_theme';") {
-		t.Fatal("theme preference key is missing or renamed")
+	if !strings.Contains(html, "var THEME_KEY = 'cpa_plugin_theme';") || !strings.Contains(html, "var HOST_THEME_KEY = 'cli-proxy-theme';") {
+		t.Fatal("theme preference key or host theme key is missing or renamed")
 	}
 	if !strings.Contains(html, "var KEY_STORAGE = 'cpa_usage_audit_mgmt_key';") {
 		t.Fatal("session key storage name is missing or renamed")
@@ -50,8 +50,9 @@ func TestDashboardStorageContract(t *testing.T) {
 		t.Fatal("main script not found")
 	}
 	total := strings.Count(script[1], "localStorage")
-	// HOST_AUTH_KEY is the host Management Center's own entry: read-only, never written or removed here.
-	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|HOST_AUTH_KEY)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, theme)\))`).FindAllString(script[1], -1)
+	// The host Management Center's own entries (auth, theme) are read through one reader and never
+	// written or removed here; only the shared language preference is written.
+	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|name)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, mode)\))`).FindAllString(script[1], -1)
 	if total != len(allowed) || total != 5 {
 		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 5)", total, len(allowed))
 	}
