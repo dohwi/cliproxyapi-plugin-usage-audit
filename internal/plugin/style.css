@@ -733,13 +733,9 @@
   .auth-gate-head .lang-toggle { flex: 0 0 auto; }
   .auth-gate-actions { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
   .auth-gate-desc { color: var(--text-secondary); font-size: 0.8125rem; line-height: 20px; margin-bottom: 10px; }
-  .auth-gate-form { display: flex; flex-direction: column; gap: 10px; }
-  .auth-gate-inputs { display: flex; gap: 8px; align-items: stretch; width: 100%; }
-  .auth-gate-inputs .input, .auth-gate-form .input { flex: 1 1 auto; }
-  .auth-gate-inputs .btn, .auth-gate-form .btn { flex: 0 0 auto; }
-  .auth-remember-row { display: flex; align-items: center; }
-  .auth-remember-label { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; user-select: none; }
-  .auth-remember-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-blue); }
+  .auth-gate-form { display: flex; gap: 8px; align-items: stretch; }
+  .auth-gate-form .input { flex: 1 1 auto; }
+  .auth-gate-form .btn { flex: 0 0 auto; }
   .auth-gate-message { margin-top: 10px; color: var(--text-error); font-size: 0.8125rem; }
   .auth-gate.is-hidden, .auth-gate-message.is-hidden, .page-heading.is-hidden { display: none !important; }
   .error-box .btn { flex: 0 0 auto; }
@@ -1422,5 +1418,4 @@
   :root[data-theme='dark'] .detail-overlay { background: rgba(0, 0, 0, 0.75); }
   :root[data-theme='dark'] .auth-gate { background: var(--bg-card); border-color: var(--border-color); }
   :root[data-theme='dark'] .auth-gate-desc { color: var(--text-secondary); }
-  :root[data-theme='dark'] .auth-remember-label { color: var(--text-secondary); }
   :root[data-theme='dark'] .custom-dates .input:disabled { background: #1a263e; color: var(--text-secondary); }

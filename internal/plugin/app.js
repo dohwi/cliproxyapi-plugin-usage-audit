@@ -52,7 +52,6 @@ var I18N = {
     'auth.submit': '확인',
     'auth.empty': '관리 키를 입력하세요.',
     'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
-    'auth.remember': '관리 키 저장 (이 기기에서 자동 로그인)',
     'theme.toDark': '다크 모드로 전환',
     'theme.toLight': '라이트 모드로 전환',
     'pagination.prev': '이전',
@@ -205,12 +204,11 @@ var I18N = {
     'validate.both': 'Select both a start and an end date.',
     'validate.order': 'The start date cannot be after the end date.',
     'auth.title': 'Management key required',
-    'auth.desc': 'Usage data requires management authentication. The key is securely stored in your browser and is never written to the address or the server.',
+    'auth.desc': 'Usage data requires management authentication. The key is kept only in this tab\'s session and is never written to the address or the server. A key already saved by the Management Center is reused read-only.',
     'auth.label': 'Management key',
     'auth.submit': 'Continue',
     'auth.empty': 'Enter the management key.',
     'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
-    'auth.remember': 'Remember management key on this device',
     'theme.toDark': 'Switch to dark mode',
     'theme.toLight': 'Switch to light mode',
     'pagination.prev': 'Previous',
@@ -859,20 +857,32 @@ var mgmtKey = '';
 // summary and records requests are sent one after the other (a wrong key costs one
 // strike per attempt, not two).
 var keyVerified = false;
-function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
-function writeStoredKey(key) {
+function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
+function writeStoredKey(key) { try { if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE); } catch (e) {} }
+// Read-only reuse of the key the host Management Center already keeps for this origin
+// (HOST_AUTH_KEY, optionally obfuscated as enc::v1:: / enc::v2::). This page never writes
+// it back or keeps its own persistent copy. Any failure just means "ask the operator".
+var HOST_AUTH_KEY = 'cli-proxy-auth';
+var hostKeyFromStore = false; // true while the active key came from the host, not the form
+var hostKeyRejected = false;  // set after a host key was refused, so we never retry it
+function readHostKey() {
   try {
-    var remEl = document.getElementById('authRememberKey');
-    var shouldPersist = remEl ? remEl.checked : true;
-    if (key) {
-      sessionStorage.setItem(KEY_STORAGE, key);
-      if (shouldPersist) localStorage.setItem(KEY_STORAGE, key);
-      else localStorage.removeItem(KEY_STORAGE);
-    } else {
-      sessionStorage.removeItem(KEY_STORAGE);
-      localStorage.removeItem(KEY_STORAGE);
+    var raw = localStorage.getItem(HOST_AUTH_KEY);
+    if (!raw) return '';
+    var m = /^enc::v([12])::/.exec(raw);
+    if (m) {
+      var scope = m[1] === '2' ? 'v2|' + location.host : location.host + '|' + navigator.userAgent;
+      var secret = new TextEncoder().encode('cli-proxy-api-webui::secure-storage|' + scope);
+      var bin = atob(raw.slice(m[0].length));
+      var bytes = Uint8Array.from(bin, function(c, i) { return c.charCodeAt(0) ^ secret[i % secret.length]; });
+      raw = new TextDecoder().decode(bytes);
     }
-  } catch (e) {}
+    var saved = JSON.parse(raw), auth = saved && (saved.state || saved);
+    if (!auth || !auth.managementKey || auth.rememberPassword === false) return '';
+    // A key saved for another server must not be sent to this one.
+    if (auth.apiBase && new URL(auth.apiBase, location.origin).origin !== location.origin) return '';
+    return String(auth.managementKey).trim();
+  } catch (e) { return ''; }
 }
 function authError() { var err = new Error('auth'); err.authRequired = true; return err; }
 function showAuthGate(messageKey) {
@@ -897,17 +907,26 @@ function hideAuthGate() {
   if (heading) heading.classList.remove('is-hidden');
   if (content) content.classList.remove('is-hidden');
 }
-function dropKeyAndPrompt() { mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid'); }
+function dropKeyAndPrompt() {
+  // A refused host key is not retried on this page load: every rejection counts toward the host's IP ban.
+  if (hostKeyFromStore) hostKeyRejected = true;
+  hostKeyFromStore = false;
+  mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid');
+}
 function initAuthGate() {
   mgmtKey = readStoredKey();
   keyVerified = !!mgmtKey; // only keys the host already accepted are ever stored
+  if (!mgmtKey && !hostKeyRejected) {
+    mgmtKey = readHostKey();
+    hostKeyFromStore = !!mgmtKey; // not yet verified: requests stay sequential
+  }
   var form = document.getElementById('authForm');
   if (!form) return;
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     var input = document.getElementById('authKeyInput'), value = input ? String(input.value || '').trim() : '';
     if (!value) { showAuthGate('auth.empty'); return; }
-    mgmtKey = value; keyVerified = false;
+    mgmtKey = value; keyVerified = false; hostKeyFromStore = false;
     if (input) input.value = '';
     hideAuthGate();
     state.hasLoadedData = false; state.recordsExpanded = false;
@@ -964,6 +983,7 @@ function loadData(appendRecords, forceReplace) {
     if (!appendRecords) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset));
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
+    state.targetRecordsPage = null; // a failed page load must not redirect a later append
     if (err && err.authRequired) { dropKeyAndPrompt(); return; }
     // Prevent the surviving sibling response from painting after this request failed.
     if (state.abortCtrl) state.abortCtrl.abort(); state.pendingChanges=null; state.inFlight = false; setDashboardBusy(false);

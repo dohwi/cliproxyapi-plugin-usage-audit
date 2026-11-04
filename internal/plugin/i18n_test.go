@@ -29,9 +29,10 @@ func runDashboardNode(t *testing.T, script string) {
 	}
 }
 
-// The dashboard persists the language preference (localStorage, LANG_KEY), theme preference
-// (localStorage, THEME_KEY), and the management key (sessionStorage and optionally localStorage
-// for persistence across tabs/sessions, KEY_STORAGE).
+// The dashboard persists the language preference (localStorage, LANG_KEY), the theme preference
+// (localStorage, THEME_KEY) and, for the current tab only, the management key (sessionStorage,
+// KEY_STORAGE). It may read, never write, the host's own key entry (localStorage, HOST_AUTH_KEY).
+// The key must never be written to localStorage.
 func TestDashboardStorageContract(t *testing.T) {
 	html := plugin.DashboardHTML
 	if !strings.Contains(html, "var LANG_KEY = 'cpa_plugin_lang';") {
@@ -49,9 +50,10 @@ func TestDashboardStorageContract(t *testing.T) {
 		t.Fatal("main script not found")
 	}
 	total := strings.Count(script[1], "localStorage")
-	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|KEY_STORAGE)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, theme|KEY_STORAGE, key)\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)
-	if total != len(allowed) || total != 8 {
-		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 8)", total, len(allowed))
+	// HOST_AUTH_KEY is the host Management Center's own entry: read-only, never written or removed here.
+	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|HOST_AUTH_KEY)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, theme)\))`).FindAllString(script[1], -1)
+	if total != len(allowed) || total != 5 {
+		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 5)", total, len(allowed))
 	}
 	sessionTotal := strings.Count(script[1], "sessionStorage")
 	sessionAllowed := regexp.MustCompile(`sessionStorage\.(?:getItem\(KEY_STORAGE\)|setItem\(KEY_STORAGE, key\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)

@@ -12,7 +12,7 @@ This is a native plugin loaded inside CLIProxyAPI, not an independently authenti
 | `GET /summary`, `GET /records` | Management API (includes `auth_index`) |
 | `DELETE /records` | Clear stored records |
 
-The unauthenticated `/v0/resource/.../data/*` routes do not exist (HTTP 404). The static page therefore asks the operator for the management key; it is sent only as an `Authorization: Bearer` header (never in a URL), kept in the tab's `sessionStorage` after the host accepted it, and dropped on a 401/403. It is never written to `localStorage`, cookies or the server. Without a key the page sends no data request, because CLIProxyAPI counts every rejected management request toward a temporary IP ban. Usage data still exposes model/provider usage, timing, aliases and endpoint labels to anyone holding the key; aliases or source labels supplied by the host may themselves identify a deployment.
+The unauthenticated `/v0/resource/.../data/*` routes do not exist (HTTP 404). The static page therefore asks the operator for the management key; it is sent only as an `Authorization: Bearer` header (never in a URL), kept in the tab's `sessionStorage` after the host accepted it, and dropped on a 401/403. It is never written to `localStorage`, cookies or the server. As a convenience the page may read, never write, the key the host Management Center already stores for the same origin (`localStorage['cli-proxy-auth']`, including its `enc::v1::`/`enc::v2::` encoding). It is skipped when the host's "remember password" is off or its saved `apiBase` is another origin, and a host key that gets rejected is not retried during that page load. Without a key the page sends no data request, because CLIProxyAPI counts every rejected management request toward a temporary IP ban. Usage data still exposes model/provider usage, timing, aliases and endpoint labels to anyone holding the key; aliases or source labels supplied by the host may themselves identify a deployment.
 
 ## Response hardening
 
@@ -22,7 +22,7 @@ The dashboard page is served with a strict `Content-Security-Policy` (`default-s
 
 Raw API keys, auth IDs, prompts and failure response bodies are not persisted by the usage observer. Session/auth indexes and request metadata are operational data and must be protected. Store files are created with mode `0640` and directories with mode `0750`; use a trusted local data directory and restrict its ownership/group. Do not run sanitizing rewrites against an active writer: follow `docs/sanitization-runbook.md`.
 
-Never commit operational logs, auth files, tokens or real account identifiers. `testdata/usage-sample.jsonl` is synthetic. The dashboard persists its language preference (`localStorage`) and, for the current tab only, the accepted management key (`sessionStorage`).
+Never commit operational logs, auth files, tokens or real account identifiers. `testdata/usage-sample.jsonl` is synthetic. The dashboard persists its language and theme preferences (`localStorage`) and, for the current tab only, the accepted management key (`sessionStorage`).
 
 ## Verification
 
