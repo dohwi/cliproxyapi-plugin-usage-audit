@@ -999,12 +999,8 @@
   /* Snapshot pulses stay on the smallest meaningful visual group, never the dashboard. */
   .kpi-group.panel-pulse, #breakdownSection.panel-pulse, #recordsPanel.panel-pulse { animation: panelPulse 1s ease-out both; }
   @keyframes panelPulse { 0%, 100% { border-color: var(--border-color); } 45% { border-color: #94a3b8; } }
-  /* Theme switch: one uniform colour fade on every element (see swapTheme in app.js), so controls, cards and the
-     page all change on the same clock instead of each using its own transition. */
-  :root[data-theme-switching] *, :root[data-theme-switching] *::before, :root[data-theme-switching] *::after {
-    transition: background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease, fill 0.22s ease, stroke 0.22s ease, box-shadow 0.22s ease !important;
-    transition-delay: 0s !important;
-  }
+  /* Theme switch: no colour animation anywhere, everything changes in one step (see swapTheme in app.js). */
+  :root[data-theme-switching] *, :root[data-theme-switching] *::before, :root[data-theme-switching] *::after { transition: none !important; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     .skeleton-line { animation: none; opacity: 0.45; }
