@@ -7,6 +7,7 @@ var pendingDohwiTableUpdates = [];
 // shared with the other CLIProxyAPI plugin dashboards so one choice applies to all of them.
 // Order: saved choice → browser language (ko* → ko, else en) → en.
 var LANG_KEY = 'cpa_plugin_lang';
+var THEME_KEY = 'cpa_plugin_theme';
 var I18N = {
   ko: {
     'page.title': '토큰 사용량 대시보드',
@@ -46,11 +47,17 @@ var I18N = {
     'validate.both': '시작일과 종료일을 모두 선택하세요.',
     'validate.order': '시작일은 종료일보다 늦을 수 없습니다.',
     'auth.title': '관리 키가 필요합니다',
-    'auth.desc': '사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다.',
+    'auth.desc': '사용량 데이터는 관리 인증이 필요합니다. 관리 키는 브라우저에 안전하게 보관되며 주소나 서버에 기록되지 않습니다.',
     'auth.label': '관리 키',
     'auth.submit': '확인',
     'auth.empty': '관리 키를 입력하세요.',
     'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
+    'theme.system': '시스템', 'theme.light': '라이트', 'theme.dark': '다크',
+    'theme.label': '테마: {mode} (클릭하면 {next})',
+    'pagination.prev': '이전',
+    'pagination.next': '다음',
+    'pagination.page': '{page}페이지',
+    'pagination.aria': '최근 요청 페이지 탐색',
     'err.unavailable': '데이터 사용 불가',
     'err.http': '요청이 실패했습니다 (HTTP {s}).',
     'err.timeout': '요청 시간이 초과되었습니다. 다시 시도하세요.',
@@ -197,11 +204,17 @@ var I18N = {
     'validate.both': 'Select both a start and an end date.',
     'validate.order': 'The start date cannot be after the end date.',
     'auth.title': 'Management key required',
-    'auth.desc': 'Usage data requires management authentication. The key is kept only in this tab\'s session and is never written to the address or the server.',
+    'auth.desc': 'Usage data requires management authentication. The key is kept only in this tab\'s session and is never written to the address or the server. A key already saved by the Management Center is reused read-only.',
     'auth.label': 'Management key',
     'auth.submit': 'Continue',
     'auth.empty': 'Enter the management key.',
     'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
+    'theme.system': 'System', 'theme.light': 'Light', 'theme.dark': 'Dark',
+    'theme.label': 'Theme: {mode} (click for {next})',
+    'pagination.prev': 'Previous',
+    'pagination.next': 'Next',
+    'pagination.page': 'Page {page}',
+    'pagination.aria': 'Recent requests pagination',
     'err.unavailable': 'Data unavailable',
     'err.http': 'Request failed (HTTP {s}).',
     'err.timeout': 'The request timed out. Please try again.',
@@ -376,6 +389,7 @@ function applyStaticI18n() {
     el.setAttribute('aria-label', kvLabel(el.getAttribute('data-i18n-label'), /\d/.test(shown) ? shown : '0'));
   });
   eachNode('[data-i18n-count]', function(el) { el.textContent = tn(el.getAttribute('data-i18n-count'), (state.records && state.records.length) || 0); });
+  if (typeof applyTheme === 'function') applyTheme();
   // One toggle button: label/tooltip name the language a click switches to.
   eachNode('.lang-toggle', function(btn) {
     var label = t(currentLang === 'ko' ? 'lang.toEn' : 'lang.toKo');
@@ -412,6 +426,94 @@ function initLanguageControls() {
   applyStaticI18n();
 }
 
+// Theme: system (default) | light | dark, chosen with the toggle next to the language button.
+// "system" follows the host Management Center (light | dark; its white variant counts as light; auto resolves via the OS).
+// Only this choice is stored (THEME_KEY); the host's own theme entry is read, never written.
+// Inside the console iframe the parent's data-theme wins; otherwise cli-proxy-theme, then the OS.
+var HOST_THEME_KEY = 'cli-proxy-theme';
+var THEME_MODES = ['system', 'light', 'dark'];
+function readThemeMode() {
+  try { var v = localStorage.getItem(THEME_KEY); return THEME_MODES.indexOf(v) >= 0 ? v : 'system'; } catch (e) { return 'system'; }
+}
+var themeMode = readThemeMode();
+function osTheme() {
+  try { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'; } catch (e) {}
+  return 'light';
+}
+function hostTheme() {
+  try {
+    if (window.parent && window.parent !== window) {
+      var pt = window.parent.document.documentElement.getAttribute('data-theme');
+      return pt === 'dark' ? 'dark' : 'light';
+    }
+  } catch (e) {} // cross-origin parent: fall through to the stored choice
+  var saved = readHostStore(HOST_THEME_KEY), theme = saved && saved.state && saved.state.theme;
+  if (theme === 'dark') return 'dark';
+  if (theme === 'white' || theme === 'light') return 'light';
+  return theme === 'auto' || !theme ? osTheme() : 'light';
+}
+var THEME_ICONS = {
+  system: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  dark: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
+};
+function themeName(mode) { return mode === 'dark' ? t('theme.dark') : mode === 'light' ? t('theme.light') : t('theme.system'); }
+function paintTheme(next) {
+  var root = document.documentElement;
+  if (next === 'light') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next);
+}
+// The theme changes in a single step, with no colour animation. Controls carry their own colour transitions
+// (0.15s) while cards and the page do not, which made them change at different times; so for the swap every
+// transition is switched off (see [data-theme-switching] in the CSS) and restored right after the new colours
+// have been painted. Normal hover/focus transitions are unaffected.
+var themeSwitchTimer = 0;
+function swapTheme(next) {
+  var root = document.documentElement, current = root.getAttribute('data-theme') || 'light';
+  if (current === next) return;
+  root.setAttribute('data-theme-switching', '');
+  void root.offsetWidth; // commit "no transitions" before the colours change
+  paintTheme(next);
+  void root.offsetWidth; // resolve the new colours while transitions are still off
+  clearTimeout(themeSwitchTimer);
+  themeSwitchTimer = setTimeout(function() { root.removeAttribute('data-theme-switching'); }, 80);
+}
+function applyTheme() {
+  var next = themeMode === 'system' ? hostTheme() : themeMode, root = typeof document !== 'undefined' && document.documentElement;
+  if (root && root.setAttribute) { if (root.hasAttribute('data-theme-ready')) swapTheme(next); else { paintTheme(next); root.setAttribute('data-theme-ready', ''); } }
+  var after = THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length];
+  eachNode('.theme-toggle', function(btn) {
+    var label = t('theme.label', { mode: themeName(themeMode), next: themeName(after) });
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.setAttribute('data-theme-mode', themeMode);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + THEME_ICONS[themeMode] + '</svg>';
+  });
+}
+function setThemeMode(mode) {
+  if (THEME_MODES.indexOf(mode) < 0 || mode === themeMode) return;
+  themeMode = mode;
+  try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+  applyTheme();
+}
+function initThemeControls() {
+  applyTheme();
+  eachNode('.theme-toggle', function(btn) {
+    btn.addEventListener('click', function() {
+      setThemeMode(THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length]);
+    });
+  });
+  window.addEventListener('storage', function(e) {
+    if (!e) return;
+    if (e.key === THEME_KEY) { themeMode = readThemeMode(); applyTheme(); }
+    else if (e.key === HOST_THEME_KEY) applyTheme();
+  });
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme); } catch (e) {}
+  try {
+    if (window.parent && window.parent !== window) {
+      new MutationObserver(applyTheme).observe(window.parent.document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+  } catch (e) {}
+}
 
 // State management
 var state = {
@@ -426,6 +528,9 @@ var state = {
   hasMore: false,
   records: [],
   recordsExpanded: false,
+  recordsPage: 1,
+  pageSize: 20,
+  targetRecordsPage: null,
   drawerOpener: null,
   requestID: 0,
   pollTimer: null,
@@ -774,6 +879,37 @@ var mgmtKey = '';
 var keyVerified = false;
 function readStoredKey() { try { return sessionStorage.getItem(KEY_STORAGE) || ''; } catch (e) { return ''; } }
 function writeStoredKey(key) { try { if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE); } catch (e) {} }
+// Read-only reuse of the key the host Management Center already keeps for this origin
+// (HOST_AUTH_KEY, optionally obfuscated as enc::v1:: / enc::v2::). This page never writes
+// it back or keeps its own persistent copy. Any failure just means "ask the operator".
+var HOST_AUTH_KEY = 'cli-proxy-auth';
+var hostKeyFromStore = false; // true while the active key came from the host, not the form
+var hostKeyRejected = false;  // set after a host key was refused, so we never retry it
+// Parsed value of one of the host's own entries, undoing its optional enc::v1:: / enc::v2:: encoding.
+function readHostStore(name) {
+  try {
+    var raw = localStorage.getItem(name);
+    if (!raw) return null;
+    var m = /^enc::v([12])::/.exec(raw);
+    if (m) {
+      var scope = m[1] === '2' ? 'v2|' + location.host : location.host + '|' + navigator.userAgent;
+      var secret = new TextEncoder().encode('cli-proxy-api-webui::secure-storage|' + scope);
+      var bin = atob(raw.slice(m[0].length));
+      var bytes = Uint8Array.from(bin, function(c, i) { return c.charCodeAt(0) ^ secret[i % secret.length]; });
+      raw = new TextDecoder().decode(bytes);
+    }
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function readHostKey() {
+  try {
+    var saved = readHostStore(HOST_AUTH_KEY), auth = saved && (saved.state || saved);
+    if (!auth || !auth.managementKey || auth.rememberPassword === false) return '';
+    // A key saved for another server must not be sent to this one.
+    if (auth.apiBase && new URL(auth.apiBase, location.origin).origin !== location.origin) return '';
+    return String(auth.managementKey).trim();
+  } catch (e) { return ''; }
+}
 function authError() { var err = new Error('auth'); err.authRequired = true; return err; }
 function showAuthGate(messageKey) {
   if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
@@ -797,17 +933,26 @@ function hideAuthGate() {
   if (heading) heading.classList.remove('is-hidden');
   if (content) content.classList.remove('is-hidden');
 }
-function dropKeyAndPrompt() { mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid'); }
+function dropKeyAndPrompt() {
+  // A refused host key is not retried on this page load: every rejection counts toward the host's IP ban.
+  if (hostKeyFromStore) hostKeyRejected = true;
+  hostKeyFromStore = false;
+  mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid');
+}
 function initAuthGate() {
   mgmtKey = readStoredKey();
   keyVerified = !!mgmtKey; // only keys the host already accepted are ever stored
+  if (!mgmtKey && !hostKeyRejected) {
+    mgmtKey = readHostKey();
+    hostKeyFromStore = !!mgmtKey; // not yet verified: requests stay sequential
+  }
   var form = document.getElementById('authForm');
   if (!form) return;
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     var input = document.getElementById('authKeyInput'), value = input ? String(input.value || '').trim() : '';
     if (!value) { showAuthGate('auth.empty'); return; }
-    mgmtKey = value; keyVerified = false;
+    mgmtKey = value; keyVerified = false; hostKeyFromStore = false;
     if (input) input.value = '';
     hideAuthGate();
     state.hasLoadedData = false; state.recordsExpanded = false;
@@ -864,6 +1009,7 @@ function loadData(appendRecords, forceReplace) {
     if (!appendRecords) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset));
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
+    state.targetRecordsPage = null; // a failed page load must not redirect a later append
     if (err && err.authRequired) { dropKeyAndPrompt(); return; }
     // Prevent the surviving sibling response from painting after this request failed.
     if (state.abortCtrl) state.abortCtrl.abort(); state.pendingChanges=null; state.inFlight = false; setDashboardBusy(false);
@@ -1158,14 +1304,37 @@ function renderBreakdowns(data) {
 function renderRecords(data, append) {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar'), recordsList=[];
   if(Array.isArray(data)){recordsList=data;state.hasMore=false;state.cursor=null;}else if(data&&Array.isArray(data.records)){recordsList=data.records;state.hasMore=!!data.has_more;state.cursor=data.next_cursor||null;}
-  if(append){state.records=state.records.concat(recordsList);state.recordsExpanded=true;}else{state.records=recordsList;state.recordsExpanded=false;}
+  if(append){
+    state.records=state.records.concat(recordsList);
+    state.recordsExpanded=true;
+    if (state.targetRecordsPage) {
+      state.recordsPage = state.targetRecordsPage;
+      state.targetRecordsPage = null;
+    }
+  }else{
+    state.records=recordsList;
+    state.recordsExpanded=false;
+    state.recordsPage=1;
+    state.targetRecordsPage=null;
+  }
   paintRecords();
 }
 // Builds the table from state.records; reused when the language changes.
 function paintRecords() {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar');
-  countBadge.textContent=tn('records.count', state.records.length);
-  var rows=state.records.map(function(rec,idx) {
+  var totalRecords = (state.records && state.records.length) || 0;
+  countBadge.textContent=tn('records.count', totalRecords);
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
+  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+  var curPage = state.recordsPage;
+  var start = (curPage - 1) * pageSize;
+  var end = Math.min(start + pageSize, totalRecords);
+  var pageRecords = state.records.slice(start, end);
+
+  var rows=pageRecords.map(function(rec,relIdx) {
+    var idx = start + relIdx;
     var rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp, rawProv=rec.provider||rec.Provider||'-', displayProv=formatProvider(rawProv), model=rec.model||rec.Model||rec.alias||rec.Alias||'-', endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-', failed=!!(rec.failed||rec.Failed), recordKey='record:'+String(rec.id||rec.request_id||rawT||idx), changes=state.pendingChanges&&state.pendingChanges.records;
     var parsedTime=new Date(rawT), mobileTime=Number.isNaN(parsedTime.getTime())?'—':parsedTime.toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit',hour12:false}); // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
     // Compose semantic UI Table cells without HTML string concatenation (legacy: mobileTime.textContent). // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
@@ -1185,13 +1354,107 @@ function paintRecords() {
   });
   if(window.renderDohwiTable)window.renderDohwiTable('recordsTableMount',rows,t('empty.records'));else window.pendingDohwiTableUpdates=(window.pendingDohwiTableUpdates||[]).concat([['recordsTableMount',rows,t('empty.records')]]);
   var renderedRows=document.querySelectorAll('#recordsBody tr.ui-table-row');
-  renderedRows.forEach(function(row,index){row.dataset.index=String(index);row.dataset.rowKey=rows[index]?rows[index].key:'';var rec=state.records[index];if(rec&&state.pendingChanges&&state.pendingChanges.records['record:'+String(rec.id||rec.request_id||rec.requested_at||index)])applyPanelPulse(document.getElementById('recordsPanel'));});
-  loadMoreBar.classList.toggle('is-hidden', !state.hasMore);
+  renderedRows.forEach(function(row,relIndex){
+    var index = start + relIndex;
+    row.dataset.index=String(index);
+    row.dataset.rowKey=rows[relIndex]?rows[relIndex].key:'';
+    var rec=state.records[index];
+    if(rec&&state.pendingChanges&&state.pendingChanges.records['record:'+String(rec.id||rec.request_id||rec.requested_at||index)])applyPanelPulse(document.getElementById('recordsPanel'));
+  });
+  updatePaginationControls();
 }
+
+function updatePaginationControls() {
+  var loadMoreBar = DOM.loadMoreBar || document.getElementById('loadMoreBar');
+  if (!loadMoreBar) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
+  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+  var curPage = state.recordsPage;
+  var maxPage = state.hasMore ? loadedPages + 1 : loadedPages;
+
+  loadMoreBar.classList.toggle('is-hidden', totalRecords === 0 || (loadedPages <= 1 && !state.hasMore));
+
+  var prevBtn = document.getElementById('recordsPrevBtn');
+  var nextBtn = document.getElementById('recordsNextBtn');
+  var pageList = document.getElementById('recordsPageList');
+
+  if (prevBtn) {
+    var prevDisabled = curPage <= 1;
+    prevBtn.disabled = prevDisabled;
+    prevBtn.setAttribute('aria-disabled', prevDisabled ? 'true' : 'false');
+  }
+  if (nextBtn) {
+    var nextDisabled = curPage >= loadedPages && !state.hasMore;
+    nextBtn.disabled = nextDisabled;
+    nextBtn.setAttribute('aria-disabled', nextDisabled ? 'true' : 'false');
+  }
+
+  if (pageList) {
+    pageList.replaceChildren();
+    var pagesToShow = [];
+    if (maxPage <= 7) {
+      for (var p = 1; p <= maxPage; p++) pagesToShow.push(p);
+    } else {
+      var s = Math.max(1, curPage - 2);
+      var e = Math.min(maxPage, curPage + 2);
+      if (s > 1) { pagesToShow.push(1); if (s > 2) pagesToShow.push('...'); }
+      for (var p = s; p <= e; p++) pagesToShow.push(p);
+      if (e < maxPage) { if (e < maxPage - 1) pagesToShow.push('...'); pagesToShow.push(maxPage); }
+    }
+
+    pagesToShow.forEach(function(item) {
+      if (item === '...') {
+        var span = document.createElement('span');
+        span.className = 'records-page-ellipsis';
+        span.textContent = '…';
+        pageList.appendChild(span);
+      } else {
+        var pNum = item;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ui-pagination-link' + (pNum === curPage ? ' active' : '');
+        if (pNum === curPage) {
+          btn.setAttribute('data-active', 'true');
+          btn.setAttribute('aria-current', 'page');
+        }
+        btn.setAttribute('aria-label', t('pagination.page', { page: pNum }));
+        btn.textContent = String(pNum);
+        btn.addEventListener('click', function() {
+          if (pNum === curPage) return;
+          if (pNum <= loadedPages) {
+            state.recordsPage = pNum;
+            paintRecords();
+          } else if (pNum === loadedPages + 1 && state.hasMore) {
+            loadNextRecordsPage();
+          }
+        });
+        pageList.appendChild(btn);
+      }
+    });
+  }
+}
+
+function loadNextRecordsPage() {
+  if (state.inFlight) return;
+  if (!state.hasMore || !state.cursor) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  state.targetRecordsPage = loadedPages + 1;
+  loadData(true);
+}
+
 function loadMoreRecords() {
   if (state.inFlight) return;
   if (state.snapshotFilterKey !== snapshotFilterKey()) { loadData(false, true); return; }
   if (!state.hasMore || !state.cursor) return;
+  var totalRecords = (state.records && state.records.length) || 0;
+  var pageSize = state.pageSize || 20;
+  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  state.targetRecordsPage = loadedPages + 1;
   loadData(true);
 }
 // Record detail modal: focus-safe dialog/sheet with reversible body scroll lock.
@@ -1347,8 +1610,33 @@ function bindDashboardEvents() {
     field.addEventListener('change', applyCustomDatesWhenReady);
     field.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); applyFilters(); } });
   });
+
+  var prevBtn = document.getElementById('recordsPrevBtn');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function() {
+      if (state.recordsPage > 1) {
+        state.recordsPage--;
+        paintRecords();
+      }
+    });
+  }
+  var nextBtn = document.getElementById('recordsNextBtn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function() {
+      var totalRecords = (state.records && state.records.length) || 0;
+      var pageSize = state.pageSize || 20;
+      var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+      if (state.recordsPage < loadedPages) {
+        state.recordsPage++;
+        paintRecords();
+      } else if (state.hasMore && state.cursor) {
+        loadNextRecordsPage();
+      }
+    });
+  }
 }
 // The static DOM is already present: bind interactions before starting requests too.
+initThemeControls();
 initLanguageControls();
 bindDashboardEvents();
 initAuthGate();

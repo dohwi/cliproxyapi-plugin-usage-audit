@@ -402,7 +402,7 @@
 <style data-dohwi-ui="native">
   :root { --primary: var(--accent-blue); --primary-foreground: #ffffff; --secondary: var(--filter-control-hover-bg); --secondary-foreground: var(--text-primary); --focus-border: var(--filter-control-focus); }
   .ui-tabs-list { position: relative; isolation: isolate; }
-  .ui-tabs-indicator { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; border-radius: var(--radius-pill); background: #e8eef5; }
+  .ui-tabs-indicator { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; border-radius: var(--radius-pill); background: var(--surface-tab-active, #e8eef5); }
   .ui-tabs-list[data-indicator-ready] > .tab-btn.active { background: transparent; }
   .ui-button:focus-visible { outline: 2px solid var(--focus-border); outline-offset: 2px; }
   /* Layout-only adapter over actual dohwi-ui Table components. */
@@ -417,10 +417,10 @@
   .usage-table-scroll .ui-table-cell .badge { margin-inline: auto; }
   /* Quiet table: no outer box, no header fill; hairlines only between rows. */
   .usage-table-scroll .ui-table { border: 0; border-radius: 0; }
-  .usage-table-scroll .ui-table-head { background: #fff; color: var(--text-muted); font-size: .75rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 8px 16px; }
+  .usage-table-scroll .ui-table-head { background: var(--bg-card); color: var(--text-muted); font-size: .75rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 8px 16px; }
   .usage-table-scroll .ui-table-cell { padding: 8px 16px; border-bottom: 1px solid var(--border-subtle); }
   .usage-table-scroll .ui-table-row:last-child > .ui-table-cell { border-bottom: 0; }
-  .usage-table-scroll .ui-table-body .ui-table-row:hover { background: #f8fafc; }
+  .usage-table-scroll .ui-table-body .ui-table-row:hover { background: var(--surface-hover); }
   .usage-table-scroll .ui-table-cell.table-empty { text-align: center; }
   .usage-table-scroll .ui-table-body .ui-table-row:has(.table-empty):hover { background: transparent; }
 
@@ -652,9 +652,12 @@
   <section id="authGate" class="card auth-gate is-hidden" aria-labelledby="authGateTitle">
     <div class="auth-gate-head">
       <h2 id="authGateTitle" data-i18n="auth.title">관리 키가 필요합니다</h2>
-      <button type="button" class="lang-toggle" id="authLanguageToggle" aria-label="English" title="English"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
+      <div class="auth-gate-actions">
+        <button type="button" class="lang-toggle" id="authLanguageToggle" aria-label="English" title="English"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
+        <button type="button" class="theme-toggle" id="authThemeToggle" aria-label="Theme" title="Theme"></button>
+      </div>
     </div>
-    <p class="auth-gate-desc" data-i18n="auth.desc">사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다.</p>
+    <p class="auth-gate-desc" data-i18n="auth.desc">사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다. 관리 센터에 저장된 키가 있으면 읽기 전용으로 재사용합니다.</p>
     <form id="authForm" class="auth-gate-form" novalidate>
       <label class="sr-only" for="authKeyInput" data-i18n="auth.label">관리 키</label>
       <input id="authKeyInput" class="input" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="512">
@@ -697,6 +700,7 @@
             </div>
             <div class="filter-language-field">
               <button type="button" class="lang-toggle" id="languageToggle" aria-label="English" title="English"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
+              <button type="button" class="theme-toggle" id="themeToggle" aria-label="Theme" title="Theme"></button>
             </div>
           </div>
         </div>
@@ -940,7 +944,24 @@
           </div>
           <div id="recordsTableMount"></div><!-- dohwi-ui TableBody: <tbody id="recordsBody"></tbody> -->
           <div class="pagination-bar is-hidden" id="loadMoreBar">
-            <button id="loadMoreBtn" class="btn btn-secondary" onclick="loadMoreRecords()" data-i18n="records.more">기록 더보기</button>
+            <button id="loadMoreBtn" class="btn btn-secondary is-hidden" onclick="loadMoreRecords()" data-i18n="records.more">기록 더보기</button>
+            <nav class="ui-pagination" id="recordsPagination" aria-label="최근 요청 페이지 탐색" data-i18n-aria="pagination.aria">
+              <ul class="ui-pagination-content">
+                <li>
+                  <button type="button" class="ui-pagination-link ui-pagination-direction" id="recordsPrevBtn" aria-label="이전" data-i18n-aria="pagination.prev">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    <span data-i18n="pagination.prev">이전</span>
+                  </button>
+                </li>
+                <li id="recordsPageList" class="records-page-list"></li>
+                <li>
+                  <button type="button" class="ui-pagination-link ui-pagination-direction" id="recordsNextBtn" aria-label="다음" data-i18n-aria="pagination.next">
+                    <span data-i18n="pagination.next">다음</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
       </div>
