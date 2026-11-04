@@ -1368,9 +1368,9 @@
     body .active-filter-badge { height: auto; min-height: 24px; max-height: 44px; flex: 1 1 auto; align-items: center; overflow: hidden; }
     body .active-filter-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   }
-  /* Very narrow: the footer holds [reset][theme][language]. Stack the "조회 조건" text above them instead of
+  /* Narrow phones: the footer holds [reset][theme][language]. Stack the "조회 조건" text above them instead of
      reserving 124px of padding that squeezes it to zero width. */
-  @media (max-width: 359px) {
+  @media (max-width: 479px) {
     body .filter-topmeta { flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: calc(var(--filter-control-height) + 44px + var(--space-1)); }
     body .filter-topmeta .active-filter-badge { padding-right: 0; width: 100%; flex: 0 0 auto; height: 44px; max-height: 44px; }
     body .filter-topmeta .filter-language-field { align-self: flex-end; }
