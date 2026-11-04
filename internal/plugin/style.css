@@ -1388,11 +1388,14 @@
   /* The tab group has a 1px border on each side that is not part of the card's content box; compensate so it spans the content width. */
   @media (max-width: 1099px) { body #breakdownSection .panel-heading .tab-nav { box-sizing: border-box; width: 100%; margin-inline: 0; border: 0; } }
 
+  /* Selected breakdown tab: a white pill with a soft shadow and hairline ring, like the selected period button
+     (the old tint was only ~1.05:1 against the group background and hard to tell apart). */
+  body .ui-tabs-indicator { background: var(--bg-card); box-shadow: 0 1px 3px rgba(16, 24, 40, 0.18), 0 0 0 1px rgba(16, 24, 40, 0.06); }
   /* ---- Dark Mode Component Theme Overrides ---- */
   :root[data-theme='dark'] .preset-btn { color: var(--text-secondary); }
   :root[data-theme='dark'] .preset-btn:hover { color: var(--text-primary); background: var(--surface-hover); }
   :root[data-theme='dark'] body .preset-btn.active, :root[data-theme='dark'] body #presetGroupControl .preset-btn.active, :root[data-theme='dark'] .preset-btn.active { color: var(--accent-blue-hover); background: var(--surface-tab-active); border-color: var(--border-focus); }
-  :root[data-theme='dark'] .ui-tabs-indicator { background: var(--surface-tab-active); }
+  :root[data-theme='dark'] .ui-tabs-indicator { background: var(--surface-tab-active); box-shadow: inset 0 0 0 1px var(--border-focus); }
   :root[data-theme='dark'] .tab-btn { color: var(--text-secondary); }
   :root[data-theme='dark'] .tab-btn:hover { color: var(--text-primary); }
   :root[data-theme='dark'] .tab-btn.active, :root[data-theme='dark'] body .tab-btn.active { color: var(--accent-blue-hover); background-color: transparent; box-shadow: none; }
