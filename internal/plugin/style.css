@@ -50,7 +50,7 @@
     --req-fg: #3f5f80;   --req-tint: #f0f4f8;   --req-strip: #b9cfe4;
 
     /* Single source of truth for the app's top offset */
-    --dashboard-top-offset: 24px;
+    --dashboard-top-offset: 88px; /* clears the console's floating buttons (to y=76px) */
     --surface-group: #f1f3f7;
 
     /* Base dohwi-ui fallback tokens */
@@ -875,7 +875,7 @@
     #breakdownSection .breakdown-table-wrap { flex: 1; min-height: 0; }
   }
   @media (max-width: 1199px) and (min-width: 768px) {
-    :root { --dashboard-top-offset: 20px; }
+    :root { --dashboard-top-offset: 88px; }
   }
   @media (max-width: 1199px) and (min-width: 768px) {
     #recordsPanel table { min-width: 680px; }
@@ -904,7 +904,7 @@
     .filter-fields-row { grid-template-columns: repeat(4, minmax(0, 1fr)) 76px; gap: 8px; }
   }
   @media (max-width: 767px) {
-    :root { --dashboard-top-offset: 16px; }
+    :root { --dashboard-top-offset: 72px; } /* menu button row ends at y=60px */
     .page-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; margin-bottom: 14px; }
     .page-heading h1 { font-size: 1.3rem; }
     body { padding-right: 10px; padding-bottom: 12px; padding-left: 10px; }

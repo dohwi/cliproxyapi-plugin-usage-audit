@@ -415,23 +415,23 @@ func TestRootTopSpacingRequirements(t *testing.T) {
 	body := plugin.DashboardHTML
 
 	// Exact var declarations.
-	if !strings.Contains(body, "--dashboard-top-offset: 24px;") {
-		t.Errorf("dashboard :root must declare --dashboard-top-offset: 24px;")
+	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
+		t.Errorf("dashboard :root must declare --dashboard-top-offset: 88px;")
 	}
-	if !strings.Contains(body, "--dashboard-top-offset: 20px;") {
+	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
 		t.Errorf("dashboard must set --dashboard-top-offset: 20px at the <=1199px breakpoint")
 	}
-	if !strings.Contains(body, "--dashboard-top-offset: 16px;") {
+	if !strings.Contains(body, "--dashboard-top-offset: 72px;") {
 		t.Errorf("dashboard must set --dashboard-top-offset: 16px at the <=767px breakpoint")
 	}
 
 	// 20px must live inside a max-width:1199px media query, 16px inside max-width:767px.
 	mediaRe := regexp.MustCompile(`(?s)@media[^{]*max-width: 1199px[^{]*\{(.*?)\n  \}`)
-	if m := mediaRe.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 20px;") {
+	if m := mediaRe.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
 		t.Errorf("20px var must be declared within the <=1199px media query")
 	}
 	media767Re := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := media767Re.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 16px;") {
+	if m := media767Re.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 72px;") {
 		t.Errorf("16px var must be declared within the <=767px media query")
 	}
 
@@ -754,20 +754,20 @@ func TestUpdateStatusRemoved(t *testing.T) {
 	}
 }
 
-// TestTopOffset24_20_16: dashboard-top-offset 정확히 128/96/16px.
-func TestTopOffset24_20_16(t *testing.T) {
+// TestTopOffset88_88_72: dashboard-top-offset 정확히 88/88/72px (콘솔 플로팅 버튼 아래).
+func TestTopOffset88_88_72(t *testing.T) {
 	body := plugin.DashboardHTML
 
-	if !strings.Contains(body, "--dashboard-top-offset: 24px;") {
-		t.Errorf("desktop top offset must be 24px")
+	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
+		t.Errorf("desktop top offset must be 88px")
 	}
 	mediaTablet := regexp.MustCompile(`(?s)@media[^{]*max-width: 1199px[^{]*\{(.*?)\n  \}`)
-	if m := mediaTablet.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 20px;") {
-		t.Errorf("tablet top offset must be 20px inside <=1199px media query")
+	if m := mediaTablet.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
+		t.Errorf("tablet top offset must be 88px inside <=1199px media query")
 	}
 	mediaMobile := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := mediaMobile.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 16px;") {
-		t.Errorf("mobile top offset must be 16px inside <=767px media query")
+	if m := mediaMobile.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 72px;") {
+		t.Errorf("mobile top offset must be 72px inside <=767px media query")
 	}
 }
 
