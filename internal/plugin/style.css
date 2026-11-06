@@ -177,7 +177,7 @@
   /* One page, not a card containing every other card. */
   #dashboardContent { min-width: 0; }
   /* Shared header: description/time share a baseline; freshness is one compact group. */
-  .page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; margin-bottom: 18px; min-width: 0; }
+  .page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
   /* Keep language controls in normal filter flow, below the host's floating tools. */
   .filter-language-field { flex: 0 0 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
   .lang-toggle, .theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--filter-control-height, 38px); height: var(--filter-control-height, 38px); padding: 0; border: 1px solid var(--filter-control-border); border-radius: var(--filter-control-radius); background: var(--filter-control-bg); color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
@@ -185,8 +185,12 @@
   .lang-toggle:focus-visible, .theme-toggle:focus-visible { outline: 2px solid var(--filter-control-focus); outline-offset: 1px; }
   .lang-toggle svg, .theme-toggle svg { display: block; pointer-events: none; }
   .page-heading-copy { min-width: 0; }
+  /* Header: one row, logo + title on the left and language/theme on the right. */
+  .page-heading { grid-template-areas: "brand actions"; }
+  .page-heading-brand { grid-area: brand; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .page-logo { flex: none; width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
+  .page-heading-actions { grid-area: actions; display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .page-heading h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.3; }
-  .page-heading p { margin-top: 4px; color: var(--text-secondary); font-size: 0.8125rem; line-height: 20px; }
   /* Quota-aligned unified freshness and refresh controls. */
   .dashboard-control-panel {
     background: var(--bg-card);
@@ -905,7 +909,7 @@
   }
   @media (max-width: 767px) {
     :root { --dashboard-top-offset: 88px; } /* iframe width != host width: one value fits all */
-    .page-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; margin-bottom: 14px; }
+    .page-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; margin-bottom: 10px; }
     .page-heading h1 { font-size: 1.3rem; }
     body { padding-right: 10px; padding-bottom: 12px; padding-left: 10px; }
     .container { width: 100%; }
@@ -1038,7 +1042,6 @@
   body .card { border-color: var(--border-color); box-shadow: var(--card-shadow); padding: var(--space-3); margin-bottom: 0; }
   body .page-heading { margin-bottom: var(--space-2); }
   body .page-heading h1 { font-size: 1.625rem; }
-  body .page-heading p { margin-top: 4px; }
   body #dashboardContent { display: grid; gap: var(--space-2); }
   body #dashboardContent > * { min-width: 0; }
 
@@ -1065,6 +1068,8 @@
   body .filter-field { gap: var(--space-1); }
   body .filter-field label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
   body .filter-topmeta { min-height: var(--filter-control-height); border-top: 0; }
+  /* Language/theme moved to the page header: on wide screens this row only holds the conditions text. */
+  @media (min-width: 768px) { body .filter-topmeta { min-height: 24px; } }
   body .filter-fields-row { gap: var(--space-2); }
   body .filter-period-row { gap: var(--space-2); }
   body .active-filter-badge { height: 24px; align-items: center; overflow: auto; }
@@ -1357,23 +1362,16 @@
     body #presetGroupControl .preset-btn { min-width: 0; }
   }
 
-  /* ---- Mobile filter footer: "조회 조건" text on the left, [reset][language] buttons on the right, one row ---- */
+  /* ---- Mobile filter footer: "조회 조건" text on the left, the reset button on the right, one row ---- */
   @media (max-width: 767px) {
     body .filter-panel { position: relative; }
-    /* The reset button is lifted out of the fields grid into the footer row, left of the theme and language toggles (2 x (44px + 8px gap)). */
-    body .filter-reset-field { position: absolute; right: calc(2 * (var(--filter-control-height) + var(--space-1))); bottom: 0; width: 72px; z-index: 1; grid-column: auto; }
+    /* The reset button is lifted out of the fields grid into the footer row, at the right end. */
+    body .filter-reset-field { position: absolute; right: 0; bottom: 0; width: 72px; z-index: 1; grid-column: auto; }
     body .filter-reset-field .btn, body #filterForm .filter-reset-button { width: 72px; min-width: 72px; padding: 0 8px; }
     body .filter-topmeta { gap: var(--space-1); min-height: var(--filter-control-height); }
-    body .filter-topmeta .active-filter-badge { padding-right: calc(72px + var(--filter-control-height) + var(--space-1)); }
+    body .filter-topmeta .active-filter-badge { padding-right: calc(72px + var(--space-1)); }
     body .active-filter-badge { height: auto; min-height: 24px; max-height: 44px; flex: 1 1 auto; align-items: center; overflow: hidden; }
     body .active-filter-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-  }
-  /* Narrow phones: the footer holds [reset][theme][language]. Stack the "조회 조건" text above them instead of
-     reserving 124px of padding that squeezes it to zero width. */
-  @media (max-width: 479px) {
-    body .filter-topmeta { flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: calc(var(--filter-control-height) + 44px + var(--space-1)); }
-    body .filter-topmeta .active-filter-badge { padding-right: 0; width: 100%; flex: 0 0 auto; height: 44px; max-height: 44px; }
-    body .filter-topmeta .filter-language-field { align-self: flex-end; }
   }
 
   /* ---- Breakdown tabs: full-width equal tabs wherever the heading stacks (<1100px) ---- */

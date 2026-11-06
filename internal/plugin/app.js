@@ -12,7 +12,6 @@ var I18N = {
   ko: {
     'page.title': '토큰 사용량 대시보드',
     'page.heading': '토큰 사용량',
-    'page.sub': '요청과 토큰 사용량을 한눈에 확인하세요.',
     'lang.label': '언어',
     'lang.toEn': 'English로 전환',
     'lang.toKo': '한국어로 전환',
@@ -169,7 +168,6 @@ var I18N = {
   en: {
     'page.title': 'Token Usage Dashboard',
     'page.heading': 'Token Usage',
-    'page.sub': 'See requests and token usage at a glance.',
     'lang.label': 'Language',
     'lang.toEn': 'Switch to English',
     'lang.toKo': 'Switch to Korean',
