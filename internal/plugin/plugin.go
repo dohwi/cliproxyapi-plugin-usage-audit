@@ -31,7 +31,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.4.3"
+	pluginVersion = "0.4.4"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"

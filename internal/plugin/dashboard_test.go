@@ -421,7 +421,7 @@ func TestRootTopSpacingRequirements(t *testing.T) {
 	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
 		t.Errorf("dashboard must set --dashboard-top-offset: 20px at the <=1199px breakpoint")
 	}
-	if !strings.Contains(body, "--dashboard-top-offset: 72px;") {
+	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
 		t.Errorf("dashboard must set --dashboard-top-offset: 16px at the <=767px breakpoint")
 	}
 
@@ -431,7 +431,7 @@ func TestRootTopSpacingRequirements(t *testing.T) {
 		t.Errorf("20px var must be declared within the <=1199px media query")
 	}
 	media767Re := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := media767Re.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 72px;") {
+	if m := media767Re.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
 		t.Errorf("16px var must be declared within the <=767px media query")
 	}
 
@@ -754,8 +754,8 @@ func TestUpdateStatusRemoved(t *testing.T) {
 	}
 }
 
-// TestTopOffset88_88_72: dashboard-top-offset 정확히 88/88/72px (콘솔 플로팅 버튼 아래).
-func TestTopOffset88_88_72(t *testing.T) {
+// TestTopOffset88_88_88: dashboard-top-offset 정확히 88px on all widths (콘솔 플로팅 버튼 아래).
+func TestTopOffset88_88_88(t *testing.T) {
 	body := plugin.DashboardHTML
 
 	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
@@ -766,8 +766,8 @@ func TestTopOffset88_88_72(t *testing.T) {
 		t.Errorf("tablet top offset must be 88px inside <=1199px media query")
 	}
 	mediaMobile := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := mediaMobile.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 72px;") {
-		t.Errorf("mobile top offset must be 72px inside <=767px media query")
+	if m := mediaMobile.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
+		t.Errorf("mobile top offset must be 88px inside <=767px media query")
 	}
 }
 

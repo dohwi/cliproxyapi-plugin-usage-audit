@@ -904,7 +904,7 @@
     .filter-fields-row { grid-template-columns: repeat(4, minmax(0, 1fr)) 76px; gap: 8px; }
   }
   @media (max-width: 767px) {
-    :root { --dashboard-top-offset: 72px; } /* menu button row ends at y=60px */
+    :root { --dashboard-top-offset: 88px; } /* iframe width != host width: one value fits all */
     .page-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; margin-bottom: 14px; }
     .page-heading h1 { font-size: 1.3rem; }
     body { padding-right: 10px; padding-bottom: 12px; padding-left: 10px; }
