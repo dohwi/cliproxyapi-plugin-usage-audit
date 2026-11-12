@@ -101,11 +101,24 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 		}
 	}
 
-	// 4. Manual refresh controls and persisted interval choices are removed.
-	for _, forbidden := range []string{`id="autoRefreshSelect"`, `id="refreshBtn"`, "cpaAutoRefreshSec", "manualRefresh"} {
+	// 4. The auto-refresh picker and persisted interval choices stay removed; the only manual
+	// control is the icon-only refresh button in the page header (no label, no interval).
+	for _, forbidden := range []string{`id="autoRefreshSelect"`, "cpaAutoRefreshSec", "manualRefresh"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("Dashboard HTML retains removed refresh UI/logic %q", forbidden)
 		}
+	}
+
+	// The header refresh icon exists, sits with the other header actions and is labelled.
+	actions := body[strings.Index(body, `class="page-heading-actions"`):]
+	actions = actions[:strings.Index(actions, "</header>")]
+	for _, want := range []string{`id="refreshBtn"`, `data-i18n-aria="refresh"`, `id="languageToggle"`} {
+		if !strings.Contains(actions, want) {
+			t.Errorf("page header actions missing %q", want)
+		}
+	}
+	if strings.Index(actions, `id="refreshBtn"`) > strings.Index(actions, `id="languageToggle"`) {
+		t.Error("refresh icon must come before the language toggle")
 	}
 
 	// 5. Verification of JS logic keywords and contracts
@@ -925,7 +938,7 @@ func TestV53UnifiedControlPanelAndSelfHostedFontCSS(t *testing.T) {
 	}
 
 	// Removed controls stay absent.
-	for _, forbidden := range []string{`id="autoRefreshSelect"`, `id="refreshBtn"`, "cpaAutoRefreshSec", "manualRefresh"} {
+	for _, forbidden := range []string{`id="autoRefreshSelect"`, "cpaAutoRefreshSec", "manualRefresh"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("adaptive control panel retains %q", forbidden)
 		}
