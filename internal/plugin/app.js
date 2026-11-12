@@ -15,6 +15,7 @@ var I18N = {
     'lang.label': '언어',
     'lang.toEn': 'English로 전환',
     'lang.toKo': '한국어로 전환',
+    'refresh': '새로고침',
     'retry': '다시 시도',
     'period.aria': '기간 선택',
     'preset.today': '오늘', 'preset.yesterday': '어제', 'preset.7d': '7일', 'preset.30d': '30일', 'preset.month': '이번 달', 'preset.custom': '직접',
@@ -171,6 +172,7 @@ var I18N = {
     'lang.label': 'Language',
     'lang.toEn': 'Switch to English',
     'lang.toKo': 'Switch to Korean',
+    'refresh': 'Refresh',
     'retry': 'Retry',
     'period.aria': 'Select period',
     'preset.today': 'Today', 'preset.yesterday': 'Yesterday', 'preset.7d': '7 days', 'preset.30d': '30 days', 'preset.month': 'This month', 'preset.custom': 'Custom',
@@ -837,6 +839,9 @@ function scheduleNextPoll(delayMs) {
 function setDashboardBusy(busy) {
   var content = DOM.dashboardContent || document.getElementById('dashboardContent');
   if (content) content.setAttribute('aria-busy', busy ? 'true' : 'false');
+  // The header refresh icon spins and is disabled while a load is in flight.
+  var btn = document.getElementById('refreshBtn');
+  if (btn) { btn.disabled = !!busy; if (busy) btn.classList.add('is-spinning'); else btn.classList.remove('is-spinning'); }
 }
 
 function renderSkeletons() {
@@ -1523,6 +1528,8 @@ function initDashboard() {
   DOM.recordsCountBadge = document.getElementById('recordsCountBadge');
   DOM.loadMoreBar = document.getElementById('loadMoreBar');
   DOM.recordDialog = document.getElementById('recordDialog'); DOM.detailOverlay = document.getElementById('detailOverlay'); DOM.dialogBody = document.getElementById('dialogBody'); DOM.recordDialogClose = document.getElementById('recordDialogClose');
+  var headerRefresh = document.getElementById('refreshBtn');
+  if (headerRefresh) headerRefresh.addEventListener('click', function() { if (state.inFlight) return; state.recordsExpanded = false; loadData(false, true); });
   if (DOM.retryLoadBtn) DOM.retryLoadBtn.addEventListener('click', function() { state.recordsExpanded = false; loadData(false, true); });
   if (DOM.recordDialogClose) DOM.recordDialogClose.addEventListener('click', closeDrawer);
   if (DOM.detailOverlay) DOM.detailOverlay.addEventListener('click', function(e) { if (e.target === DOM.detailOverlay) closeDrawer(); });

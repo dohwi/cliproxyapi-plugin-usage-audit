@@ -132,6 +132,20 @@ const hangul = s => /[가-힣]/.test(s);
       await page.evaluate(() => { localStorage.setItem('cpa_plugin_lang', 'ko'); window.dispatchEvent(new StorageEvent('storage', { key: 'cpa_plugin_lang', newValue: 'ko' })); });
       if ((await page.evaluate(() => document.documentElement.lang)) !== 'ko') fail.push(`${locale}: storage event not followed`);
 
+      // The header refresh icon reloads the data without changing the language or the label.
+      for (const lang of [base, other]) {
+        await switchLang(page, lang);
+        const hits = []; const onReq = r => { if (/\/data\/(summary|records)/.test(r.url())) hits.push(r.url()); };
+        page.on('request', onReq);
+        await page.click('#refreshBtn');
+        await page.waitForTimeout(400);
+        page.off('request', onReq);
+        const st = await page.evaluate(() => ({ lang: document.documentElement.lang, stored: localStorage.getItem('cpa_plugin_lang'), label: document.getElementById('refreshBtn').getAttribute('aria-label'), disabled: document.getElementById('refreshBtn').disabled }));
+        if (hits.length < 2) fail.push(`${locale}/${lang}: refresh click did not reload summary+records (${hits.length})`);
+        if (st.lang !== lang || st.stored !== lang) fail.push(`${locale}/${lang}: refresh click changed language -> ${st.lang}/${st.stored}`);
+        if (st.label !== (lang === 'en' ? 'Refresh' : '새로고침')) fail.push(`${locale}/${lang}: refresh label ${st.label}`);
+        if (st.disabled) fail.push(`${locale}/${lang}: refresh button stayed disabled after the load finished`);
+      }
       // persistence
       await switchLang(page, 'en');
       await page.reload();
