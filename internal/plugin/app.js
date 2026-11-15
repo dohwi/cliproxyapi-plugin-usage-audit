@@ -3,25 +3,16 @@ var DOM = {};
 var pendingDohwiTableUpdates = [];
 
 // ── i18n ────────────────────────────────────────────────────────────────────
-// The language preference (LANG_KEY, 'ko' | 'en') is shared with the other CLIProxyAPI plugin
-// dashboards so one choice applies to all of them. The page also follows the host Management
-// Center's language ("last action wins"): the host language is the parent page's <html lang>,
-// else its persisted HOST_LANG_KEY entry (read only: never written or removed here).
-// LANG_HOST_KEY remembers the host language at the moment LANG_KEY was written, so a host change
-// made after the plugin's own toggle wins, while the toggle wins until the host changes again.
-// Order: host language (if it changed since LANG_KEY was saved) → saved choice → browser language
-// (ko* → ko, else en) → en.
-var LANG_KEY = 'cpa_plugin_lang';
-var HOST_LANG_KEY = 'cli-proxy-language';
-var LANG_HOST_KEY = 'cpa_plugin_lang_host';
+// Page languages: en, ko, zh-CN. The preference (LANG_PREF_KEY, shared by every dohwi plugin page)
+// is 'auto' by default, which follows the CLIProxyAPI console language; a value picked in the
+// language menu pins one language. See the @lang-core block below.
 var THEME_KEY = 'cpa_plugin_theme';
 var I18N = {
   ko: {
     'page.title': '토큰 사용량 대시보드',
     'page.heading': '토큰 사용량',
-    'lang.label': '언어',
-    'lang.toEn': 'English로 전환',
-    'lang.toKo': '한국어로 전환',
+    'lang.menu': '언어',
+    'lang.auto': 'CLIProxyAPI 설정 따르기',
     'refresh': '새로고침',
     'retry': '다시 시도',
     'period.aria': '기간 선택',
@@ -193,9 +184,8 @@ var I18N = {
   en: {
     'page.title': 'Token Usage Dashboard',
     'page.heading': 'Token Usage',
-    'lang.label': 'Language',
-    'lang.toEn': 'Switch to English',
-    'lang.toKo': 'Switch to Korean',
+    'lang.menu': 'Language',
+    'lang.auto': 'Follow CLIProxyAPI',
     'refresh': 'Refresh',
     'retry': 'Retry',
     'period.aria': 'Select period',
@@ -364,82 +354,364 @@ var I18N = {
     'dlg.endpointSource': 'Endpoint / Source',
     'dlg.latency': 'Total latency',
     'dlg.ttft': 'TTFT (time to first token)'
+  },
+  'zh-CN': {
+    'page.title': 'Token 用量仪表盘',
+    'page.heading': 'Token 用量',
+    'lang.menu': '语言',
+    'lang.auto': '跟随 CLIProxyAPI',
+    'refresh': '刷新',
+    'retry': '重试',
+    'period.aria': '选择时间范围',
+    'preset.today': '今天', 'preset.yesterday': '昨天', 'preset.7d': '7 天', 'preset.30d': '30 天', 'preset.month': '本月', 'preset.custom': '自定义',
+    'period.custom': '自定义范围', 'period.today': '今天', 'period.yesterday': '昨天', 'period.7d': '最近 7 天', 'period.30d': '最近 30 天', 'period.month': '本月',
+    'range.aria': '查询时间范围',
+    'range.pick': '选择日期范围',
+    'range.placeholder': '选择时间范围',
+    'range.title': '选择“自定义”后即可修改日期。',
+    'date.from': '开始日期',
+    'date.to': '结束日期',
+    'cal.prev': '上个月',
+    'cal.next': '下个月',
+    'cal.hint': '请选择结束日期',
+    'filter.activeLabel': '筛选条件',
+    'filter.activeAria': '当前筛选条件',
+    'filter.activeAriaFull': '当前筛选条件：{d}',
+    'filter.default': '今天 \u00b7 全部提供商 \u00b7 全部模型',
+    'filter.detail': '详细筛选',
+    'filter.providerAria': '提供商筛选',
+    'filter.endpointAria': '端点筛选',
+    'filter.modelAria': '模型筛选',
+    'filter.status': '状态',
+    'filter.statusAria': '状态筛选',
+    'filter.reset': '重置',
+    'filter.resetAria': '重置所有详细筛选',
+    'all': '全部',
+    'status.success': '仅成功',
+    'status.failed': '仅失败',
+    'validate.both': '请同时选择开始日期和结束日期。',
+    'validate.order': '开始日期不能晚于结束日期。',
+    'auth.title': '需要管理密钥',
+    'auth.desc': '查看用量数据需要管理认证。管理密钥只保存在此标签页的会话中，不会写入网址，也不会保存到服务器。如果管理中心已保存密钥，将以只读方式复用。',
+    'auth.label': '管理密钥',
+    'auth.submit': '确认',
+    'auth.empty': '请输入管理密钥。',
+    'auth.invalid': '管理密钥无效或访问被拒绝，请重新输入。',
+    'theme.system': '跟随系统', 'theme.light': '浅色', 'theme.dark': '深色',
+    'theme.label': '主题：{mode}（点击切换为{next}）',
+    'pagination.prev': '上一页',
+    'pagination.next': '下一页',
+    'pagination.page': '第 {page} 页',
+    'pagination.aria': '最近请求分页',
+    'err.unavailable': '数据不可用',
+    'err.http': '请求失败（HTTP {s}）。',
+    'err.timeout': '请求超时，请重试。',
+    'err.expanded': '当前显示的是已加载的记录。如需查看最新数据，请更改筛选条件或重试。',
+    'err.load': '加载数据失败：{e}',
+    'err.bad_request': '请求无效。',
+    'err.not_found': '找不到请求的路径。',
+    'err.store_not_ready': '用量存储尚未就绪，请稍后重试。',
+    'err.invalid_time_format': '日期或时间格式无效。',
+    'err.invalid_time_zone': '时区无效。',
+    'err.invalid_timezone_offset': '时区偏移无效。',
+    'err.invalid_range': '开始日期不能晚于结束日期。',
+    'err.future_from': '开始日期不能是未来的时间。',
+    'err.invalid_status': '状态筛选值无效。',
+    'err.invalid_limit': '每页条数超出允许范围。',
+    'err.summary_range_too_large': '时间范围过长，请缩短到 366 天以内。',
+    'err.summary_bucket_limit': '汇总分组过多，请缩短时间范围或增加筛选条件。',
+    'err.invalid_cursor': '分页位置无效，请从头重新加载。',
+    'err.cursor_expired': '记录在此期间已发生变化，请从头重新加载。',
+    'err.read_failed': '无法读取用量记录。',
+    'err.truncate_failed': '无法删除记录。',
+    'err.marshal_failed': '生成响应时出错。',
+    'flash.suffix': ' \u00b7 因服务器更新而变化',
+    'kpi.overview': '概览',
+    'kpi.overviewHelp': '按官方统计的请求数与总量',
+    'kpi.input': '输入',
+    'kpi.inputHelp': '提供商上报的输入及缓存构成',
+    'kpi.output': '输出',
+    'kpi.outputHelp': '模型生成及推理 Token',
+    'kpi.failPlaceholder': '失败：- 次（-）',
+    'kpi.fail': '失败：{n} 次（{r}）',
+    'kpi.gen': '生成请求：{n} 次',
+    'kpi.official': '官方统计',
+    'kpi.inputReported': '输入（上报值）',
+    'kpi.providerBasis': '按提供商上报',
+    'kpi.providerBasisTip': '数值由提供商上报，是否包含缓存取决于提供商的统计方式。',
+    'kpi.noCache': '不含缓存',
+    'kpi.cache': '缓存输入',
+    'kpi.reused': '复用的输入',
+    'kpi.cacheTip': '根据提供商的不同，缓存输入可能计入输入，也可能单独统计。',
+    'kpi.generated': '模型生成',
+    'kpi.reasoning': '推理',
+    'kpi.noDouble': '不重复计算',
+    'kpi.reasoningTip': '推理可能已包含在输出或总 Token 中，因此不再重复相加。',
+    'kpi.entities': '提供商 {p} 个 | 模型 {m} 个',
+    'lbl.requests': '请求总数',
+    'lbl.failedRequests': '失败请求',
+    'lbl.tokens': '总 Token',
+    'lbl.inputReported': '输入上报值',
+    'lbl.fresh': '新输入',
+    'lbl.output': '输出 Token',
+    'lbl.reasoning': '推理 Token',
+    'lbl.cache': '缓存复用 Token',
+    'aria.kv': '{l}：{v}',
+    'breakdown.title': '明细统计',
+    'breakdown.desc': '按筛选维度查看用量',
+    'breakdown.aria': '明细统计维度',
+    'chart.title': '用量趋势',
+    'chart.daily': '每日请求量',
+    'chart.summary': '{d} 天 \u00b7 共 {r} 次请求 \u00b7 峰值 {m} 次',
+    'chart.empty': '所选时间范围内没有请求',
+    'chart.aria': '每日请求趋势柱状图',
+    'chart.bar': '{date}，请求 {n} 次，查看详情',
+    'tip.requests': '请求：',
+    'tip.total': '总 Token（官方）：',
+    'tip.input': '输入（上报值）：',
+    'tip.output': '输出：',
+    'tip.failed': '失败：',
+    'tip.cache': '缓存（上报值，不可相加）：',
+    'tip.reasoning': '推理（上报值，不可相加）：',
+    'th.time': '时间',
+    'th.provider': '提供商',
+    'th.endpoint': '端点',
+    'th.endpointSource': '端点/来源',
+    'th.model': '模型',
+    'lbl.provider': '提供商',
+    'lbl.endpoint': '端点',
+    'lbl.model': '模型',
+    'th.requests': '请求',
+    'th.failed': '失败',
+    'th.tokens': 'Token',
+    'th.fresh': '新输入',
+    'th.cache': '缓存',
+    'th.output': '输出',
+    'th.total': '合计',
+    'th.latency': '延迟',
+    'th.status': '状态',
+    'tbl.provider': '提供商明细统计',
+    'tbl.endpoint': '端点明细统计',
+    'tbl.model': '模型明细统计',
+    'tbl.records': '最近请求记录表格滚动区域',
+    'loading.agg': '加载中…',
+    'loading.records': '正在加载数据…',
+    'empty.data': '暂无数据',
+    'empty.records': '没有可显示的记录。',
+    'empty.records.hint': '请尝试更改时间范围或筛选条件。',
+    'empty.data.hint': '没有符合所选条件的统计数据。',
+    'loading.hint': '请稍候。',
+    'chart.empty.hint': '请尝试扩大时间范围或更改筛选条件。',
+    'records.title': '最近请求记录',
+    'records.count': '{n} 条',
+    'records.count.one': '{n} 条',
+    'records.desc': '最新 20 条 \u00b7 可通过筛选和“加载更多”追踪完整日志',
+    'records.hint': '点击记录可查看完整的 Token、提供商和端点信息。',
+    'records.more': '加载更多',
+    'rec.success': '成功',
+    'rec.failed': '失败',
+    'rec.status': '请求状态',
+    'dialog.title': '请求详情',
+    'dialog.close': '关闭',
+    'dlg.basic': '基本请求信息',
+    'dlg.time': '请求时间',
+    'dlg.status': '状态',
+    'dlg.failureStatus': '失败状态',
+    'dlg.tokens': 'Token 与延迟',
+    'dlg.total': '总 Token（官方统计）',
+    'dlg.input': '输入（含缓存）',
+    'dlg.fresh': '新输入',
+    'dlg.output': '输出',
+    'dlg.reasoning': '推理',
+    'dlg.cached': '缓存输入',
+    'dlg.alias': '别名',
+    'dlg.endpointSource': '端点/来源',
+    'dlg.latency': '总延迟',
+    'dlg.ttft': '首 Token 延迟（TTFT）'
   }
 };
-var currentLang = 'ko';
 var lastSummaryData = null;
 
-function normalizeLang(value) {
-  var v = String(value || '').toLowerCase();
-  if (v.indexOf('ko') === 0) return 'ko';
-  if (v.indexOf('en') === 0) return 'en';
-  return null;
-}
-function readStoredLang() {
-  try { return normalizeLang(localStorage.getItem(LANG_KEY)); } catch (e) { return null; }
-}
-function readStoredLangHost() {
-  try { return localStorage.getItem(LANG_HOST_KEY) || ''; } catch (e) { return ''; }
-}
-function writeStoredLang(lang, host) {
-  try { localStorage.setItem(LANG_KEY, lang); localStorage.setItem(LANG_HOST_KEY, host); } catch (e) {}
-}
-// The host stores zustand persist JSON {"state":{"language":"ko"},"version":0}; older builds a bare string.
-function parseHostLang(raw) {
-  if (!raw) return '';
-  var v = raw;
-  try {
-    var p = JSON.parse(raw);
-    if (typeof p === 'string') v = p;
-    else if (p && typeof p === 'object') v = (p.state && p.state.language) || p.language || '';
-  } catch (e) {}
-  return typeof v === 'string' ? v.trim() : '';
-}
-// Raw host language ('' when unknown): same-origin parent <html lang>, else the host's stored entry.
+// ===== dohwi CLIProxyAPI plugins: shared language core + menu (keep in sync across plugins) =====
+// @lang-core-begin
+// Language preference shared by every dohwi plugin page (same origin):
+//   'auto' (default) follows the CLIProxyAPI console language; 'en' | 'ko' | 'zh-CN' pin one.
+// The console's own entry (cli-proxy-language) is read, never written or removed.
+// Older plugin versions used cpa_plugin_lang / cpa_plugin_lang_host; they are ignored on
+// purpose so every page starts on 'auto' again.
+var LANG_PREF_KEY = 'cpa_plugin_language';
+var HOST_LANG_KEY = 'cli-proxy-language';
+var LANGS = ['en', 'ko', 'zh-CN'];
+// Native names; never translated.
+var LANG_NAMES = { en: 'English', ko: '한국어', 'zh-CN': '简体中文' };
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function hostDoc() { try { if (window.parent && window.parent !== window) return window.parent.document; } catch (e) {} return null; }
+// hostLangRaw: the console language as the console stores it, '' when unknown.
+// Same-origin parent <html lang> first, then its persisted store: zustand JSON
+// {"state":{"language":"ko"}}, {"language":"ko"} or (older builds) the bare string.
 function hostLangRaw() {
-  try {
-    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-      var pl = window.parent.document.documentElement.getAttribute('lang');
-      if (pl && String(pl).trim()) return String(pl).trim();
-    }
-  } catch (e) {} // cross-origin parent: fall through to the stored entry
-  var raw = null;
-  try { raw = localStorage.getItem(HOST_LANG_KEY); } catch (e) { return ''; }
-  return parseHostLang(raw);
-}
-// Host language → page language: Korean stays Korean, every other host language shows English.
-function uiLang(raw) {
+  try { var d = hostDoc(), v = d && d.documentElement.getAttribute('lang'); if (v && String(v).trim()) return String(v).trim(); } catch (e) {}
+  var raw = lsGet(HOST_LANG_KEY);
   if (!raw) return '';
-  return /^ko\b/i.test(raw) ? 'ko' : 'en';
+  var j;
+  try { j = JSON.parse(raw); } catch (e) { return String(raw).trim(); }
+  if (typeof j === 'string') return j.trim();
+  var l = j && ((j.state && j.state.language) || j.language);
+  return typeof l === 'string' ? l.trim() : '';
 }
-function detectLang() {
-  var host = hostLangRaw(), stored = readStoredLang();
-  if (host && (!stored || readStoredLangHost() !== host)) return uiLang(host);
-  if (stored) return stored;
-  try {
-    var nav = typeof navigator !== 'undefined' ? navigator : null;
-    var list = nav && (nav.languages && nav.languages.length ? nav.languages : [nav.language]);
-    if (list && list[0]) return normalizeLang(list[0]) || 'en';
-  } catch (e) {}
+// normLang maps any BCP 47 tag to a page language: ko* → ko, zh* (zh-CN, zh-TW, zh-Hant…)
+// → zh-CN, everything else (en, ru, tr, vi…) → en. '' stays ''.
+function normLang(raw) {
+  var s = String(raw || '').trim().toLowerCase();
+  if (!s) return '';
+  if (/^ko(\b|-|_)/.test(s) || s === 'ko') return 'ko';
+  if (/^zh(\b|-|_)/.test(s) || s === 'zh') return 'zh-CN';
   return 'en';
 }
-currentLang = detectLang();
-var lastHostLang = hostLangRaw();
-function uiLocale() { return currentLang === 'en' ? 'en-US' : 'ko-KR'; }
+function readLangPref() { var v = lsGet(LANG_PREF_KEY); return v === 'auto' || LANGS.indexOf(v) >= 0 ? v : 'auto'; }
+function browserLang() {
+  var n = '';
+  try { n = (navigator.languages && navigator.languages[0]) || navigator.language || ''; } catch (e) {}
+  return normLang(n) || 'en';
+}
+// resolveLang: the language a preference shows right now.
+function resolveLang(pref) { return pref && pref !== 'auto' ? pref : (normLang(hostLangRaw()) || browserLang()); }
+function writeLangPref(pref) { lsSet(LANG_PREF_KEY, pref === 'auto' || LANGS.indexOf(pref) >= 0 ? pref : 'auto'); }
+// Intl locale for dates and numbers.
+function intlLocale(lang) { return lang === 'ko' ? 'ko-KR' : lang === 'zh-CN' ? 'zh-CN' : 'en-US'; }
+// @lang-core-end
+
+// ---- live follow: call once after the page applied its first language ----
+// onChange(newLang) is called only when the resolved language actually changes.
+function watchLanguage(getLang, onChange) {
+  function check() { var next = resolveLang(readLangPref()); if (next !== getLang()) onChange(next); }
+  try { window.addEventListener('storage', function (e) { if (!e || e.key === null || e.key === LANG_PREF_KEY || e.key === HOST_LANG_KEY) check(); }); } catch (e) {}
+  try { var d = hostDoc(); if (d && window.MutationObserver) new MutationObserver(check).observe(d.documentElement, { attributes: true, attributeFilter: ['lang'] }); } catch (e) {}
+  return check;
+}
+
+// ---- language menu (popover) ----
+// buttons: the page's language icon buttons (header and auth gate).
+// opts.t(key): translation; uses 'lang.menu' and 'lang.auto'.
+// opts.onSelect(pref): called after the preference was written.
+var LANG_CHECK_SVG = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function initLangMenu(buttons, opts) {
+  var menu = null, owner = null;
+  function label(b) {
+    var name = LANG_NAMES[resolveLang(readLangPref())] || '';
+    var text = opts.t('lang.menu') + ': ' + name;
+    b.setAttribute('aria-label', text); b.title = text;
+    b.setAttribute('aria-haspopup', 'menu');
+    b.setAttribute('aria-expanded', menu && owner === b ? 'true' : 'false');
+  }
+  function paintButtons() { for (var i = 0; i < buttons.length; i++) if (buttons[i]) label(buttons[i]); }
+  function items() { return menu ? Array.prototype.slice.call(menu.querySelectorAll('.lang-menu-item')) : []; }
+  function close(focusOwner) {
+    if (!menu) return;
+    var b = owner;
+    menu.parentNode && menu.parentNode.removeChild(menu);
+    menu = null; owner = null;
+    document.removeEventListener('pointerdown', onOutside, true);
+    window.removeEventListener('resize', onWinChange);
+    window.removeEventListener('scroll', onWinChange, true);
+    paintButtons();
+    if (focusOwner && b) b.focus();
+  }
+  function onOutside(e) { if (menu && !menu.contains(e.target) && e.target !== owner && !(owner && owner.contains(e.target))) close(false); }
+  function onWinChange() { close(false); }
+  function addItem(pref, text, sub) {
+    var it = document.createElement('button');
+    it.type = 'button'; it.className = 'lang-menu-item';
+    it.setAttribute('role', 'menuitemradio');
+    it.setAttribute('aria-checked', readLangPref() === pref ? 'true' : 'false');
+    it.setAttribute('data-pref', pref);
+    if (pref !== 'auto') it.setAttribute('lang', pref);
+    it.tabIndex = -1;
+    var check = document.createElement('span'); check.className = 'lang-menu-check'; check.innerHTML = LANG_CHECK_SVG; // static constant only
+    var main = document.createElement('span'); main.className = 'lang-menu-label'; main.textContent = text;
+    it.appendChild(check); it.appendChild(main);
+    if (sub) { var s = document.createElement('span'); s.className = 'lang-menu-sub'; s.textContent = sub; it.appendChild(s); }
+    it.addEventListener('click', function () { select(pref); });
+    menu.appendChild(it);
+  }
+  function select(pref) {
+    writeLangPref(pref);
+    close(true);
+    opts.onSelect(pref);
+    paintButtons();
+  }
+  function place(b) {
+    var r = b.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    var w = menu.offsetWidth, h = menu.offsetHeight, gap = 6, m = 8;
+    var left = Math.min(Math.max(m, r.right - w), Math.max(m, vw - w - m));
+    var top = r.bottom + gap;
+    if (top + h > vh - m && r.top - gap - h >= m) top = r.top - gap - h;
+    menu.style.left = Math.round(left) + 'px';
+    menu.style.top = Math.round(top) + 'px';
+  }
+  function open(b, focusWhich) {
+    close(false);
+    owner = b;
+    menu = document.createElement('div');
+    menu.className = 'lang-menu'; menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', opts.t('lang.menu'));
+    addItem('auto', opts.t('lang.auto'), LANG_NAMES[normLang(hostLangRaw()) || browserLang()]);
+    var sep = document.createElement('div'); sep.className = 'lang-menu-sep'; sep.setAttribute('role', 'separator'); menu.appendChild(sep);
+    for (var i = 0; i < LANGS.length; i++) addItem(LANGS[i], LANG_NAMES[LANGS[i]], '');
+    menu.addEventListener('keydown', onKey);
+    document.body.appendChild(menu);
+    place(b);
+    paintButtons();
+    var list = items(), idx = 0;
+    for (var j = 0; j < list.length; j++) if (list[j].getAttribute('aria-checked') === 'true') idx = j;
+    if (focusWhich === 'last') idx = list.length - 1;
+    if (list[idx]) list[idx].focus();
+    document.addEventListener('pointerdown', onOutside, true);
+    window.addEventListener('resize', onWinChange);
+    window.addEventListener('scroll', onWinChange, true);
+  }
+  function onKey(e) {
+    var list = items(), i = list.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); close(true); }
+    else if (e.key === 'Tab') { close(false); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); list[(i + 1) % list.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); list[(i - 1 + list.length) % list.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); list[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); list[list.length - 1].focus(); }
+  }
+  for (var i = 0; i < buttons.length; i++) (function (b) {
+    if (!b) return;
+    b.addEventListener('click', function () { if (menu && owner === b) close(true); else open(b); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); open(b); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); open(b, 'last'); }
+    });
+  })(buttons[i]);
+  paintButtons();
+  // Call after a language change so labels follow.
+  return { refresh: paintButtons, close: function () { close(false); } };
+}
+
+// ---- page glue ----
+var langPref = readLangPref();
+var currentLang = resolveLang(langPref);
+function uiLocale() { return intlLocale(currentLang); }
 
 function t(key, params) {
-  var table = I18N[currentLang] || I18N.ko;
+  var table = I18N[currentLang] || I18N.en;
   var s = table[key];
-  if (s == null) s = I18N.ko[key];
+  if (s == null) s = I18N.en[key];
   if (s == null) return key;
   if (params) s = s.replace(/\{(\w+)\}/g, function(m, k) { return params[k] != null ? String(params[k]) : m; });
   return s;
 }
-// Count-aware lookup: English has a '.one' variant where grammar needs it.
+// Count-aware lookup: a language may carry a '.one' variant where its grammar needs it (English).
 function tn(key, n, params) {
   var p = params || {};
   p.n = n;
-  if (currentLang === 'en' && Number(n) === 1 && Object.prototype.hasOwnProperty.call(I18N.en, key + '.one')) key += '.one';
+  var table = I18N[currentLang] || I18N.en;
+  if (Number(n) === 1 && Object.prototype.hasOwnProperty.call(table, key + '.one')) key += '.one';
   return t(key, p);
 }
 function kvLabel(labelKey, value) { return t('aria.kv', { l: t(labelKey), v: value }); }
@@ -449,6 +721,7 @@ function eachNode(selector, fn) {
   var list = document.querySelectorAll(selector);
   if (list && list.forEach) list.forEach(fn);
 }
+var langMenu = null;
 function applyStaticI18n() {
   if (typeof document === 'undefined') return;
   var root = document.documentElement;
@@ -464,19 +737,14 @@ function applyStaticI18n() {
   });
   eachNode('[data-i18n-count]', function(el) { el.textContent = tn(el.getAttribute('data-i18n-count'), (state.records && state.records.length) || 0); });
   if (typeof applyTheme === 'function') applyTheme();
-  // One toggle button: label/tooltip name the language a click switches to.
-  eachNode('.lang-toggle', function(btn) {
-    var label = t(currentLang === 'ko' ? 'lang.toEn' : 'lang.toKo');
-    btn.setAttribute('aria-label', label);
-    btn.setAttribute('title', label);
-    btn.setAttribute('data-current-lang', currentLang);
-  });
+  eachNode('.lang-toggle', function(btn) { btn.setAttribute('data-current-lang', currentLang); });
+  if (langMenu) langMenu.refresh();
 }
-function setLanguage(lang, fromStorage) {
-  var next = normalizeLang(lang);
+// setLanguage shows lang (a resolved page language) and re-renders; it never writes the preference.
+function setLanguage(lang) {
+  var next = LANGS.indexOf(lang) >= 0 ? lang : '';
   if (!next || next === currentLang) return;
   currentLang = next;
-  if (!fromStorage) writeStoredLang(next, hostLangRaw());
   applyStaticI18n();
   if (typeof window !== 'undefined' && window.renderDashboardLanguage) window.renderDashboardLanguage();
   // Re-derive everything that was built from translated text.
@@ -488,33 +756,18 @@ function setLanguage(lang, fromStorage) {
   var overlay = DOM.detailOverlay || document.getElementById('detailOverlay');
   if (overlay && overlay.classList && overlay.classList.contains('open') && state.openRecordIdx != null) showRecordDetail(state.openRecordIdx, state.drawerOpener);
 }
-function initLanguageControls() {
-  eachNode('.lang-toggle', function(btn) {
-    btn.addEventListener('click', function() { setLanguage(currentLang === 'ko' ? 'en' : 'ko'); });
-  });
-  if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('storage', function(e) {
-      if (!e) return;
-      if (e.key === LANG_KEY) setLanguage(e.newValue, true);
-      else if (e.key === HOST_LANG_KEY) followHostLang();
-    });
-  }
-  try {
-    if (window.parent && window.parent !== window && typeof MutationObserver !== 'undefined') {
-      new MutationObserver(followHostLang).observe(window.parent.document.documentElement, { attributes: true, attributeFilter: ['lang'] });
-    }
-  } catch (e) {} // cross-origin parent: the storage event still applies
-  applyStaticI18n();
+// selectLanguagePref stores a menu choice ('auto' | 'en' | 'ko' | 'zh-CN') and shows it.
+function selectLanguagePref(pref) {
+  writeLangPref(pref);
+  langPref = readLangPref();
+  setLanguage(resolveLang(langPref));
 }
-// The host language changed: it wins over the page's last choice. It is also written to LANG_KEY so
-// other open plugin pages follow through their LANG_KEY storage listener.
-function followHostLang() {
-  var h = hostLangRaw();
-  if (!h || h === lastHostLang) return;
-  lastHostLang = h;
-  var next = uiLang(h);
-  writeStoredLang(next, h);
-  setLanguage(next, true);
+function initLanguageControls() {
+  applyStaticI18n();
+  var buttons = [];
+  eachNode('.lang-toggle', function(btn) { buttons.push(btn); });
+  if (buttons.length) langMenu = initLangMenu(buttons, { t: t, onSelect: function(pref) { langPref = pref; setLanguage(resolveLang(pref)); } });
+  watchLanguage(function() { return currentLang; }, function(next) { langPref = readLangPref(); setLanguage(next); });
 }
 
 // Theme: system (default) | light | dark, chosen with the toggle next to the language button.

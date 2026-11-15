@@ -162,7 +162,7 @@
   body {
     background-color: var(--bg-page);
     color: var(--text-primary);
-    font-family: "Manrope", "SUIT", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Manrope", "SUIT", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
     line-height: 1.45;
     padding: var(--dashboard-top-offset) 14px 16px 14px;
     font-size: 0.85rem;
@@ -177,6 +177,8 @@
   /* One page, not a card containing every other card. */
   #dashboardContent { min-width: 0; }
   /* Shared header: description/time share a baseline; freshness is one compact group. */
+  /* Simplified Chinese: system CJK SC fonts before SUIT (Korean glyph shapes); Manrope keeps Latin. No font files added. */
+  :root:lang(zh-CN) body { font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "SUIT", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
   .page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
   /* Keep language controls in normal filter flow, below the host's floating tools. */
   .filter-language-field { flex: 0 0 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
@@ -1436,3 +1438,30 @@
   :root[data-theme='dark'] .auth-gate { background: var(--bg-card); border-color: var(--border-color); }
   :root[data-theme='dark'] .auth-gate-desc { color: var(--text-secondary); }
   :root[data-theme='dark'] .custom-dates .input:disabled { background: var(--surface-toolbar); color: var(--text-secondary); }
+
+  /* Language menu popover (shared dohwi plugin reference; --lm-* mapped to this page's theme tokens). */
+  :root { --lm-bg: var(--bg-card); --lm-text: var(--text-primary); --lm-line: var(--border-color); --lm-shadow: rgba(24, 34, 48, 0.14); --lm-hover: var(--surface-hover); --lm-ring: var(--filter-control-focus); --lm-accent: var(--accent-blue); --lm-muted: var(--text-muted); }
+  :root[data-theme='dark'] { --lm-shadow: rgba(0, 0, 0, 0.5); }
+  .lang-menu {
+    position: fixed; z-index: 1000; min-width: 196px; max-width: calc(100vw - 16px);
+    padding: 6px; border-radius: 12px;
+    background: var(--lm-bg); color: var(--lm-text);
+    border: 1px solid var(--lm-line);
+    box-shadow: 0 12px 32px var(--lm-shadow), 0 2px 6px var(--lm-shadow);
+    font-family: inherit; font-weight: inherit; font-size: 13.5px; line-height: 1.3; /* font: inherit split up: this sheet forbids the inherit shorthand */
+    animation: lang-menu-in .12s ease-out;
+  }
+  @keyframes lang-menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .lang-menu { animation: none; } }
+  .lang-menu-item {
+    display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px;
+    width: 100%; min-height: 36px; padding: 7px 10px; border: 0; border-radius: 8px;
+    background: transparent; color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; text-align: left; cursor: pointer;
+  }
+  .lang-menu-item:hover, .lang-menu-item:focus-visible { background: var(--lm-hover); outline: none; }
+  .lang-menu-item:focus-visible { box-shadow: 0 0 0 2px var(--lm-ring); }
+  .lang-menu-check { display: inline-flex; width: 16px; height: 16px; color: var(--lm-accent); visibility: hidden; }
+  .lang-menu-item[aria-checked="true"] .lang-menu-check { visibility: visible; }
+  .lang-menu-item[aria-checked="true"] .lang-menu-label { font-weight: 600; }
+  .lang-menu-sub { color: var(--lm-muted); font-size: 12px; white-space: nowrap; }
+  .lang-menu-sep { height: 1px; margin: 4px 6px; background: var(--lm-line); }

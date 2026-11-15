@@ -6,6 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
+const { pickPref } = require('./lib/host-toolbar.cjs');
 const GOOD = 'good-management-key', STORE = 'cpa_usage_audit_mgmt_key';
 const summary = { total_count: 1, summary: [{ provider: 'codex', model: 'm', requests: 1, total_tokens: 4242 }], by_provider: [], by_endpoint: [], by_model: [], daily: [] };
 const records = { records: [{ id: 'r1', requested_at: new Date().toISOString(), provider: 'codex', model: 'm', total_tokens: 4242 }], has_more: false };
@@ -38,13 +39,17 @@ const records = { records: [{ id: 'r1', requested_at: new Date().toISOString(), 
     assert.equal(await page.locator('#pageHeading').isHidden(), true, 'page title and subtitle hidden behind the gate');
     assert.equal(await page.locator('#authLanguageToggle').isVisible(), true, 'language toggle inside the gate');
     assert.match(await page.locator('#authGateTitle').innerText(), /Management key required/);
-    await page.click('#authLanguageToggle');
+    assert.equal(await page.locator('#authLanguageToggle').getAttribute('aria-label'), 'Language: English');
+    await pickPref(page, 'ko', '#authLanguageToggle');
     assert.match(await page.locator('#authGateTitle').innerText(), /관리 키/, 'gate switches to Korean');
     assert.match(await page.locator('#authForm button[type=submit]').innerText(), /확인/);
-    assert.equal(await page.evaluate(() => localStorage.getItem('cpa_plugin_lang')), 'ko', 'choice persisted as the shared language preference');
-    await page.click('#authLanguageToggle');
-    assert.match(await page.locator('#authGateTitle').innerText(), /Management key required/, 'and back to English');
-    assert.equal(await page.locator('#authLanguageToggle').getAttribute('aria-label'), 'Switch to Korean');
+    assert.equal(await page.evaluate(() => localStorage.getItem('cpa_plugin_language')), 'ko', 'choice persisted as the shared language preference');
+    await pickPref(page, 'zh-CN', '#authLanguageToggle');
+    assert.match(await page.locator('#authGateTitle').innerText(), /需要管理密钥/, 'gate switches to Chinese');
+    await pickPref(page, 'auto', '#authLanguageToggle');
+    assert.match(await page.locator('#authGateTitle').innerText(), /Management key required/, 'Follow CLIProxyAPI → browser language (en) again');
+    assert.equal(await page.evaluate(() => localStorage.getItem('cpa_plugin_language')), 'auto');
+    assert.equal(await page.locator('#authLanguageToggle').getAttribute('aria-label'), 'Language: English');
 
     // Empty submit never leaves the page.
     await page.click('#authForm button[type=submit]');

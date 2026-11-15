@@ -2,7 +2,9 @@ package plugin_test
 
 import (
 	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -179,7 +181,12 @@ assert.deepEqual(state.records, [{id:'new'},{id:'new-older'}]);
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			script := strings.Join(functions, "\n") + setup + "\n(async function() {\n" + tt.body + "\n})().catch(err => { console.error(err); process.exitCode = 1; });"
-			if out, err := exec.CommandContext(ctx, nodePath, "-e", script).CombinedOutput(); err != nil {
+			// Run from a file: with three catalogs the script exceeds the Windows command-line limit.
+			file := filepath.Join(t.TempDir(), "refresh.js")
+			if err := os.WriteFile(file, []byte(script), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if out, err := exec.CommandContext(ctx, nodePath, file).CombinedOutput(); err != nil {
 				t.Fatalf("refresh consistency contract failed: %v\n%s", err, out)
 			}
 		})
