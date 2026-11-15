@@ -110,7 +110,7 @@ func TestCursorStrictValidationAndExpiry(t *testing.T) {
 	}
 	if _, _, err := recordsPage(st, store.FilterOptions{}, "resource", cursor, 1); err == nil {
 		t.Fatal("cleared cursor accepted")
-	} else if status, _ := recordsPageFailure(err); status != 409 {
+	} else if status, code, _ := recordsPageFailure(err); status != 409 || code != codeCursorExpired {
 		t.Fatal(err)
 	}
 }

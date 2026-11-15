@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -37,6 +36,7 @@ type recordsCursor struct {
 
 type pageError struct {
 	status  int
+	code    string
 	message string
 }
 
@@ -68,7 +68,7 @@ func decodeRecordsCursor(value, fingerprint string) (*recordsCursor, error) {
 	if value == "" {
 		return nil, nil
 	}
-	invalid := func(message string) (*recordsCursor, error) { return nil, &pageError{400, message} }
+	invalid := func(message string) (*recordsCursor, error) { return nil, &pageError{400, codeInvalidCursor, message} }
 	if len(value) > 2048 {
 		return invalid("invalid cursor: too long")
 	}
@@ -119,14 +119,14 @@ func recordsPage(st *store.Store, opts store.FilterOptions, scope, value string,
 	boundary := snap.Boundary
 	if cursor != nil {
 		if cursor.Generation != snap.Generation || cursor.Boundary > snap.Boundary {
-			return nil, "", &pageError{409, "cursor snapshot expired; restart pagination"}
+			return nil, "", &pageError{409, codeCursorExpired, "cursor snapshot expired; restart pagination"}
 		}
 		boundary = cursor.Boundary
 	}
 	// Scan only the original append frontier, including out-of-order timestamps.
 	page, more, anchorFound := selectRecordsPage(snap.Records[:int(boundary)], opts, cursor, limit)
 	if !anchorFound {
-		return nil, "", &pageError{400, "cursor anchor not found; restart pagination"}
+		return nil, "", &pageError{400, codeInvalidCursor, "cursor anchor not found; restart pagination"}
 	}
 	next := ""
 	if more {
@@ -136,12 +136,12 @@ func recordsPage(st *store.Store, opts store.FilterOptions, scope, value string,
 	return page, next, nil
 }
 
-func recordsPageFailure(err error) (int, string) {
+func recordsPageFailure(err error) (int, string, string) {
 	var e *pageError
 	if errors.As(err, &e) {
-		return e.status, e.message
+		return e.status, e.code, e.message
 	}
-	return 500, "read failed"
+	return 500, codeReadFailed, "read failed"
 }
 
 const (
@@ -164,7 +164,7 @@ func boundResourceSummary(opts *store.FilterOptions) error {
 		opts.From = &from
 	}
 	if to.Before(from) || to.Sub(from) > resourceSummaryMaxDays*24*time.Hour {
-		return fmt.Errorf("summary range must be ordered and at most %d days", resourceSummaryMaxDays)
+		return newAPIError(codeSummaryRange, "summary range must be ordered and at most %d days", resourceSummaryMaxDays)
 	}
 	return nil
 }

@@ -70,3 +70,29 @@ func BenchmarkResourceRecords(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSummaryPoll measures a dashboard poll on a warm store (decoded cache
+// already built): "unchanged" repeats the same query with no new records, which
+// is served from the summary cache; "after-append" adds one record per poll, so
+// every poll re-aggregates the retained history.
+func BenchmarkSummaryPoll(b *testing.B) {
+	for _, mode := range []string{"unchanged", "after-append"} {
+		b.Run(mode+"/200000", func(b *testing.B) {
+			benchState(b, 200_000)
+			now := time.Now()
+			req := managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/summary", Query: benchQuery(now.Add(-24*time.Hour), now)}
+			handleGetDashboardSummary(req) // build the decoded snapshot cache
+			rec := store.LogRecord{T: now.UTC(), Provider: "codex", Model: "model-0", InputTokens: 1, TotalTokens: 1}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if mode == "after-append" {
+					if err := state.st.Append(rec); err != nil {
+						b.Fatal(err)
+					}
+				}
+				handleGetDashboardSummary(req)
+			}
+		})
+	}
+}
