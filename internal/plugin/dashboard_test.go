@@ -570,7 +570,7 @@ console.log('EXACT_FORMAT_TESTS_PASSED');
 // so isolated-function Node tests exercise the same strings the page ships.
 func i18nCoreJS(t *testing.T, body string) string {
 	t.Helper()
-	start := strings.Index(body, "var LANG_KEY = ")
+	start := strings.Index(body, "var I18N = {")
 	end := strings.Index(body, "function eachNode(")
 	if start < 0 || end < start {
 		t.Fatal("could not extract i18n core from dashboard HTML")
