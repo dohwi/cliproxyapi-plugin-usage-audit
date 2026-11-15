@@ -3,10 +3,17 @@ var DOM = {};
 var pendingDohwiTableUpdates = [];
 
 // ── i18n ────────────────────────────────────────────────────────────────────
-// The language preference is the only value this page persists (LANG_KEY). The key is
-// shared with the other CLIProxyAPI plugin dashboards so one choice applies to all of them.
-// Order: saved choice → browser language (ko* → ko, else en) → en.
+// The language preference (LANG_KEY, 'ko' | 'en') is shared with the other CLIProxyAPI plugin
+// dashboards so one choice applies to all of them. The page also follows the host Management
+// Center's language ("last action wins"): the host language is the parent page's <html lang>,
+// else its persisted HOST_LANG_KEY entry (read only: never written or removed here).
+// LANG_HOST_KEY remembers the host language at the moment LANG_KEY was written, so a host change
+// made after the plugin's own toggle wins, while the toggle wins until the host changes again.
+// Order: host language (if it changed since LANG_KEY was saved) → saved choice → browser language
+// (ko* → ko, else en) → en.
 var LANG_KEY = 'cpa_plugin_lang';
+var HOST_LANG_KEY = 'cli-proxy-language';
+var LANG_HOST_KEY = 'cpa_plugin_lang_host';
 var THEME_KEY = 'cpa_plugin_theme';
 var I18N = {
   ko: {
@@ -63,6 +70,23 @@ var I18N = {
     'err.timeout': '요청 시간이 초과되었습니다. 다시 시도하세요.',
     'err.expanded': '더보기 기록을 보고 있습니다. 최신 데이터를 보려면 필터를 변경하거나 다시 시도하세요.',
     'err.load': '데이터를 불러오지 못했습니다: {e}',
+    'err.bad_request': '잘못된 요청입니다.',
+    'err.not_found': '요청한 경로를 찾을 수 없습니다.',
+    'err.store_not_ready': '사용량 저장소가 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.',
+    'err.invalid_time_format': '날짜 또는 시간 형식이 올바르지 않습니다.',
+    'err.invalid_time_zone': '시간대가 올바르지 않습니다.',
+    'err.invalid_timezone_offset': '시간대 오프셋이 올바르지 않습니다.',
+    'err.invalid_range': '시작일이 종료일보다 늦을 수 없습니다.',
+    'err.future_from': '시작일로 미래 시각을 지정할 수 없습니다.',
+    'err.invalid_status': '상태 필터 값이 올바르지 않습니다.',
+    'err.invalid_limit': '한 번에 불러올 개수가 허용 범위를 벗어났습니다.',
+    'err.summary_range_too_large': '조회 기간이 너무 깁니다. 366일 이내로 줄이세요.',
+    'err.summary_bucket_limit': '집계 항목이 너무 많습니다. 기간이나 필터를 좁히세요.',
+    'err.invalid_cursor': '페이지 정보가 올바르지 않습니다. 처음부터 다시 불러오세요.',
+    'err.cursor_expired': '그사이 기록이 바뀌었습니다. 처음부터 다시 불러오세요.',
+    'err.read_failed': '사용량 기록을 읽지 못했습니다.',
+    'err.truncate_failed': '기록을 삭제하지 못했습니다.',
+    'err.marshal_failed': '응답을 만드는 중 오류가 발생했습니다.',
     'flash.suffix': ' · 서버 업데이트로 변경됨',
     'kpi.overview': '개요',
     'kpi.overviewHelp': '공식 집계 기준 요청·전체 수치',
@@ -220,6 +244,23 @@ var I18N = {
     'err.timeout': 'The request timed out. Please try again.',
     'err.expanded': 'You are viewing loaded records. Change a filter or retry to see the latest data.',
     'err.load': 'Failed to load data: {e}',
+    'err.bad_request': 'The request is invalid.',
+    'err.not_found': 'The requested route was not found.',
+    'err.store_not_ready': 'Usage storage is not ready yet. Try again shortly.',
+    'err.invalid_time_format': 'The date or time format is invalid.',
+    'err.invalid_time_zone': 'The time zone is invalid.',
+    'err.invalid_timezone_offset': 'The time zone offset is invalid.',
+    'err.invalid_range': 'The start date must not be after the end date.',
+    'err.future_from': 'The start date cannot be in the future.',
+    'err.invalid_status': 'The status filter is invalid.',
+    'err.invalid_limit': 'The page size is out of range.',
+    'err.summary_range_too_large': 'The range is too long. Keep it within 366 days.',
+    'err.summary_bucket_limit': 'Too many groups to summarize. Narrow the range or filters.',
+    'err.invalid_cursor': 'The page position is invalid. Reload from the start.',
+    'err.cursor_expired': 'Records changed in the meantime. Reload from the start.',
+    'err.read_failed': 'Could not read the usage records.',
+    'err.truncate_failed': 'Could not delete the records.',
+    'err.marshal_failed': 'Could not build the response.',
     'flash.suffix': ' \u00b7 Changed by server update',
     'kpi.overview': 'Overview',
     'kpi.overviewHelp': 'Requests and totals from official aggregation',
@@ -337,11 +378,43 @@ function normalizeLang(value) {
 function readStoredLang() {
   try { return normalizeLang(localStorage.getItem(LANG_KEY)); } catch (e) { return null; }
 }
-function writeStoredLang(lang) {
-  try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+function readStoredLangHost() {
+  try { return localStorage.getItem(LANG_HOST_KEY) || ''; } catch (e) { return ''; }
+}
+function writeStoredLang(lang, host) {
+  try { localStorage.setItem(LANG_KEY, lang); localStorage.setItem(LANG_HOST_KEY, host); } catch (e) {}
+}
+// The host stores zustand persist JSON {"state":{"language":"ko"},"version":0}; older builds a bare string.
+function parseHostLang(raw) {
+  if (!raw) return '';
+  var v = raw;
+  try {
+    var p = JSON.parse(raw);
+    if (typeof p === 'string') v = p;
+    else if (p && typeof p === 'object') v = (p.state && p.state.language) || p.language || '';
+  } catch (e) {}
+  return typeof v === 'string' ? v.trim() : '';
+}
+// Raw host language ('' when unknown): same-origin parent <html lang>, else the host's stored entry.
+function hostLangRaw() {
+  try {
+    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+      var pl = window.parent.document.documentElement.getAttribute('lang');
+      if (pl && String(pl).trim()) return String(pl).trim();
+    }
+  } catch (e) {} // cross-origin parent: fall through to the stored entry
+  var raw = null;
+  try { raw = localStorage.getItem(HOST_LANG_KEY); } catch (e) { return ''; }
+  return parseHostLang(raw);
+}
+// Host language → page language: Korean stays Korean, every other host language shows English.
+function uiLang(raw) {
+  if (!raw) return '';
+  return /^ko\b/i.test(raw) ? 'ko' : 'en';
 }
 function detectLang() {
-  var stored = readStoredLang();
+  var host = hostLangRaw(), stored = readStoredLang();
+  if (host && (!stored || readStoredLangHost() !== host)) return uiLang(host);
   if (stored) return stored;
   try {
     var nav = typeof navigator !== 'undefined' ? navigator : null;
@@ -351,6 +424,7 @@ function detectLang() {
   return 'en';
 }
 currentLang = detectLang();
+var lastHostLang = hostLangRaw();
 function uiLocale() { return currentLang === 'en' ? 'en-US' : 'ko-KR'; }
 
 function t(key, params) {
@@ -402,7 +476,7 @@ function setLanguage(lang, fromStorage) {
   var next = normalizeLang(lang);
   if (!next || next === currentLang) return;
   currentLang = next;
-  if (!fromStorage) writeStoredLang(next);
+  if (!fromStorage) writeStoredLang(next, hostLangRaw());
   applyStaticI18n();
   if (typeof window !== 'undefined' && window.renderDashboardLanguage) window.renderDashboardLanguage();
   // Re-derive everything that was built from translated text.
@@ -420,10 +494,27 @@ function initLanguageControls() {
   });
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('storage', function(e) {
-      if (e && e.key === LANG_KEY) setLanguage(e.newValue, true);
+      if (!e) return;
+      if (e.key === LANG_KEY) setLanguage(e.newValue, true);
+      else if (e.key === HOST_LANG_KEY) followHostLang();
     });
   }
+  try {
+    if (window.parent && window.parent !== window && typeof MutationObserver !== 'undefined') {
+      new MutationObserver(followHostLang).observe(window.parent.document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    }
+  } catch (e) {} // cross-origin parent: the storage event still applies
   applyStaticI18n();
+}
+// The host language changed: it wins over the page's last choice. It is also written to LANG_KEY so
+// other open plugin pages follow through their LANG_KEY storage listener.
+function followHostLang() {
+  var h = hostLangRaw();
+  if (!h || h === lastHostLang) return;
+  lastHostLang = h;
+  var next = uiLang(h);
+  writeStoredLang(next, h);
+  setLanguage(next, true);
 }
 
 // Theme: system (default) | light | dark, chosen with the toggle next to the language button.
@@ -568,12 +659,12 @@ function esc(str) {
 // null/undefined/NaN => '—'
 // 0 => '0'
 // negative => '-1,234'
-// integer, grouped with commas (en-US) regardless of host locale
+// integer, grouped per the UI locale (en-US and ko-KR both group with commas)
 function formatExactNumber(num) {
   if (num === null || num === undefined) return '—';
   var n = Number(num);
   if (isNaN(n)) return '—';
-  return Math.round(n).toLocaleString('en-US');
+  return Math.round(n).toLocaleString(uiLocale());
 }
 
 // Provider display mapper: trims/lowers and turns compatible-b.ai aliases into "b.ai"
@@ -600,6 +691,15 @@ function formatLatency(ms) {
   return Math.round(n) + 'ms';
 }
 
+// A YYYY-MM-DD bucket key is a calendar date (already in the viewer's zone on the server side):
+// format it in UTC so no timezone shift can move it to a neighbouring day.
+function formatCalendarDay(key, options) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
+  if (!m) return String(key || '');
+  var opts = { timeZone: 'UTC' };
+  for (var k in options) opts[k] = options[k];
+  try { return new Intl.DateTimeFormat(uiLocale(), opts).format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))); } catch (e) { return m[2] + '-' + m[3]; }
+}
 function formatDateTime(val) {
   if (!val) return '-';
   try {
@@ -790,7 +890,14 @@ function buildQueryString(isRecords, cursor) {
 
 function showError(msg, retryable) { var box = DOM.errorBox || document.getElementById('errorBox'), text = DOM.errorMessage || document.getElementById('errorMessage'), retry = DOM.retryLoadBtn || document.getElementById('retryLoadBtn'); if (text) text.textContent = msg || t('err.unavailable'); if (retry) retry.classList.toggle('is-hidden', retryable === false); if (box) box.classList.remove('is-hidden'); }
 function clearError() { var box = DOM.errorBox || document.getElementById('errorBox'), text = DOM.errorMessage || document.getElementById('errorMessage'); if (box) box.classList.add('is-hidden'); if (text) text.textContent = ''; }
-function safeErrorMessage(response) { return response.text().then(function(text) { var fallback = t('err.http', { s: response.status }); if (!text) return fallback; try { var parsed = JSON.parse(text); text = parsed.message || parsed.error || fallback; } catch (_) {} return String(text).replace(/\s+/g, ' ').slice(0, 300) || fallback; }); }
+// API errors carry a stable machine code next to the English message: known codes are shown in the
+// UI language (err.<code>), anything else falls back to the server's message.
+function apiErrorText(parsed, fallback) {
+  var code = parsed && typeof parsed.code === 'string' ? parsed.code : '', key = 'err.' + code;
+  if (code && /^[a-z0-9_]+$/.test(code) && Object.prototype.hasOwnProperty.call(I18N.en, key)) return t(key);
+  return (parsed && (parsed.message || parsed.error)) || fallback;
+}
+function safeErrorMessage(response) { return response.text().then(function(text) { var fallback = t('err.http', { s: response.status }); if (!text) return fallback; try { var parsed = JSON.parse(text); text = apiErrorText(parsed, fallback); } catch (_) {} return String(text).replace(/\s+/g, ' ').slice(0, 300) || fallback; }); }
 // Snapshot comparison is only performed for a repeated server query. Filter-driven
 // queries reset the baseline, so a UI rerender never looks like a data change.
 function snapshotFilterKey() { return [state.currentPreset,state.fromRFC3339,state.toRFC3339,state.provider,state.endpoint,state.model,state.status].join('|'); }
@@ -1202,7 +1309,7 @@ function closeDailyChartTooltip() { var tooltip = DOM.dailyChartTooltip || docum
 function showDailyChartTooltip(detail, anchor) {
   var tooltip = DOM.dailyChartTooltip || document.getElementById('dailyChartTooltip'); if (!tooltip || !anchor) return;
   tooltip.replaceChildren();
-  appendText(tooltip, 'daily-chart-tooltip-title', detail.date);
+  appendText(tooltip, 'daily-chart-tooltip-title', formatCalendarDay(detail.date, { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' }));
   appendText(tooltip, '', t('tip.requests') + formatExactNumber(detail.requests)); appendText(tooltip, '', t('tip.total') + formatExactNumber(detail.total));
   appendText(tooltip, '', t('tip.input') + formatExactNumber(detail.input)); appendText(tooltip, '', t('tip.output') + formatExactNumber(detail.output)); appendText(tooltip, '', t('tip.failed') + formatExactNumber(detail.failures));
   appendText(tooltip, 'daily-chart-tooltip-note', t('tip.cache') + formatExactNumber(detail.cached) + ' · ' + t('tip.reasoning') + formatExactNumber(detail.reasoning));
@@ -1277,7 +1384,7 @@ function renderChartFromDaily(dailyMap) {
       var value=document.createElementNS('http://www.w3.org/2000/svg','text');value.setAttribute('x',String(geometry.centers[k]));value.setAttribute('y',String(y-4));value.setAttribute('text-anchor','middle');value.setAttribute('font-size',geometry.slot >= 64 ? '10' : '9');value.setAttribute('font-variant-numeric','tabular-nums');value.setAttribute('fill','#6b7280');value.textContent=formatExactNumber(detail.requests);svg.appendChild(value);
     }
     if (geometry.labelIndices.indexOf(k) !== -1) {
-      var label=document.createElementNS('http://www.w3.org/2000/svg','text');label.setAttribute('x',String(geometry.centers[k]));label.setAttribute('y',String(chartBottom+14));label.setAttribute('text-anchor','middle');label.setAttribute('font-size','10');label.setAttribute('fill','#6b7280');label.textContent=detail.date.length>=5?detail.date.slice(5):detail.date;svg.appendChild(label);
+      var label=document.createElementNS('http://www.w3.org/2000/svg','text');label.setAttribute('x',String(geometry.centers[k]));label.setAttribute('y',String(chartBottom+14));label.setAttribute('text-anchor','middle');label.setAttribute('font-size','10');label.setAttribute('fill','#6b7280');label.textContent=formatCalendarDay(detail.date, { month: 'numeric', day: 'numeric' });svg.appendChild(label);
     }
   });
   chartArea.appendChild(svg);
@@ -1585,6 +1692,10 @@ function bindDashboardEvents() {
     if (!area || !area.contains(e.target)) closeDailyChartTooltip();
   });
 
+  // No inline on*= handlers: the CSP hashes the inline scripts and forbids anything else.
+  document.querySelectorAll('.tab-btn').forEach(function(tab) { tab.addEventListener('click', function() { switchTab(tab.getAttribute('aria-controls'), tab); }); });
+  var loadMoreBtn = document.getElementById('loadMoreBtn');
+  if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMoreRecords);
   document.querySelectorAll('.tab-btn').forEach(function(tab) { tab.addEventListener('keydown', function(e) { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return; e.preventDefault(); var tabs=Array.prototype.slice.call(document.querySelectorAll('.tab-btn')), index=tabs.indexOf(tab); if(e.key==='ArrowLeft')index=(index+tabs.length-1)%tabs.length; else if(e.key==='ArrowRight')index=(index+1)%tabs.length; else if(e.key==='Home')index=0; else index=tabs.length-1; switchTab(tabs[index].getAttribute('aria-controls'),tabs[index]); }); });
   var filterForm = document.getElementById('filterForm');
   if (filterForm) filterForm.addEventListener('submit', function(e) { e.preventDefault(); applyFilters(); });
