@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Browser regression for the English/Korean switch across calendar, dialog, tables and filters,
-// including switching while the dialog is open, shared-storage sync and persistence.
+// Browser regression for the English/Korean/Simplified Chinese menu across calendar, dialog, tables and
+// filters, including switching while the dialog is open, shared-storage sync, persistence and no clipping.
 // Install Playwright or set PLAYWRIGHT_MODULE; BROWSER_EXECUTABLE selects a system browser.
 const fs = require('fs'), path = require('path');
-const switchLang = (async (page, lang) => { if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('#languageToggle'); await page.waitForFunction(l => document.documentElement.lang === l, lang); });
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { seedKey } = require('./lib/seed-key.cjs');
 const root = path.resolve(__dirname, '..');
 const html = require('./lib/dashboard-html.cjs').readDashboardHTML(root);
 const verifyLanguagePlacement = require('./lib/host-toolbar.cjs');
+const { switchTo: switchLang, REFRESH } = verifyLanguagePlacement;
 const now = new Date().toISOString();
 const metric = (provider, model) => ({ provider, model, requests: 120, failures: 3, generate_count: 100, input_tokens: 9000, fresh_input_tokens: 7000, output_tokens: 3000, cached_tokens: 2000, reasoning_tokens: 500, total_tokens: 12500 });
 const summary = {
@@ -20,11 +20,14 @@ const summary = {
 };
 const records = { has_more: true, next_cursor: 'c1', records: Array.from({ length: 3 }, (_, i) => ({ id: 'r' + i, requested_at: now, provider: 'anthropic', model: 'claude-opus', endpoint: 'direct', fresh_input: 10, cached: 5, output: 20, total: 35, input: 15, reasoning: 1, latency_ms: 1200, ttft_ms: 300, failed: i === 1, failure_status: i === 1 ? '500' : '' })) };
 const hangul = s => /[가-힣]/.test(s);
+const han = s => /[\u4e00-\u9fff]/.test(s);
+// Native language names in the menu/labels are never translated.
+const NATIVE = /한국어|简体中文|^\s*가(\s+A)?\s*$/;
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE || undefined, args: ['--no-sandbox'] });
   const fail = [];
   try {
-    for (const locale of ['en-US', 'ko-KR']) {
+    for (const locale of ['en-US', 'ko-KR', 'zh-CN']) {
       const ctx = await browser.newContext({ locale, reducedMotion: 'reduce', viewport: { width: 1280, height: 900 } });
       await seedKey(ctx);
       const page = await ctx.newPage();
@@ -41,7 +44,7 @@ const hangul = s => /[가-힣]/.test(s);
       });
       await page.goto('http://fixture.invalid/v0/resource/plugins/usage-audit/dashboard');
       await page.waitForSelector('#recordsBody tr.ui-table-row');
-      const base = locale === 'en-US' ? 'en' : 'ko', other = base === 'en' ? 'ko' : 'en';
+      const base = { 'en-US': 'en', 'ko-KR': 'ko', 'zh-CN': 'zh-CN' }[locale], others = ['en', 'ko', 'zh-CN'].filter(l => l !== base), other = others[0];
       const initial = await page.evaluate(() => document.documentElement.lang);
       if (initial !== base) fail.push(`${locale}: initial lang ${initial}`);
       const visible = () => page.evaluate(() => {
@@ -52,7 +55,7 @@ const hangul = s => /[가-힣]/.test(s);
         return bits.join('\n');
       });
 
-      for (const lang of [other, base]) {
+      for (const lang of [...others, base]) {
         await switchLang(page, lang);
         // open a few interactive surfaces so their text is covered too
         await page.click('#presetGroupControl [data-preset="custom"]');
@@ -81,23 +84,36 @@ const hangul = s => /[가-힣]/.test(s);
           chart: await page.locator('#dailyChartSummary').innerText(),
           time: await page.locator('#recordsBody tr >> nth=0 >> td >> nth=0').innerText(),
           pressed: await page.locator('#languageToggle').getAttribute('data-current-lang'),
+          label: await page.locator('#languageToggle').getAttribute('aria-label'),
         };
         if (checks.lang !== lang) fail.push(`${locale}/${lang}: html lang ${checks.lang}`);
         if (checks.pressed !== lang) fail.push(`${locale}/${lang}: pressed ${checks.pressed}`);
+        if (checks.label !== verifyLanguagePlacement.MENU_LABEL[lang]) fail.push(`${locale}/${lang}: button label ${checks.label}`);
         if (lang === 'en') {
-          const stray = text.split('\n').filter(l => hangul(l) && !/한국어|^\s*가(\s+A)?\s*$/.test(l));
+          const stray = text.split('\n').filter(l => (hangul(l) || han(l)) && !NATIVE.test(l));
           if (stray.length) fail.push(`${locale}/en: Korean left: ${JSON.stringify(stray.slice(0, 8))} | parts: ${JSON.stringify({vis: (await visible()).split('\n').filter(l => hangul(l) && !/한국어|^\s*가(\s+A)?\s*$/.test(l)).slice(0,4), cal: cal.split('\n').filter(hangul).slice(0,4), dlg: dialog.split(' ').filter(hangul).slice(0,4), calAria: hangul(calAria), where: await page.evaluate(() => { const o = []; document.querySelectorAll('*').forEach(e => { const own = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(''); if (/전체/.test(own) && e.tagName !== 'SCRIPT') o.push(e.tagName + '#' + e.id + '.' + String(e.className).slice(0, 25) + ' vis=' + !!(e.offsetWidth || e.offsetHeight) + ' parent=' + (e.parentElement && e.parentElement.id)); }); return o; })})}`);
           if (checks.heading !== 'Token Usage') fail.push(`en heading ${checks.heading}`);
           if (!/New input/.test(checks.th) || !/Latency/.test(checks.th)) fail.push('en table headers: ' + checks.th);
           if (!/Failed only/.test(checks.badge)) fail.push('en badge: ' + checks.badge);
           if (!/records/.test(checks.count)) fail.push('en count: ' + checks.count);
           if (!/Failed: /.test(checks.fail)) fail.push('en fail kpi: ' + checks.fail);
+        } else if (lang === 'zh-CN') {
+          if (checks.heading !== 'Token 用量') fail.push(`zh heading ${checks.heading}`);
+          if (!/新输入/.test(checks.th) || !/延迟/.test(checks.th)) fail.push('zh headers: ' + checks.th);
+          if (!/仅失败/.test(checks.badge)) fail.push('zh badge: ' + checks.badge);
+          if (!/条/.test(checks.count)) fail.push('zh count: ' + checks.count);
+          if (!/^失败：/.test(checks.fail)) fail.push('zh fail kpi: ' + checks.fail);
+          if (!/天/.test(checks.chart)) fail.push('zh chart: ' + checks.chart);
+          const stray = text.split('\n').filter(l => hangul(l) && !NATIVE.test(l));
+          if (stray.length) fail.push(`${locale}/zh-CN: Korean left: ${JSON.stringify(stray.slice(0, 6))}`);
+          const english = text.split('\n').filter(l => /\b(Total tokens|Request details|Load more|Previous month|Failed only|Recent requests|Overview)\b/.test(l));
+          if (english.length) fail.push(`${locale}/zh-CN: English left: ${JSON.stringify(english.slice(0, 5))}`);
         } else {
           if (checks.heading !== '토큰 사용량') fail.push(`ko heading ${checks.heading}`);
           if (!/신규 입력/.test(checks.th) || !/지연/.test(checks.th)) fail.push('ko headers: ' + checks.th);
           if (!/실패만/.test(checks.badge)) fail.push('ko badge: ' + checks.badge);
-          const english = text.split('\n').filter(l => /\b(Total tokens|Request details|Load more|Previous month|Failed only)\b/.test(l));
-          if (english.length) fail.push(`${locale}/ko: English left: ${JSON.stringify(english.slice(0, 5))}`);
+          const english = text.split('\n').filter(l => /\b(Total tokens|Request details|Load more|Previous month|Failed only)\b/.test(l) || (han(l) && !NATIVE.test(l)));
+          if (english.length) fail.push(`${locale}/ko: English/Chinese left: ${JSON.stringify(english.slice(0, 5))}`);
         }
         for (const width of [1440, 768, 390, 320]) {
           await page.setViewportSize({ width, height: 900 });
@@ -122,40 +138,42 @@ const hangul = s => /[가-힣]/.test(s);
       await page.click('#recordsBody tr.ui-table-row >> nth=0');
       await page.waitForSelector('#detailOverlay.open');
       // the modal overlay covers the toggle, so drive the same API the button calls
-      await page.evaluate(() => setLanguage('en'));
+      await page.evaluate(() => selectLanguagePref('en'));
       const dlgEn = await page.evaluate(() => document.getElementById('recordDialog').textContent.replace(/\s+/g, ' '));
       const dbg = await page.evaluate(() => ({ idx: state.openRecordIdx, lang: currentLang, rows: document.querySelectorAll('#dialogBody .detail-row').length, open: document.getElementById('detailOverlay').className, recs: state.records.length, hasLoaded: state.hasLoadedData, inFlight: state.inFlight }));
       if (!/Request details/i.test(dlgEn) || !/Total tokens/i.test(dlgEn) || hangul(dlgEn)) fail.push(`${locale}: open dialog did not follow language: ${JSON.stringify(dbg)} text=${JSON.stringify(dlgEn.slice(0, 300))}`);
       await page.keyboard.press('Escape');
 
       // storage-event sync from another dashboard
-      await page.evaluate(() => { localStorage.setItem('cpa_plugin_lang', 'ko'); window.dispatchEvent(new StorageEvent('storage', { key: 'cpa_plugin_lang', newValue: 'ko' })); });
-      if ((await page.evaluate(() => document.documentElement.lang)) !== 'ko') fail.push(`${locale}: storage event not followed`);
+      for (const l of ['ko', 'zh-CN']) {
+        await page.evaluate(v => { localStorage.setItem('cpa_plugin_language', v); window.dispatchEvent(new StorageEvent('storage', { key: 'cpa_plugin_language', newValue: v })); }, l);
+        if ((await page.evaluate(() => document.documentElement.lang)) !== l) fail.push(`${locale}: storage event ${l} not followed`);
+      }
 
       // The header refresh icon reloads the data without changing the language or the label.
-      for (const lang of [base, other]) {
+      for (const lang of [base, ...others]) {
         await switchLang(page, lang);
         const hits = []; const onReq = r => { if (/\/data\/(summary|records)/.test(r.url())) hits.push(r.url()); };
         page.on('request', onReq);
         await page.click('#refreshBtn');
         await page.waitForTimeout(400);
         page.off('request', onReq);
-        const st = await page.evaluate(() => ({ lang: document.documentElement.lang, stored: localStorage.getItem('cpa_plugin_lang'), label: document.getElementById('refreshBtn').getAttribute('aria-label'), disabled: document.getElementById('refreshBtn').disabled }));
+        const st = await page.evaluate(() => ({ lang: document.documentElement.lang, stored: localStorage.getItem('cpa_plugin_language'), label: document.getElementById('refreshBtn').getAttribute('aria-label'), disabled: document.getElementById('refreshBtn').disabled }));
         if (hits.length < 2) fail.push(`${locale}/${lang}: refresh click did not reload summary+records (${hits.length})`);
         if (st.lang !== lang || st.stored !== lang) fail.push(`${locale}/${lang}: refresh click changed language -> ${st.lang}/${st.stored}`);
-        if (st.label !== (lang === 'en' ? 'Refresh' : '새로고침')) fail.push(`${locale}/${lang}: refresh label ${st.label}`);
+        if (st.label !== REFRESH[lang]) fail.push(`${locale}/${lang}: refresh label ${st.label}`);
         if (st.disabled) fail.push(`${locale}/${lang}: refresh button stayed disabled after the load finished`);
       }
       // persistence
       await switchLang(page, 'en');
       await page.reload();
       await page.waitForSelector('#recordsBody tr.ui-table-row');
-      const after = await page.evaluate(() => [document.documentElement.lang, localStorage.getItem('cpa_plugin_lang')]);
+      const after = await page.evaluate(() => [document.documentElement.lang, localStorage.getItem('cpa_plugin_language')]);
       if (after[0] !== 'en' || after[1] !== 'en') fail.push(`${locale}: not persisted ${after}`);
       if (errors.length) fail.push(`${locale}: page errors ${errors.slice(0, 3)}`);
       await ctx.close();
     }
   } finally { await browser.close(); }
   if (fail.length) { console.log('FAIL\n' + fail.join('\n')); process.exit(1); }
-  console.log('PASS: detect, toggle, calendar/dialog/table/filters localized, no stray text, dialog follows switch, storage sync, persistence, no overflow');
+  console.log('PASS: detect (en/ko/zh-CN), menu, calendar/dialog/table/filters localized, no stray text, dialog follows switch, storage sync, persistence, no overflow');
 })();

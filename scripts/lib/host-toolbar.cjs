@@ -47,14 +47,34 @@ module.exports = async function verifyLanguagePlacement(page, panelSelector) {
   assert(!result.hostOverlap && result.reachable, 'language button must remain unobstructed by the console floating buttons');
   assert(result.refreshInHeading && result.refreshBeforeLang, 'refresh icon sits in the header actions before the language toggle');
   assert(result.refreshSameSize && !result.refreshOverlap && result.refreshReachable, 'refresh icon matches the other header icons and is unobstructed');
-  assert.equal(result.refreshLabel, result.lang === 'en' ? 'Refresh' : '새로고침', 'refresh label follows the page language');
+  assert.equal(result.refreshLabel, REFRESH[result.lang], 'refresh label follows the page language');
   assert(result.clearsHost, 'the header row starts below --dashboard-top-offset');
   assert(result.height >= 30 && result.height <= result.expectedHeight + 1, `language switch shares filter control height: ${result.height} vs ${result.expectedHeight}`);
   assert(result.square, 'language toggle is a single square icon button');
-  assert.equal(result.label, result.lang === 'en' ? 'Switch to Korean' : 'English로 전환', 'toggle label names its target language');
+  assert.equal(result.label, MENU_LABEL[result.lang], 'language button label: "<Language>: <shown language>"');
 };
 
-module.exports.switchTo = async (page, lang) => {
-  if ((await page.evaluate(() => document.documentElement.lang)) !== lang) await page.click('#languageToggle');
+const REFRESH = { en: 'Refresh', ko: '새로고침', 'zh-CN': '刷新' };
+// The language button opens a menu; its label is "<lang.menu>: <native name of the shown language>".
+const MENU_LABEL = { en: 'Language: English', ko: '언어: 한국어', 'zh-CN': '语言: 简体中文' };
+module.exports.REFRESH = REFRESH;
+module.exports.MENU_LABEL = MENU_LABEL;
+// pickPref opens the language menu from button (default #languageToggle) and picks
+// 'auto' | 'en' | 'ko' | 'zh-CN'.
+async function pickPref(page, pref, button = '#languageToggle') {
+  // The menu closes on scroll (by design): bring the button into view first and let the
+  // scroll event fire before opening, as a user would see it.
+  await page.locator(button).scrollIntoViewIfNeeded();
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.click(button);
+  await page.waitForSelector('.lang-menu');
+  await page.click(`.lang-menu-item[data-pref="${pref}"]`);
+  await page.waitForSelector('.lang-menu', { state: 'detached' });
+}
+module.exports.pickPref = pickPref;
+// switchTo pins lang through the menu (no-op when already shown and pinned).
+module.exports.switchTo = async (page, lang, button) => {
+  const [shown, pref] = await page.evaluate(() => [document.documentElement.lang, localStorage.getItem('cpa_plugin_language')]);
+  if (shown !== lang || pref !== lang) await pickPref(page, lang, button);
   await page.waitForFunction(l => document.documentElement.lang === l, lang);
 };
