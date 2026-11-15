@@ -374,7 +374,7 @@ var I18N = {
     'cal.prev': '上个月',
     'cal.next': '下个月',
     'cal.hint': '请选择结束日期',
-    'filter.activeLabel': '查询条件',
+    'filter.activeLabel': '筛选条件',
     'filter.activeAria': '当前筛选条件',
     'filter.activeAriaFull': '当前筛选条件：{d}',
     'filter.default': '今天 \u00b7 全部提供商 \u00b7 全部模型',
@@ -397,7 +397,7 @@ var I18N = {
     'auth.submit': '确认',
     'auth.empty': '请输入管理密钥。',
     'auth.invalid': '管理密钥无效或访问被拒绝，请重新输入。',
-    'theme.system': '跟随系统', 'theme.light': '浅色', 'theme.dark': '暗色',
+    'theme.system': '跟随系统', 'theme.light': '浅色', 'theme.dark': '深色',
     'theme.label': '主题：{mode}（点击切换为{next}）',
     'pagination.prev': '上一页',
     'pagination.next': '下一页',
@@ -517,8 +517,8 @@ var I18N = {
     'dlg.time': '请求时间',
     'dlg.status': '状态',
     'dlg.failureStatus': '失败状态',
-    'dlg.tokens': 'Token 与响应速度',
-    'dlg.total': '总 Token',
+    'dlg.tokens': 'Token 与延迟',
+    'dlg.total': '总 Token（官方统计）',
     'dlg.input': '输入（含缓存）',
     'dlg.fresh': '新输入',
     'dlg.output': '输出',
@@ -527,7 +527,7 @@ var I18N = {
     'dlg.alias': '别名',
     'dlg.endpointSource': '端点/来源',
     'dlg.latency': '总延迟',
-    'dlg.ttft': '首 Token 时间'
+    'dlg.ttft': '首 Token 延迟（TTFT）'
   }
 };
 var lastSummaryData = null;
