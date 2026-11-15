@@ -26,12 +26,15 @@ const csp = dashboardCSP(html);
 assert.ok(!/script-src[^;]*'unsafe-inline'/.test(csp), 'script-src must not allow unsafe-inline');
 
 const now = new Date().toISOString();
+// The server buckets days in the browser's time zone (time_zone query), so the fixture must
+// too: UTC keys put no bar on "today" whenever the local date is ahead of UTC.
+const localDayKey = i => { const d = new Date(); d.setDate(d.getDate() - i); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const metric = (provider, model) => ({ provider, model, requests: 1234, failures: 3, generate_count: 100, input_tokens: 9000, fresh_input_tokens: 7000, output_tokens: 3000, cached_tokens: 2000, reasoning_tokens: 500, total_tokens: 1234567 });
 const summary = {
   total_count: 1234,
   summary: [metric('anthropic', 'claude-opus'), metric('openai', 'gpt-5')],
   by_provider: [{ ...metric('anthropic', 'x'), key: 'anthropic' }], by_endpoint: [{ ...metric('a', 'x'), key: 'direct' }], by_model: [{ ...metric('a', 'x'), key: 'claude-opus' }],
-  daily: [0, 1, 2].map(i => ({ key: new Date(Date.now() - i * 86400000).toISOString().slice(0, 10), requests: 10 + i, total_tokens: 100, input_tokens: 60, output_tokens: 40, failures: i })),
+  daily: [0, 1, 2].map(i => ({ key: localDayKey(i), requests: 10 + i, total_tokens: 100, input_tokens: 60, output_tokens: 40, failures: i })),
 };
 const records = { has_more: false, records: Array.from({ length: 3 }, (_, i) => ({ id: 'r' + i, requested_at: now, provider: 'anthropic', model: 'claude-opus', endpoint: 'direct', fresh_input: 10, cached: 5, output: 20, total: 35, input: 15, reasoning: 0, failed: i === 1, failure_status: i === 1 ? 500 : 0, latency: 1234, ttft: 210 })) };
 const ORIGIN = 'http://host.fixture';
