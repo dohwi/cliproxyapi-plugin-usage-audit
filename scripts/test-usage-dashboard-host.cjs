@@ -134,7 +134,7 @@ const cleanCSP = async (s, where) => { const inner = await s.frame.evaluate(() =
       assert.equal(await lang(s.frame), 'zh-CN', `${width}: follows console zh-CN`);
       assert.equal(await s.frame.evaluate(() => document.title), ZH_TITLE);
       assert.equal(await s.frame.textContent('h1'), 'Token 用量');
-      assert.equal(await s.frame.getAttribute('#languageToggle', 'aria-label'), '语言: 简体中文');
+      assert.equal(await s.frame.getAttribute('#languageToggle', 'aria-label'), '语言：简体中文');
       // The interactions that used to be inline onclick handlers still work under the CSP.
       await s.frame.click('#tab-model-tab');
       assert.equal(await s.frame.getAttribute('#tab-model-tab', 'aria-selected'), 'true', 'tab click works');

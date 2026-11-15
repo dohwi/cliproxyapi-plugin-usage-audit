@@ -56,7 +56,7 @@ module.exports = async function verifyLanguagePlacement(page, panelSelector) {
 
 const REFRESH = { en: 'Refresh', ko: '새로고침', 'zh-CN': '刷新' };
 // The language button opens a menu; its label is "<lang.menu>: <native name of the shown language>".
-const MENU_LABEL = { en: 'Language: English', ko: '언어: 한국어', 'zh-CN': '语言: 简体中文' };
+const MENU_LABEL = { en: 'Language: English', ko: '언어: 한국어', 'zh-CN': '语言：简体中文' };
 module.exports.REFRESH = REFRESH;
 module.exports.MENU_LABEL = MENU_LABEL;
 // pickPref opens the language menu from button (default #languageToggle) and picks

@@ -425,14 +425,14 @@ var I18N = {
     'err.read_failed': '无法读取用量记录。',
     'err.truncate_failed': '无法删除记录。',
     'err.marshal_failed': '生成响应时出错。',
-    'flash.suffix': ' \u00b7 因服务器更新而变化',
+    'flash.suffix': ' \u00b7 已因服务器更新而变更',
     'kpi.overview': '概览',
     'kpi.overviewHelp': '按官方统计的请求数与总量',
     'kpi.input': '输入',
     'kpi.inputHelp': '提供商上报的输入及缓存构成',
     'kpi.output': '输出',
     'kpi.outputHelp': '模型生成及推理 Token',
-    'kpi.failPlaceholder': '失败：- 次（-）',
+    'kpi.failPlaceholder': '失败：-（-）',
     'kpi.fail': '失败：{n} 次（{r}）',
     'kpi.gen': '生成请求：{n} 次',
     'kpi.official': '官方统计',
@@ -471,8 +471,8 @@ var I18N = {
     'tip.input': '输入（上报值）：',
     'tip.output': '输出：',
     'tip.failed': '失败：',
-    'tip.cache': '缓存（上报值，不可相加）：',
-    'tip.reasoning': '推理（上报值，不可相加）：',
+    'tip.cache': '缓存（上报值，不计入合计）：',
+    'tip.reasoning': '推理（上报值，不计入合计）：',
     'th.time': '时间',
     'th.provider': '提供商',
     'th.endpoint': '端点',
@@ -505,7 +505,7 @@ var I18N = {
     'records.title': '最近请求记录',
     'records.count': '{n} 条',
     'records.count.one': '{n} 条',
-    'records.desc': '最新 20 条 \u00b7 可通过筛选和“加载更多”追踪完整日志',
+    'records.desc': '最新 20 条 \u00b7 可通过筛选和“加载更多”查看完整日志',
     'records.hint': '点击记录可查看完整的 Token、提供商和端点信息。',
     'records.more': '加载更多',
     'rec.success': '成功',
@@ -513,7 +513,7 @@ var I18N = {
     'rec.status': '请求状态',
     'dialog.title': '请求详情',
     'dialog.close': '关闭',
-    'dlg.basic': '基本请求信息',
+    'dlg.basic': '请求信息',
     'dlg.time': '请求时间',
     'dlg.status': '状态',
     'dlg.failureStatus': '失败状态',
@@ -599,8 +599,9 @@ var LANG_CHECK_SVG = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidde
 function initLangMenu(buttons, opts) {
   var menu = null, owner = null;
   function label(b) {
-    var name = LANG_NAMES[resolveLang(readLangPref())] || '';
-    var text = opts.t('lang.menu') + ': ' + name;
+    var shown = resolveLang(readLangPref()), name = LANG_NAMES[shown] || '';
+    // Full-width colon in Chinese, ASCII colon + space elsewhere.
+    var text = opts.t('lang.menu') + (shown === 'zh-CN' ? '：' : ': ') + name;
     b.setAttribute('aria-label', text); b.title = text;
     b.setAttribute('aria-haspopup', 'menu');
     b.setAttribute('aria-expanded', menu && owner === b ? 'true' : 'false');
