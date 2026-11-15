@@ -81,7 +81,7 @@ var I18N = {
     'err.invalid_status': '상태 필터 값이 올바르지 않습니다.',
     'err.invalid_limit': '한 번에 불러올 개수가 허용 범위를 벗어났습니다.',
     'err.summary_range_too_large': '조회 기간이 너무 깁니다. 366일 이내로 줄이세요.',
-    'err.summary_bucket_limit': '집계 항목이 너무 많습니다. 기간이나 필터를 좁히세요.',
+    'err.summary_bucket_limit': '집계 항목이 너무 많습니다. 기간을 줄이거나 필터 조건을 추가하세요.',
     'err.invalid_cursor': '페이지 정보가 올바르지 않습니다. 처음부터 다시 불러오세요.',
     'err.cursor_expired': '그사이 기록이 바뀌었습니다. 처음부터 다시 불러오세요.',
     'err.read_failed': '사용량 기록을 읽지 못했습니다.',
