@@ -117,6 +117,7 @@ type Store struct {
 	needsNewline bool  // pre-existing active file has an unterminated final line
 	closed       bool
 	lineCount    int
+	appends      uint64 // Append calls that reached the writer; part of Version
 	generation   string
 	manifest     []fileStamp
 	lastObserve  time.Time // last full manifest observation made by Append (throttle)
@@ -222,6 +223,9 @@ func (s *Store) Append(rec LogRecord) (err error) {
 	if s.closed {
 		return os.ErrClosed
 	}
+	// Counted before any write so even a failed, partially written append
+	// changes Version: over-invalidating a derived cache is harmless.
+	s.appends++
 	// External-change detection on the write path is throttled: a full
 	// ReadDir+Stat of every retained file per record dominated Append CPU. Reads
 	// (snapshot) always run the full check, so a stale view is never served; the
@@ -351,6 +355,46 @@ func (s *Store) Flush() error {
 		return err
 	}
 	return errors.Join(s.flushLocked(), s.refreshManifestLocked())
+}
+
+// FlushPending flushes buffered writes only when there are any, and reports
+// whether it flushed. Append flushes every defaultFlushEvery lines; callers drive
+// this on a timer so a quiet server does not keep accepted records in memory
+// indefinitely. It is a no-op on a closed store or an empty buffer, so calling
+// it often costs one lock acquisition.
+func (s *Store) FlushPending() (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.bw == nil || s.bw.Buffered() == 0 {
+		return false, nil
+	}
+	// Same reasoning as the Append spill path: look before our own flush changes the file.
+	if err := s.observeManifestLocked(); err != nil {
+		return false, err
+	}
+	s.lastObserve = time.Now()
+	if err := errors.Join(s.flushLocked(), s.refreshManifestLocked()); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Version returns an opaque token that changes whenever the retained history may
+// have changed: on every Append, on rotation and Clear (new generation) and on
+// out-of-band file edits (detected the same way Snapshot detects them). Equal
+// tokens mean an identical record set, so callers may reuse results derived from
+// it without decoding or scanning anything. It costs a directory listing and a
+// stat per retained file, never a read.
+func (s *Store) Version() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return "", os.ErrClosed
+	}
+	if err := s.observeManifestLocked(); err != nil {
+		return "", err
+	}
+	return s.generation + "/" + strconv.FormatUint(s.appends, 10), nil
 }
 
 // Close flushes and closes the underlying file, returning both errors if needed.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>토큰 사용량 대시보드</title>
+<title>Token Usage Dashboard</title>
 <style>
 @@STYLE@@
 </style>
@@ -653,8 +653,8 @@
     <div class="auth-gate-head">
       <h2 id="authGateTitle" data-i18n="auth.title">관리 키가 필요합니다</h2>
       <div class="auth-gate-actions">
-        <button type="button" class="lang-toggle" id="authLanguageToggle" aria-label="English" title="English"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
-        <button type="button" class="theme-toggle" id="authThemeToggle" aria-label="Theme" title="Theme"></button>
+        <button type="button" class="lang-toggle" id="authLanguageToggle"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
+        <button type="button" class="theme-toggle" id="authThemeToggle"></button>
       </div>
     </div>
     <p class="auth-gate-desc" data-i18n="auth.desc">사용량 데이터는 관리 인증이 필요합니다. 관리 키는 이 탭의 세션에만 보관되며 주소나 서버에 기록되지 않습니다. 관리 센터에 저장된 키가 있으면 읽기 전용으로 재사용합니다.</p>
@@ -673,8 +673,8 @@
     </div>
     <div class="page-heading-actions">
       <button type="button" class="refresh-btn" id="refreshBtn" aria-label="새로고침" title="새로고침" data-i18n-aria="refresh" data-i18n-title="refresh"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
-      <button type="button" class="lang-toggle" id="languageToggle" aria-label="English" title="English"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
-      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Theme" title="Theme"></button>
+      <button type="button" class="lang-toggle" id="languageToggle"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h9M8.5 3v2M6 5c.6 3.2 2.700 5.600 5.500 7M11.500 5c-.6 3.200-3 6-6.500 7.500"/><path d="M12.500 20l4.500-10 4.500 10M14 16.500h6"/></svg></button>
+      <button type="button" class="theme-toggle" id="themeToggle"></button>
     </div>
   </header>
   <div id="dashboardContent" aria-busy="true">
@@ -687,12 +687,12 @@
             <div class="filter-row filter-period-row">
               <div id="presetGroup" class="dashboard-preset-mount" aria-label="기간 선택" data-i18n-aria="period.aria">
                 <span class="ui-segmented-indicator" aria-hidden="true"></span>
-                <button type="button" class="preset-btn ui-segmented-item active" role="radio" aria-checked="true" data-state="checked" tabindex="0" data-preset="today">오늘</button>
-                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="yesterday">어제</button>
-                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="7d">7일</button>
-                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="30d">30일</button>
-                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="month">이번 달</button>
-                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="custom" aria-controls="customDateWrap">직접</button>
+                <button type="button" class="preset-btn ui-segmented-item active" role="radio" aria-checked="true" data-state="checked" tabindex="0" data-preset="today" data-i18n="preset.today">오늘</button>
+                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="yesterday" data-i18n="preset.yesterday">어제</button>
+                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="7d" data-i18n="preset.7d">7일</button>
+                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="30d" data-i18n="preset.30d">30일</button>
+                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="month" data-i18n="preset.month">이번 달</button>
+                <button type="button" class="preset-btn ui-segmented-item" role="radio" aria-checked="false" data-state="unchecked" tabindex="-1" data-preset="custom" data-i18n="preset.custom" aria-controls="customDateWrap">직접</button>
               </div>
               <div id="customDateWrap" class="custom-dates" aria-label="조회 기간" title="직접을 선택하면 날짜를 변경할 수 있습니다." data-i18n-aria="range.aria" data-i18n-title="range.title">
                 <div id="dateRangeMount"></div>
@@ -901,9 +901,9 @@
             </div>
             <div class="tab-nav ui-tabs-list" role="tablist" aria-label="상세 집계 기준" data-i18n-aria="breakdown.aria">
               <span class="ui-tabs-indicator" aria-hidden="true"></span>
-              <button id="tab-provider-tab" type="button" class="tab-btn ui-tabs-trigger active" data-state="active" onclick="switchTab('tab-provider', this)" role="tab" aria-selected="true" aria-controls="tab-provider" tabindex="0" data-i18n="lbl.provider">제공자</button>
-              <button id="tab-endpoint-tab" type="button" class="tab-btn ui-tabs-trigger" data-state="inactive" onclick="switchTab('tab-endpoint', this)" role="tab" aria-selected="false" aria-controls="tab-endpoint" tabindex="-1" data-i18n="lbl.endpoint">엔드포인트</button>
-              <button id="tab-model-tab" type="button" class="tab-btn ui-tabs-trigger" data-state="inactive" onclick="switchTab('tab-model', this)" role="tab" aria-selected="false" aria-controls="tab-model" tabindex="-1" data-i18n="lbl.model">모델</button>
+              <button id="tab-provider-tab" type="button" class="tab-btn ui-tabs-trigger active" data-state="active" role="tab" aria-selected="true" aria-controls="tab-provider" tabindex="0" data-i18n="lbl.provider">제공자</button>
+              <button id="tab-endpoint-tab" type="button" class="tab-btn ui-tabs-trigger" data-state="inactive" role="tab" aria-selected="false" aria-controls="tab-endpoint" tabindex="-1" data-i18n="lbl.endpoint">엔드포인트</button>
+              <button id="tab-model-tab" type="button" class="tab-btn ui-tabs-trigger" data-state="inactive" role="tab" aria-selected="false" aria-controls="tab-model" tabindex="-1" data-i18n="lbl.model">모델</button>
             </div>
           </div>
 
@@ -948,7 +948,7 @@
           </div>
           <div id="recordsTableMount"></div><!-- dohwi-ui TableBody: <tbody id="recordsBody"></tbody> -->
           <div class="pagination-bar is-hidden" id="loadMoreBar">
-            <button id="loadMoreBtn" class="btn btn-secondary is-hidden" onclick="loadMoreRecords()" data-i18n="records.more">기록 더보기</button>
+            <button id="loadMoreBtn" class="btn btn-secondary is-hidden" data-i18n="records.more">기록 더보기</button>
             <nav class="ui-pagination" id="recordsPagination" aria-label="최근 요청 페이지 탐색" data-i18n-aria="pagination.aria">
               <ul class="ui-pagination-content">
                 <li>

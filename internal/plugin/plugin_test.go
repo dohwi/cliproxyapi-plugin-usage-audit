@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ import (
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 // ---------------------------------------------------------------------------
@@ -313,8 +314,9 @@ func TestManagementRegister(t *testing.T) {
 	if res["Menu"] != "Usage Audit" {
 		t.Errorf("resource Menu = %v, want Usage Audit", res["Menu"])
 	}
-	if desc, _ := res["Description"].(string); desc == "" {
-		t.Error("resource Description must be non-empty")
+	// The host shows Description verbatim and cannot localize it: English first, then Korean.
+	if desc, _ := res["Description"].(string); desc != "Token usage and request log dashboard · 토큰 사용량·요청 로그 대시보드" {
+		t.Errorf("resource Description = %q, want the bilingual English · Korean text", desc)
 	}
 }
 
@@ -384,6 +386,75 @@ func TestDashboardAndAssetsCarrySecurityHeaders(t *testing.T) {
 	}
 	if got := bad.Headers.Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Errorf("json X-Content-Type-Options = %q, want nosniff", got)
+	}
+	// Errors keep the English message and add a stable machine code for the UI.
+	var errBody map[string]any
+	if err := json.Unmarshal(bad.Body, &errBody); err != nil || errBody["code"] != "invalid_limit" || errBody["error"] != "invalid limit; must be 1..100" {
+		t.Errorf("error body = %s, want error message + code invalid_limit", bad.Body)
+	}
+}
+
+// The CSP allows exactly the page's inline scripts by hash: every <script> body
+// as served hashes to a source in script-src, and script-src has no
+// 'unsafe-inline'. The page has no inline event handlers or javascript: URLs
+// outside the vendored React runtime's own string literals.
+func TestDashboardCSPHashesEveryInlineScript(t *testing.T) {
+	t.Setenv("USAGE_AUDIT_DATA_DIR", t.TempDir())
+	callRegister(t)
+	page := callManagement(t, pluginapi.ManagementRequest{Method: http.MethodGet, Path: "/v0/resource/plugins/usage-audit/dashboard"})
+	csp := page.Headers.Get("Content-Security-Policy")
+	var scriptSrc string
+	for _, d := range strings.Split(csp, ";") {
+		if f := strings.Fields(d); len(f) > 0 && f[0] == "script-src" {
+			scriptSrc = strings.Join(f[1:], " ")
+		}
+	}
+	if scriptSrc == "" || strings.Contains(scriptSrc, "'unsafe-inline'") || strings.Contains(scriptSrc, "'unsafe-eval'") {
+		t.Fatalf("script-src = %q, want hashes only", scriptSrc)
+	}
+	if !strings.Contains(csp, "style-src 'unsafe-inline'") || !strings.Contains(csp, "font-src 'self'") {
+		t.Errorf("CSP lost style-src/font-src: %q", csp)
+	}
+	body := string(page.Body)
+	scripts := regexp.MustCompile(`(?is)<script\b([^>]*)>(.*?)</script>`).FindAllStringSubmatch(body, -1)
+	if len(scripts) < 3 {
+		t.Fatalf("found %d inline scripts, want at least 3", len(scripts))
+	}
+	sources := strings.Fields(scriptSrc)
+	if len(sources) != len(scripts) {
+		t.Errorf("script-src has %d sources for %d inline scripts", len(sources), len(scripts))
+	}
+	for i, m := range scripts {
+		if strings.Contains(m[1], "src=") {
+			t.Errorf("script %d is external (%s); the page must stay self-contained", i, m[1])
+		}
+		sum := sha256.Sum256([]byte(m[2]))
+		want := "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+		if !strings.Contains(" "+scriptSrc+" ", " "+want+" ") {
+			t.Errorf("script %d hash %s missing from script-src", i, want)
+		}
+	}
+	// Markup outside scripts: no on*= handler attributes, no javascript: URLs.
+	markup := regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script>`).ReplaceAllString(body, "")
+	if m := regexp.MustCompile(`(?i)<[^>]+\son[a-z]+\s*=`).FindString(markup); m != "" {
+		t.Errorf("inline event handler attribute in markup: %.120s", m)
+	}
+	if strings.Contains(strings.ToLower(markup), "javascript:") {
+		t.Error("javascript: URL in markup")
+	}
+	// Our own scripts must not use eval or the Function constructor either.
+	for i, m := range scripts {
+		if strings.Contains(m[1], `data-dohwi-ui="exported"`) {
+			continue // vendored React production bundle; checked below for eval only
+		}
+		for _, bad := range []string{"eval(", "new Function", "innerHTML = '<script", "setTimeout('", `setTimeout("`} {
+			if strings.Contains(m[2], bad) {
+				t.Errorf("script %d uses %q", i, bad)
+			}
+		}
+	}
+	if regexp.MustCompile(`\beval\(|new Function\(`).MatchString(body) {
+		t.Error("page uses eval or new Function, which a hash-only CSP blocks")
 	}
 }
 

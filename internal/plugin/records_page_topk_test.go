@@ -158,7 +158,7 @@ func TestRecordsPageTopKAnchorMustMatchFilters(t *testing.T) {
 				if err == nil || page != nil || next != "" {
 					t.Fatalf("invalid anchor accepted: page=%v next=%q err=%v", pageSequences(page), next, err)
 				}
-				status, message := recordsPageFailure(err)
+				status, _, message := recordsPageFailure(err)
 				if status != 400 || message != "cursor anchor not found; restart pagination" {
 					t.Fatalf("changed anchor validation: %d %s", status, message)
 				}

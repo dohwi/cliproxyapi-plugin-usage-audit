@@ -49,12 +49,20 @@ func TestDashboardStorageContract(t *testing.T) {
 	if script == nil {
 		t.Fatal("main script not found")
 	}
+	if !strings.Contains(html, "var HOST_LANG_KEY = 'cli-proxy-language';") || !strings.Contains(html, "var LANG_HOST_KEY = 'cpa_plugin_lang_host';") {
+		t.Fatal("host language key or language-host marker key is missing or renamed")
+	}
 	total := strings.Count(script[1], "localStorage")
-	// The host Management Center's own entries (auth, theme) are read through one reader and never
-	// written or removed here; only the shared language preference is written.
-	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|THEME_KEY|name)\)|setItem\((?:LANG_KEY, lang|THEME_KEY, mode)\))`).FindAllString(script[1], -1)
-	if total != len(allowed) || total != 5 {
-		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 5)", total, len(allowed))
+	// The host Management Center's own entries (auth, theme, language) are read only and never
+	// written or removed here: auth/theme through readHostStore(name), the language through
+	// getItem(HOST_LANG_KEY). Only the shared language preference (with the host language it was
+	// chosen under) and the theme mode are written.
+	allowed := regexp.MustCompile(`localStorage\.(?:getItem\((?:LANG_KEY|LANG_HOST_KEY|HOST_LANG_KEY|THEME_KEY|name)\)|setItem\((?:LANG_KEY, lang|LANG_HOST_KEY, host|THEME_KEY, mode)\))`).FindAllString(script[1], -1)
+	if total != len(allowed) || total != 8 {
+		t.Fatalf("localStorage references = %d (allowed accessors = %d, want exactly 8)", total, len(allowed))
+	}
+	if strings.Contains(script[1], "setItem(HOST_LANG_KEY") || strings.Contains(script[1], "removeItem(HOST_LANG_KEY") || strings.Contains(script[1], "'cli-proxy-language')") {
+		t.Fatal("the host language entry must be read only")
 	}
 	sessionTotal := strings.Count(script[1], "sessionStorage")
 	sessionAllowed := regexp.MustCompile(`sessionStorage\.(?:getItem\(KEY_STORAGE\)|setItem\(KEY_STORAGE, key\)|removeItem\(KEY_STORAGE\))`).FindAllString(script[1], -1)
@@ -129,6 +137,88 @@ assert(c.kvLabel('lbl.requests', '1,234') === 'Total requests: 1,234', 'en kv la
 assert(c.tn('records.count', 1) === '1 record' && c.tn('records.count', 3) === '3 records', 'en plural');
 assert(c.uiLocale() === 'en-US', 'en locale');
 assert(c.t('no.such.key') === 'no.such.key', 'missing key degrades to the key itself');
+console.log('OK');
+`)
+}
+
+// The page follows the host Management Center's language with "last action wins": a host change
+// made after the plugin's own toggle wins; the toggle wins until the host changes again. The host's
+// cli-proxy-language entry is parsed as zustand JSON or a bare string and is never written.
+func TestDashboardHostLanguageNodeContract(t *testing.T) {
+	runDashboardNode(t, `
+const vm = require('vm');
+const main = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const core = main.slice(main.indexOf('var LANG_KEY'), main.indexOf('// Theme: system'));
+function makeCtx(opts) {
+  const store = Object.assign({}, opts.store || {});
+  const writes = [];
+  const listeners = {};
+  const parentRoot = { lang: opts.parentLang || '', getAttribute(n) { return n === 'lang' ? this.lang : null; } };
+  const win = { addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); } };
+  win.parent = opts.parentLang !== undefined ? { document: { documentElement: parentRoot } } : win;
+  const ctx = { console, Math, Date, JSON, Object, String, Number, isNaN, window: win,
+    navigator: opts.nav ? { languages: opts.nav, language: opts.nav[0] } : undefined,
+    document: { querySelectorAll: () => [], getElementById: () => null },
+    DOM: {}, state: {}, extractFilterOptions() {}, updateSelectTitle() {}, updateActiveFilterBadge() {},
+    renderSummary() {}, paintRecords() {}, showRecordDetail() {},
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { writes.push(k); store[k] = String(v); }, removeItem: k => { writes.push(k); delete store[k]; } } };
+  vm.createContext(ctx); vm.runInContext(core, ctx); vm.runInContext('initLanguageControls()', ctx);
+  return { ctx, store, writes, parentRoot, fire: (key, newValue) => (listeners.storage || []).forEach(fn => fn({ key, newValue })) };
+}
+function assert(c, m) { if (!c) throw new Error(m); }
+const zustand = l => JSON.stringify({ state: { language: l }, version: 0 });
+
+// Parsing: zustand JSON, {language}, bare string, JSON string; unknown host → ''.
+let c = makeCtx({}).ctx;
+assert(c.parseHostLang(zustand('ko')) === 'ko', 'zustand JSON');
+assert(c.parseHostLang('{"language":"zh-CN"}') === 'zh-CN', 'plain object');
+assert(c.parseHostLang('ru') === 'ru', 'bare string');
+assert(c.parseHostLang('"vi"') === 'vi', 'JSON string');
+assert(c.parseHostLang('') === '' && c.parseHostLang(null) === '', 'empty');
+assert(c.uiLang('') === '' && c.uiLang('ko') === 'ko' && c.uiLang('ko-KR') === 'ko' && c.uiLang('zh-TW') === 'en' && c.uiLang('en') === 'en' && c.uiLang('kok') === 'en', 'uiLang mapping');
+
+// Host ko, saved en chosen while host was ko → the toggle wins: en.
+let r = makeCtx({ store: { 'cli-proxy-language': zustand('ko'), cpa_plugin_lang: 'en', cpa_plugin_lang_host: 'ko' } });
+assert(r.ctx.currentLang === 'en', 'toggle after host change wins: ' + r.ctx.currentLang);
+// Host changed to en (bare string) since the toggle → host wins: en; ko saved under en → host ru wins → en.
+r = makeCtx({ store: { 'cli-proxy-language': 'en', cpa_plugin_lang: 'ko', cpa_plugin_lang_host: 'ko' } });
+assert(r.ctx.currentLang === 'en', 'host changed after toggle wins');
+r = makeCtx({ store: { 'cli-proxy-language': zustand('ko'), cpa_plugin_lang: 'en', cpa_plugin_lang_host: 'en' } });
+assert(r.ctx.currentLang === 'ko', 'host switched to ko after en toggle wins');
+// No saved choice → host language.
+r = makeCtx({ store: { 'cli-proxy-language': zustand('ko') }, nav: ['en-US'] });
+assert(r.ctx.currentLang === 'ko', 'host beats browser when nothing saved');
+// No host → saved, then browser.
+r = makeCtx({ store: { cpa_plugin_lang: 'ko', cpa_plugin_lang_host: 'en' }, nav: ['en-US'] });
+assert(r.ctx.currentLang === 'ko', 'no host: saved wins');
+r = makeCtx({ nav: ['ko-KR'] });
+assert(r.ctx.currentLang === 'ko', 'no host, nothing saved: browser');
+// Same-origin parent <html lang> beats the stored host entry.
+r = makeCtx({ parentLang: 'ko', store: { 'cli-proxy-language': 'en' } });
+assert(r.ctx.currentLang === 'ko' && r.ctx.hostLangRaw() === 'ko', 'parent lang attribute first');
+
+// Toggle records the host language it was chosen under.
+r = makeCtx({ parentLang: 'ko' });
+r.ctx.setLanguage('en');
+assert(r.store.cpa_plugin_lang === 'en' && r.store.cpa_plugin_lang_host === 'ko', 'toggle writes LANG_KEY + LANG_HOST_KEY');
+// Live follow: parent lang mutation → follow and propagate through LANG_KEY.
+r.parentRoot.lang = 'en'; r.ctx.followHostLang();
+assert(r.ctx.currentLang === 'en' && r.store.cpa_plugin_lang === 'en' && r.store.cpa_plugin_lang_host === 'en', 'follows parent lang change');
+r.parentRoot.lang = 'ko'; r.ctx.followHostLang();
+assert(r.ctx.currentLang === 'ko' && r.store.cpa_plugin_lang === 'ko', 'follows back to ko');
+// Same host value again (e.g. a re-render) does not override a later toggle.
+r.ctx.setLanguage('en'); r.ctx.followHostLang();
+assert(r.ctx.currentLang === 'en', 'unchanged host value keeps the toggle');
+// Storage event for the host key (no same-origin parent).
+r = makeCtx({ store: { 'cli-proxy-language': zustand('en') } });
+assert(r.ctx.currentLang === 'en', 'start en');
+r.store['cli-proxy-language'] = zustand('ko'); r.fire('cli-proxy-language', r.store['cli-proxy-language']);
+assert(r.ctx.currentLang === 'ko', 'storage event for host key followed');
+// Other plugin pages: LANG_KEY event still applies.
+r.fire('cpa_plugin_lang', 'en');
+assert(r.ctx.currentLang === 'en', 'LANG_KEY storage event still applies');
+// Never writes the host entry.
+for (const x of [r, makeCtx({ parentLang: 'ko' })]) assert(!x.writes.includes('cli-proxy-language'), 'host entry written');
 console.log('OK');
 `)
 }

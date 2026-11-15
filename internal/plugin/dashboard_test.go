@@ -2,7 +2,7 @@ package plugin_test
 
 import (
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/plugin"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,8 +27,8 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 	body := string(resp.Body)
 
 	// 1. Title & Header verification
-	if !strings.Contains(body, "<title>토큰 사용량 대시보드</title>") { // default (ko) title; localized at runtime
-		t.Errorf("Dashboard HTML missing title '토큰 사용량 대시보드'")
+	if !strings.Contains(body, "<title>Token Usage Dashboard</title>") || !strings.Contains(body, `<html lang="en"`) { // static default matches <html lang="en">; localized at runtime
+		t.Errorf("Dashboard HTML must pair <html lang=\"en\"> with the English title")
 	}
 	if strings.Count(body, `<h1 data-i18n="page.heading">토큰 사용량</h1>`) != 1 {
 		t.Errorf("Dashboard HTML must render one visible page heading")
@@ -521,7 +521,10 @@ func TestFormatExactNumberBehavior(t *testing.T) {
 		t.Fatalf("could not extract formatExactNumber implementation from dashboard")
 	}
 
-	jsScript := match + "\n" + `
+	// Both UI locales (en-US, ko-KR) group with commas; the formatter follows the UI locale.
+	jsScript := "let LOCALE = 'en-US'; function uiLocale() { return LOCALE; }\n" + match + "\n" + `
+for (const loc of ['en-US', 'ko-KR']) {
+LOCALE = loc;
 const cases = [
   { in: null, want: '—' },
   { in: undefined, want: '—' },
@@ -545,6 +548,7 @@ for (const tc of cases) {
     console.error('formatExactNumber produced a compact unit suffix: ' + got);
     process.exit(1);
   }
+}
 }
 console.log('EXACT_FORMAT_TESTS_PASSED');
 `

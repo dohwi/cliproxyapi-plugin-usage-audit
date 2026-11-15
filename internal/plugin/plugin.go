@@ -3,12 +3,15 @@
 package plugin
 
 import (
+	"crypto/sha256"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,8 +24,8 @@ import (
 
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 // ----------------------------------------------------------------------------
@@ -31,7 +34,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.4.6"
+	pluginVersion = "0.5.0"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
@@ -87,6 +90,8 @@ type pluginState struct {
 	// epochMu serializes the consumer commit with DELETE, not queue consumption.
 	epochMu sync.Mutex
 	epoch   atomic.Uint64
+	// summaries caches computed summary aggregates per (store version, query).
+	summaries summaryCache
 }
 
 // shutdown safely stops the consumer and flushes the store exactly once.
@@ -98,10 +103,10 @@ func (ps *pluginState) shutdown() {
 		defer ps.lifecycle.Unlock()
 		ps.q.Close()
 		done := make(chan struct{})
-		go func() {
+		safeGo("usage-audit shutdown wait", func() {
+			defer close(done)
 			ps.workerWg.Wait()
-			close(done)
-		}()
+		})
 		select {
 		case <-done:
 			if err := ps.st.Close(); err != nil {
@@ -246,7 +251,7 @@ func handleRegister(request []byte) []byte {
 		logPath: logPath,
 	}
 	ps.workerWg.Add(1)
-	go ps.consumeLoop()
+	safeGo("usage-audit consumer", ps.consumeLoop)
 
 	stateMu.Lock()
 	state = ps
@@ -456,9 +461,26 @@ func handleUsage(request []byte) {
 }
 
 // consumeLoop is the single background goroutine draining q → st.
-// Errors are logged; they never propagate to the request path.
+// Errors are logged; they never propagate to the request path. A panic while
+// handling one record is recovered and logged, and consumption restarts, so a
+// single bad record can neither stop recording nor crash the host process.
 func (ps *pluginState) consumeLoop() {
 	defer ps.workerWg.Done()
+	for !runRecovered("usage-audit consumer", ps.consumeUntilShutdown) {
+		// The record that panicked was already dequeued; keep consuming the rest.
+	}
+}
+
+// storeFlushInterval bounds how long an accepted record may sit in the store's
+// write buffer: the store also flushes every 256 lines, but a quiet server must
+// not keep a handful of records only in memory until shutdown.
+var storeFlushInterval = 2 * time.Second
+
+// consumeUntilShutdown returns normally only after shutdown was observed and the
+// remaining records were drained.
+func (ps *pluginState) consumeUntilShutdown() {
+	tick := time.NewTicker(storeFlushInterval)
+	defer tick.Stop()
 	for {
 		select {
 		case rec, ok := <-ps.q.Consume():
@@ -468,6 +490,10 @@ func (ps *pluginState) consumeLoop() {
 				return
 			}
 			ps.appendRecord(rec)
+		case <-tick.C:
+			if _, err := ps.st.FlushPending(); err != nil {
+				log.Printf("usage-audit: periodic flush: %v", err)
+			}
 		case <-ps.q.ShutdownCh():
 			ps.drainRemaining()
 			return
@@ -497,6 +523,9 @@ type queuedUsage struct {
 	Epoch uint64 `json:"queue_epoch"`
 }
 
+// appendTestHook, when set (tests only), runs before each record is stored.
+var appendTestHook func(*store.LogRecord)
+
 func (ps *pluginState) appendRecord(rec queue.Record) {
 	var lr queuedUsage
 	if err := json.Unmarshal(rec, &lr); err != nil {
@@ -507,6 +536,9 @@ func (ps *pluginState) appendRecord(rec queue.Record) {
 	defer ps.epochMu.Unlock()
 	if lr.Epoch != ps.epoch.Load() {
 		return
+	}
+	if appendTestHook != nil {
+		appendTestHook(&lr.LogRecord)
 	}
 	if err := ps.st.Append(lr.LogRecord); err != nil {
 		log.Printf("usage-audit: store append: %v", err)
@@ -545,10 +577,16 @@ const resourceBase = "/v0/resource/plugins/usage-audit"
 
 // resourceDashboard is the single browser-navigable resource exposed by this
 // plugin. Its Menu label makes it appear in the management console sidebar.
+//
+// Menu and Description are single plain strings the host registers once at
+// start-up; the Management Center shows Description verbatim as the collapsed
+// sidebar tooltip and has no locale support for plugin text (upstream #4485 was
+// closed as not planned). So the tooltip cannot follow the console language and
+// carries both languages instead: English first, then Korean, joined by " · ".
 var resourceDashboard = resourceRoute{
 	Path:        "/dashboard",
 	Menu:        "Usage Audit", // matches the plugin store name; the host registers it once, so it cannot follow the page language
-	Description: "토큰 사용량 및 요청 로그 대시보드",
+	Description: "Token usage and request log dashboard · 토큰 사용량·요청 로그 대시보드",
 }
 
 func handleManagementRegister(_ []byte) []byte {
@@ -595,7 +633,7 @@ type managementResponse struct {
 func handleManagementHandle(request []byte) []byte {
 	var req managementHandleRequest
 	if err := json.Unmarshal(request, &req); err != nil {
-		return OKEnvelope(managementResponse{StatusCode: 400, Body: jsonStr(`{"error":"bad request"}`)})
+		return OKEnvelope(managementResponse{StatusCode: 400, Body: jsonStr(`{"error":"bad request","code":"bad_request"}`)})
 	}
 	method := strings.ToUpper(strings.TrimSpace(req.Method))
 	path := strings.TrimRight(strings.TrimSpace(req.Path), "/")
@@ -623,7 +661,7 @@ func handleManagementHandle(request []byte) []byte {
 	case method == "DELETE" && path == mgmtBase+"/records":
 		return handleDeleteRecords()
 	default:
-		return OKEnvelope(managementResponse{StatusCode: 404, Body: jsonStr(`{"error":"not found"}`)})
+		return OKEnvelope(managementResponse{StatusCode: 404, Body: jsonStr(`{"error":"not found","code":"not_found"}`)})
 	}
 }
 
@@ -631,15 +669,34 @@ func handleManagementHandle(request []byte) []byte {
 // GET /dashboard — self-contained dashboard UI
 // ----------------------------------------------------------------------------
 
-// dashboardSecurityHeaders hardens the self-contained page. The page is a single
-// HTML document with inline script/style, so script-src must allow 'unsafe-inline';
-// everything else is locked down: no external origins, framing only by the same origin (the management console embeds this page), no sniffing,
-// no referrer, no plugin content, no base-tag or form-target hijacking.
+// dashboardSecurityHeaders hardens the self-contained page. Inline scripts are
+// allowed by their SHA-256 hashes only (no 'unsafe-inline'), so an injected
+// script or on*= handler attribute cannot run. style-src keeps 'unsafe-inline'
+// because the page and its UI bundle set style attributes. Everything else is
+// locked down: no external origins, framing only by the same origin (the
+// management console embeds this page), no sniffing, no referrer, no plugin
+// content, no base-tag or form-target hijacking.
 var dashboardSecurityHeaders = map[string][]string{
-	"Content-Security-Policy": {"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"},
+	"Content-Security-Policy": {dashboardCSP(DashboardHTML)},
 	"X-Content-Type-Options":  {"nosniff"},
 	"Referrer-Policy":         {"no-referrer"},
 	"X-Frame-Options":         {"SAMEORIGIN"},
+}
+
+// inlineScriptRE matches every inline <script> element. The page is assembled
+// once from embedded files, so the hashes are computed once at start-up.
+var inlineScriptRE = regexp.MustCompile(`(?is)<script\b([^>]*)>(.*?)</script>`)
+
+// dashboardCSP returns the page's Content-Security-Policy with one
+// 'sha256-…' source per inline script body (hashed exactly as served).
+func dashboardCSP(page string) string {
+	var hashes []string
+	for _, m := range inlineScriptRE.FindAllStringSubmatch(page, -1) {
+		sum := sha256.Sum256([]byte(m[2]))
+		hashes = append(hashes, "'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'")
+	}
+	return "default-src 'none'; script-src " + strings.Join(hashes, " ") +
+		"; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 }
 
 var (
@@ -697,7 +754,7 @@ func parseTimeQueryInLocation(val string, isTo bool, loc *time.Location) (*time.
 		}
 		return &t, nil
 	}
-	return nil, fmt.Errorf("invalid time format: %s", val)
+	return nil, newAPIError(codeInvalidTime, "invalid time format: %s", val)
 }
 
 func parseTimezoneLocation(query map[string][]string) (*time.Location, error) {
@@ -706,11 +763,11 @@ func parseTimezoneLocation(query map[string][]string) (*time.Location, error) {
 		return nil, nil
 	}
 	if len(value) > 128 || strings.ContainsAny(value, "\x00\r\n") {
-		return nil, fmt.Errorf("invalid time zone: %s", value)
+		return nil, newAPIError(codeInvalidTimeZone, "invalid time zone: %s", value)
 	}
 	loc, err := time.LoadLocation(value)
 	if err != nil {
-		return nil, fmt.Errorf("invalid time zone: %s", value)
+		return nil, newAPIError(codeInvalidTimeZone, "invalid time zone: %s", value)
 	}
 	return loc, nil
 }
@@ -722,7 +779,7 @@ func parseTimezoneOffset(query map[string][]string) (time.Duration, error) {
 	}
 	offsetMinutes, err := strconv.Atoi(value)
 	if err != nil || offsetMinutes < -14*60 || offsetMinutes > 14*60 {
-		return 0, fmt.Errorf("invalid timezone offset: %s", value)
+		return 0, newAPIError(codeInvalidTZOffset, "invalid timezone offset: %s", value)
 	}
 	// JavaScript getTimezoneOffset() is UTC - local time, so negate it to
 	// convert a UTC timestamp into the browser's local wall-clock date.
@@ -760,12 +817,12 @@ func parseFilterOptions(query map[string][]string) (store.FilterOptions, error) 
 	}
 
 	if opts.From != nil && opts.To != nil && opts.To.Before(*opts.From) {
-		return opts, fmt.Errorf("from must not be after to")
+		return opts, newAPIError(codeInvalidRange, "from must not be after to")
 	}
 
 	now := time.Now().Add(5 * time.Minute) // tolerate slight clock skew
 	if opts.From != nil && opts.From.After(now) {
-		return opts, fmt.Errorf("future timestamp not allowed for from")
+		return opts, newAPIError(codeFutureFrom, "future timestamp not allowed for from")
 	}
 
 	opts.Provider = queryFirst(query, "provider")
@@ -779,7 +836,7 @@ func parseFilterOptions(query map[string][]string) (store.FilterOptions, error) 
 	status := strings.ToLower(queryFirst(query, "status"))
 	if status != "" {
 		if status != "success" && status != "failed" {
-			return opts, fmt.Errorf("invalid status filter: %s", status)
+			return opts, newAPIError(codeInvalidStatus, "invalid status filter: %s", status)
 		}
 		opts.Status = status
 	}
@@ -796,19 +853,19 @@ func handleGetRecords(req managementHandleRequest) []byte {
 	ps := state
 	stateMu.RUnlock()
 	if ps == nil {
-		return jsonMgmtResp(503, map[string]string{"error": "store not ready"})
+		return jsonMgmtResp(503, errorBody(codeStoreNotReady, "store not ready"))
 	}
 
 	opts, err := parseFilterOptions(req.Query)
 	if err != nil {
-		return jsonMgmtResp(400, map[string]string{"error": err.Error()})
+		return jsonMgmtResp(400, errorBodyFrom(err))
 	}
 
 	limit := 50
 	if v := queryFirst(req.Query, "limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 || n > 500 {
-			return jsonMgmtResp(400, map[string]string{"error": "invalid limit; must be 1..500"})
+			return jsonMgmtResp(400, errorBody(codeInvalidLimit, "invalid limit; must be 1..500"))
 		}
 		limit = n
 	}
@@ -817,11 +874,11 @@ func handleGetRecords(req managementHandleRequest) []byte {
 	defer ps.lifecycle.RUnlock()
 	paged, nextCursor, err := recordsPage(ps.st, opts, "management", queryFirst(req.Query, "cursor"), limit)
 	if err != nil {
-		status, message := recordsPageFailure(err)
+		status, code, message := recordsPageFailure(err)
 		if status == 500 {
 			log.Printf("usage-audit: records read: %v", err)
 		}
-		return jsonMgmtResp(status, map[string]any{"error": message, "storage_health": ps.st.Health()})
+		return jsonMgmtResp(status, map[string]any{"error": message, "code": code, "storage_health": ps.st.Health()})
 	}
 	resp := map[string]any{
 		"records":        paged,
@@ -925,33 +982,53 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 	ps := state
 	stateMu.RUnlock()
 	if ps == nil {
-		return 503, map[string]string{"error": "store not ready"}
+		return 503, errorBody(codeStoreNotReady, "store not ready")
 	}
 
 	opts, err := parseFilterOptions(req.Query)
 	if err != nil {
-		return 400, map[string]string{"error": err.Error()}
+		return 400, errorBodyFrom(err)
 	}
 	if resource {
 		if err := boundResourceSummary(&opts); err != nil {
-			return 400, map[string]string{"error": err.Error()}
+			return 400, errorBodyFrom(err)
 		}
 	}
 	dailyTimezoneLocation, err := parseTimezoneLocation(req.Query)
 	if err != nil {
-		return 400, map[string]string{"error": err.Error()}
+		return 400, errorBodyFrom(err)
 	}
 	dailyTimezoneOffset, err := parseTimezoneOffset(req.Query)
 	if err != nil {
-		return 400, map[string]string{"error": err.Error()}
+		return 400, errorBodyFrom(err)
 	}
 
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
+	// Dashboards poll the same query repeatedly. When the store reports the same
+	// version (no append, rotation, clear or external edit since), the aggregate
+	// is identical, so it is reused instead of re-scanning every record. The
+	// version is taken before the read: a concurrent append can only make the
+	// entry newer than its key, which merely causes one extra miss.
+	cacheKey := ""
+	if version, verr := ps.st.Version(); verr == nil {
+		zone := ""
+		if dailyTimezoneLocation != nil {
+			zone = dailyTimezoneLocation.String()
+		}
+		scope := "management"
+		if resource {
+			scope = "resource"
+		}
+		cacheKey = version + "|" + filterFingerprint(opts, scope) + "|" + zone + "|" + dailyTimezoneOffset.String()
+		if cached, ok := ps.summaries.get(cacheKey); ok {
+			return 200, summaryResponse(cached, ps)
+		}
+	}
 	recs, err := ps.st.ReadAllView() // read-only: aggregation never mutates records
 	if err != nil {
 		log.Printf("usage-audit: summary read: %v", err)
-		return 500, map[string]any{"error": "read failed", "storage_health": ps.st.Health()}
+		return 500, map[string]any{"error": "read failed", "code": codeReadFailed, "storage_health": ps.st.Health()}
 	}
 
 	buckets := make(map[summaryKey]*summaryBucket)
@@ -1054,7 +1131,7 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 		}
 		addAgg(byEndpointMap, endpoint)
 		if resource && len(buckets)+len(dailyMap)+len(byProviderMap)+len(byEndpointMap)+len(byModelMap) > resourceSummaryMaxBuckets {
-			return 400, map[string]string{"error": "summary bucket limit exceeded; narrow range or filters"}
+			return 400, errorBody(codeSummaryBucketLimit, "summary bucket limit exceeded; narrow range or filters")
 		}
 	}
 
@@ -1087,21 +1164,50 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 	if resource {
 		summaryOut = toResourceSummaryBuckets(result)
 	}
-	return 200, map[string]any{
-		"summary":     summaryOut,
-		"daily":       toAggList(dailyMap),
-		"by_provider": toAggList(byProviderMap),
-		"by_endpoint": toAggList(byEndpointMap),
-		"by_model":    toAggList(byModelMap),
-		"token_semantics": tokenSemantics{
-			Definition:        "fresh_input_tokens is provider-dependent: Claude/Anthropic input; otherwise max(0,input-cached_tokens), falling back to cache_read+cache_creation.",
-			TotalSource:       "record.total_tokens",
-			CachedRelation:    "subset_of_input",
-			ReasoningRelation: "provider_reported_in_total_when_applicable",
-		},
-		"total_count":    matched,
-		"storage_health": ps.st.Health(),
-		"dropped":        ps.q.DroppedCount(),
+	agg := &summaryAggregate{
+		Summary:    summaryOut,
+		Daily:      toAggList(dailyMap),
+		ByProvider: toAggList(byProviderMap),
+		ByEndpoint: toAggList(byEndpointMap),
+		ByModel:    toAggList(byModelMap),
+		TotalCount: matched,
+	}
+	if cacheKey != "" {
+		ps.summaries.put(cacheKey, agg)
+	}
+	return 200, summaryResponse(agg, ps)
+}
+
+// summaryAggregate is the record-derived, cacheable part of a summary response.
+// It is shared between responses and must be treated as read-only.
+type summaryAggregate struct {
+	Summary    any
+	Daily      []*aggregateItem
+	ByProvider []*aggregateItem
+	ByEndpoint []*aggregateItem
+	ByModel    []*aggregateItem
+	TotalCount int
+}
+
+var summaryTokenSemantics = tokenSemantics{
+	Definition:        "fresh_input_tokens is provider-dependent: Claude/Anthropic input; otherwise max(0,input-cached_tokens), falling back to cache_read+cache_creation.",
+	TotalSource:       "record.total_tokens",
+	CachedRelation:    "subset_of_input",
+	ReasoningRelation: "provider_reported_in_total_when_applicable",
+}
+
+// summaryResponse adds the live, non-cacheable fields (health, drop counter).
+func summaryResponse(agg *summaryAggregate, ps *pluginState) map[string]any {
+	return map[string]any{
+		"summary":         agg.Summary,
+		"daily":           agg.Daily,
+		"by_provider":     agg.ByProvider,
+		"by_endpoint":     agg.ByEndpoint,
+		"by_model":        agg.ByModel,
+		"token_semantics": summaryTokenSemantics,
+		"total_count":     agg.TotalCount,
+		"storage_health":  ps.st.Health(),
+		"dropped":         ps.q.DroppedCount(),
 	}
 }
 
@@ -1189,17 +1295,17 @@ func handleGetDashboardRecords(req managementHandleRequest) []byte {
 	ps := state
 	stateMu.RUnlock()
 	if ps == nil {
-		return jsonResourceResp(503, map[string]string{"error": "store not ready"})
+		return jsonResourceResp(503, errorBody(codeStoreNotReady, "store not ready"))
 	}
 	opts, err := parseFilterOptions(req.Query)
 	if err != nil {
-		return jsonResourceResp(400, map[string]string{"error": err.Error()})
+		return jsonResourceResp(400, errorBodyFrom(err))
 	}
 	limit := 20
 	if v := queryFirst(req.Query, "limit"); v != "" {
 		n, e := strconv.Atoi(v)
 		if e != nil || n < 1 || n > 100 {
-			return jsonResourceResp(400, map[string]string{"error": "invalid limit; must be 1..100"})
+			return jsonResourceResp(400, errorBody(codeInvalidLimit, "invalid limit; must be 1..100"))
 		}
 		limit = n
 	}
@@ -1207,11 +1313,11 @@ func handleGetDashboardRecords(req managementHandleRequest) []byte {
 	defer ps.lifecycle.RUnlock()
 	page, nextCursor, err := recordsPage(ps.st, opts, "resource", queryFirst(req.Query, "cursor"), limit)
 	if err != nil {
-		status, message := recordsPageFailure(err)
+		status, code, message := recordsPageFailure(err)
 		if status == 500 {
 			log.Printf("usage-audit: resource records read: %v", err)
 		}
-		return jsonResourceResp(status, map[string]any{"error": message, "storage_health": ps.st.Health()})
+		return jsonResourceResp(status, map[string]any{"error": message, "code": code, "storage_health": ps.st.Health()})
 	}
 	out := make([]resourceRecord, 0, len(page))
 	for _, r := range page {
@@ -1249,7 +1355,7 @@ func jsonResourceResp(status int, body any) []byte {
 		b, e = json.Marshal(body)
 	}
 	if e != nil {
-		b = []byte(`{"error":"marshal failed"}`)
+		b = []byte(`{"error":"marshal failed","code":"marshal_failed"}`)
 	}
 	return OKEnvelope(managementResponse{StatusCode: status, Headers: map[string][]string{"Content-Type": {"application/json"}, "Cache-Control": {"no-store"}, "X-Content-Type-Options": {"nosniff"}}, Body: b})
 }
@@ -1263,7 +1369,7 @@ func handleDeleteRecords() []byte {
 	ps := state
 	stateMu.RUnlock()
 	if ps == nil {
-		return jsonMgmtResp(503, map[string]string{"error": "store not ready"})
+		return jsonMgmtResp(503, errorBody(codeStoreNotReady, "store not ready"))
 	}
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
@@ -1273,7 +1379,7 @@ func handleDeleteRecords() []byte {
 	ps.epoch.Add(1)
 	if err := ps.st.Clear(); err != nil {
 		log.Printf("usage-audit: delete records: %v", err)
-		return jsonMgmtResp(500, map[string]string{"error": "truncate failed"})
+		return jsonMgmtResp(500, errorBody(codeTruncateFailed, "truncate failed"))
 	}
 	return jsonMgmtResp(200, map[string]string{"status": "ok"})
 }
@@ -1300,7 +1406,7 @@ func Shutdown() {
 func jsonMgmtResp(status int, body any) []byte {
 	b, err := json.Marshal(body)
 	if err != nil {
-		b = []byte(`{"error":"marshal failed"}`)
+		b = []byte(`{"error":"marshal failed","code":"marshal_failed"}`)
 	}
 	return OKEnvelope(managementResponse{
 		StatusCode: status,

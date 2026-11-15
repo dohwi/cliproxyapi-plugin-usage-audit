@@ -41,7 +41,7 @@
 | Domain | Technology / Specification |
 |---|---|
 | Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so` / `.dylib` / `.dll`) |
-| Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK 의존성) |
+| Host Integration | CLIProxyAPI Plugin C ABI (`v8.0.72` SDK 의존성) |
 | Embedded UI | React 19, Radix UI Primitives, esbuild 번들링 |
 | Persistence | JSONL 로테이션 로그, 인메모리 스냅샷 캐시 |
 | Bundled Typography | SUIT Regular/SemiBold, Manrope Variable (self-hosted WOFF2) |
@@ -117,10 +117,12 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합
 
 대시보드는 한국어와 영어를 지원하며, 필터 영역의 번역 아이콘 버튼 하나를 누를 때마다 한국어와 영어가 전환되며, 툴팁에 전환될 언어가 표시됩니다.
 
-- **선택 순서**: 저장된 선택 → 브라우저 언어(한국어면 한국어, 그 외는 영어) → 영어.
+- **관리 센터 언어 따라가기**: 관리 센터 안에서는 콘솔 언어를 따릅니다(한국어면 한국어, 그 외 언어는 영어). 콘솔 언어를 바꾸면 바로 반영됩니다. 마지막 조작이 우선하므로, 페이지에서 직접 바꾼 언어는 콘솔 언어가 다시 바뀔 때까지 유지됩니다.
+- **선택 순서**: 콘솔 언어(마지막 직접 선택 이후 바뀐 경우) → 저장된 선택 → 브라우저 언어(한국어면 한국어, 그 외는 영어) → 영어.
 - **공유 설정**: 선택값은 브라우저의 `cpa_plugin_lang` 키에 저장되며, [quota-monitor](https://github.com/dohwi/cliproxyapi-plugin-quota-monitor) 대시보드와 같은 키를 씁니다. 한쪽에서 바꾸면 열려 있는 다른 쪽도 따라갑니다. 두 대시보드가 같은 origin에서 제공될 때만 적용됩니다.
-- **개인정보**: 페이지가 `localStorage`에 쓰는 것은 언어와 테마 모드(시스템/라이트/다크) 설정뿐입니다. 관리 키는 현재 탭의 `sessionStorage`에만 보관되며 `localStorage`, 쿠키, URL에는 쓰이지 않습니다. 편의를 위해 관리 센터가 같은 origin에 이미 저장해 둔 키와 테마를 읽기 전용으로 사용할 수 있습니다(관리 센터의 "비밀번호 기억"이 꺼져 있거나 저장된 주소가 다른 origin이면 사용하지 않습니다).
-- **번역되지 않는 항목**: 호스트 메뉴에 표시되는 플러그인 이름은 로드 시 한 번 등록되므로 플러그인 스토어 이름("Usage Audit")으로 고정되며 언어에 따라 바뀌지 않습니다.
+- **개인정보**: 페이지가 `localStorage`에 쓰는 것은 언어(선택 당시의 콘솔 언어 포함)와 테마 모드(시스템/라이트/다크) 설정뿐입니다. 관리 키는 현재 탭의 `sessionStorage`에만 보관되며 `localStorage`, 쿠키, URL에는 쓰이지 않습니다. 편의를 위해 관리 센터가 같은 origin에 이미 저장해 둔 키·테마·언어를 읽기 전용으로 사용할 수 있습니다(관리 센터의 "비밀번호 기억"이 꺼져 있거나 저장된 주소가 다른 origin이면 사용하지 않습니다).
+- **번역되지 않는 항목**: 호스트가 표시하는 플러그인 이름과 사이드바 툴팁은 로드 시 한 번 등록됩니다. 그래서 이름은 플러그인 스토어 이름("Usage Audit")으로 고정되고, 툴팁에는 두 언어가 함께 표시됩니다("Token usage and request log dashboard · 토큰 사용량·요청 로그 대시보드").
+- **오류 메시지**: API 오류는 영어 `error` 문구를 유지하면서 고정 `code`를 함께 보냅니다. 대시보드는 알려진 코드를 선택한 언어로 보여 줍니다.
 
 ## Routes
 
