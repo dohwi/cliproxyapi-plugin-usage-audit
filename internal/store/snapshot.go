@@ -188,8 +188,8 @@ func (s *Store) snapshot(own bool) (snap Snapshot, err error) {
 	for i := range records {
 		r := &records[i]
 		r.Sequence = uint64(i + 1)
-		// Legacy API key fields must not enter either API responses or cache.
-		r.APIKeyID = ""
+		// Legacy API key and source fields must not enter either API responses or cache.
+		r.APIKeyID, r.Source = "", ""
 		size += recordCost(r)
 	}
 	if size <= maxSnapshotCacheBytes {

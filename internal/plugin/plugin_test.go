@@ -904,13 +904,14 @@ func TestSummaryBreakdownAggregation(t *testing.T) {
 		t.Errorf("by_model want 3 got %d", len(sumResp.ByModel))
 	}
 
-	// Check endpoint derivation: exec1, src2, unknown
+	// Check endpoint derivation: exec1, unknown. The host Source is never stored
+	// (it can be a raw API key or e-mail), so r2 falls back to "unknown" too.
 	endpoints := make(map[string]bool)
 	for _, ep := range sumResp.ByEndpoint {
 		endpoints[ep.Key] = true
 	}
-	if !endpoints["exec1"] || !endpoints["src2"] || !endpoints["unknown"] {
-		t.Errorf("expected endpoints [exec1, src2, unknown], got %+v", endpoints)
+	if !endpoints["exec1"] || !endpoints["unknown"] || endpoints["src2"] || len(endpoints) != 2 {
+		t.Errorf("expected endpoints [exec1, unknown], got %+v", endpoints)
 	}
 }
 
@@ -1050,8 +1051,9 @@ func TestEndpointFilterMatchesExecutorTypeOrSource(t *testing.T) {
 	if got := fetchCount(map[string][]string{"endpoint": {"exec-a"}}); got != 1 {
 		t.Errorf("endpoint=exec-a want 1 record, got %d", got)
 	}
-	if got := fetchCount(map[string][]string{"endpoint": {"src-b"}}); got != 1 {
-		t.Errorf("endpoint=src-b want 1 record, got %d", got)
+	// The host Source is never stored, so it can no longer match a filter.
+	if got := fetchCount(map[string][]string{"endpoint": {"src-b"}}); got != 0 {
+		t.Errorf("endpoint=src-b want 0 records (source not stored), got %d", got)
 	}
 	if got := fetchCount(map[string][]string{"endpoint": {"no-such"}}); got != 0 {
 		t.Errorf("endpoint=no-such want 0 records, got %d", got)
@@ -1061,7 +1063,7 @@ func TestEndpointFilterMatchesExecutorTypeOrSource(t *testing.T) {
 	resp := callManagement(t, pluginapi.ManagementRequest{
 		Method: "GET",
 		Path:   "/v0/management/plugins/usage-audit/summary",
-		Query:  map[string][]string{"endpoint": {"src-b"}},
+		Query:  map[string][]string{"endpoint": {"exec-a"}},
 	})
 	var sum struct {
 		TotalCount int `json:"total_count"`
@@ -1414,6 +1416,8 @@ func TestAPIKeySecretNeverPersisted(t *testing.T) {
 	t.Cleanup(plugin.Shutdown)
 	rec := makeUsageRecord("provider", "model", "stable-index", 10, 5, true)
 	rec["APIKey"] = "sk-raw-client-secret-never-persist"
+	// The host fills Source with the upstream API key of an API-key credential.
+	rec["Source"] = "sk-raw-upstream-secret-never-persist"
 	callUsageHandle(t, rec)
 	plugin.Shutdown() // deterministic drain, no sleep
 	path := filepath.Join(dir, "usage.jsonl")
@@ -1421,7 +1425,8 @@ func TestAPIKeySecretNeverPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(data, []byte("sk-raw-client-secret")) || bytes.Contains(data, []byte("api_key_id")) {
+	if bytes.Contains(data, []byte("sk-raw-client-secret")) || bytes.Contains(data, []byte("api_key_id")) ||
+		bytes.Contains(data, []byte("sk-raw-upstream-secret")) || bytes.Contains(data, []byte(`"source"`)) {
 		t.Fatalf("secret stored: %s", data)
 	}
 	recs, err := store.ReadAll(path)
@@ -1430,7 +1435,7 @@ func TestAPIKeySecretNeverPersisted(t *testing.T) {
 	}
 	callRegister(t)
 	resp := callManagement(t, pluginapi.ManagementRequest{Method: "GET", Path: "/v0/management/plugins/usage-audit/records"})
-	if resp.StatusCode != 200 || bytes.Contains(resp.Body, []byte("sk-raw-client-secret")) {
+	if resp.StatusCode != 200 || bytes.Contains(resp.Body, []byte("sk-raw-client-secret")) || bytes.Contains(resp.Body, []byte("sk-raw-upstream-secret")) {
 		t.Fatalf("records: %d %s", resp.StatusCode, resp.Body)
 	}
 }

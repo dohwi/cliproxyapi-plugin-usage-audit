@@ -60,7 +60,7 @@ mise install
 
 # Native build tools: Ubuntu/Debian
 sudo apt-get update && sudo apt-get install -y build-essential
-# macOS: xcode-select --install      Windows: 64-bit mingw-w64 gcc (e.g. MSYS2 UCRT64) and Git Bash
+# macOS: xcode-select --install      Windows: mingw-w64 gcc (MSYS2 UCRT64 on x64, CLANGARM64 on arm64) and Git Bash
 
 # Run tests and the native ABI smoke test (the script also works where make is missing)
 make verify
@@ -91,7 +91,7 @@ This rewrites the marked regions of `internal/plugin/dashboard.html`. Do not edi
 
 Once listed in the [CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store), install `usage-audit` from the host's plugin page. To install manually, download `usage-audit_<version>_<os>_<arch>.zip` and `checksums.txt` from the [latest release](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest), verify with `sha256sum -c checksums.txt` (`shasum -a 256 -c` on macOS), and unzip the library into the host's plugin directory.
 
-Every release publishes all five store platforms; the Release workflow refuses to publish unless all of them built and passed the native smoke test:
+Every release publishes all six store platforms; the Release workflow refuses to publish unless all of them built and passed the native smoke test:
 
 | Platform | Asset | Library |
 |---|---|---|
@@ -100,6 +100,7 @@ Every release publishes all five store platforms; the Release workflow refuses t
 | macOS Intel | `usage-audit_<version>_darwin_amd64.zip` | `usage-audit.dylib` |
 | macOS Apple silicon | `usage-audit_<version>_darwin_arm64.zip` | `usage-audit.dylib` |
 | Windows x64 | `usage-audit_<version>_windows_amd64.zip` | `usage-audit.dll` |
+| Windows arm64 | `usage-audit_<version>_windows_arm64.zip` | `usage-audit.dll` |
 
 The Linux builds require glibc 2.36 or older (the official Debian bookworm image).
 
@@ -107,11 +108,13 @@ The Linux builds require glibc 2.36 or older (the official Debian bookworm image
 
 Usage records are stored in `usage.jsonl` (rotated to `.1`, `.2`, ...) in the directory resolved in this order: the `USAGE_AUDIT_DATA_DIR` environment variable of the host process, then `data_dir` under `plugins.configs.usage-audit` in the host `config.yaml`, then a per-user default, `<user-config-dir>/cliproxyapi/usage-audit` (`~/.config/cliproxyapi/usage-audit` on Linux, `~/Library/Application Support/cliproxyapi/usage-audit` on macOS, `%AppData%\cliproxyapi\usage-audit` on Windows). **No setup is required**: the default works out of the box, and `strict_decoding: true` in the same plugin config enables strict record decoding. If none is available the plugin runs without storage and logs a message. Earlier builds defaulted to a fixed `/var/lib/homelab/...` path; set `USAGE_AUDIT_DATA_DIR` to keep using an existing directory.
 
+Each record holds only token counts, timing, provider/model names and the stable credential index. It never stores the client API key, the host's usage `source` (which can be an upstream API key or an account e-mail), prompts or responses. Since 0.6.2 the plugin also removes `api_key_id` and `source` from history written by older versions when it opens the log.
+
 ### Releasing
 
 Bump `pluginVersion` in `internal/plugin/plugin.go` and push to `main`. That is all: the Release workflow reads the version, skips if `vX.Y.Z` already exists, otherwise tests it, builds each platform on a native runner, packages `<id>_<version>_<os>_<arch>.zip`, writes `checksums.txt`, and creates the tag and GitHub release. The CLIProxyAPI plugin store reads the latest release, so the plugin page then offers the update.
 
-Pushing a matching `vX.Y.Z` tag by hand, or running the workflow manually, also works. The version must be a dotted numeric version (`vX.Y.Z`) and match `pluginVersion`; a release is only published after all five platforms built and passed the native smoke test.
+Pushing a matching `vX.Y.Z` tag by hand, or running the workflow manually, also works. The version must be a dotted numeric version (`vX.Y.Z`) and match `pluginVersion`; a release is only published after all six platforms built and passed the native smoke test.
 
 ## Language
 

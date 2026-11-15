@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -70,7 +71,9 @@ type LogRecord struct {
 	AuthIndex string `json:"auth_index,omitempty"`
 	// AuthType is the credential type (e.g. "oauth").
 	AuthType string `json:"auth_type,omitempty"`
-	// Source identifies the request source/integration.
+	// Source is retained for legacy decoding only and always cleared: the host's
+	// usage source can be a raw upstream or client API key. Append never writes it
+	// and snapshots drop it, so it reaches neither disk nor API responses.
 	Source string `json:"source,omitempty"`
 	// ReasoningEffort is the requested reasoning effort level.
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
@@ -149,6 +152,14 @@ func OpenWithOptions(path string, maxBytes int64, maxRotate int, opts Options) (
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, fmt.Errorf("store: mkdir %s: %w", filepath.Dir(path), err)
+	}
+	// History written by older versions may still carry raw keys in api_key_id or
+	// source. Remove them before the writer opens the files. A failure is not
+	// fatal (snapshots never return those fields), but it is reported.
+	if n, err := ScrubLegacySecrets(path); err != nil {
+		log.Printf("usage-audit: could not remove legacy secret fields from the log: %v", err)
+	} else if n > 0 {
+		log.Printf("usage-audit: removed legacy secret fields from %d log records", n)
 	}
 	mode := "resilient"
 	if opts.StrictDecoding {
@@ -249,8 +260,8 @@ func (s *Store) Append(rec LogRecord) (err error) {
 			return err
 		}
 	}
-	// The host APIKey field may contain a secret, not a safe identifier.
-	rec.APIKeyID = ""
+	// The host APIKey and Source fields may contain a secret, not a safe identifier.
+	rec.APIKeyID, rec.Source = "", ""
 	line, err := json.Marshal(rec)
 	if err != nil {
 		return fmt.Errorf("store: marshal: %w", err)
@@ -318,7 +329,7 @@ func (s *Store) Append(rec LogRecord) (err error) {
 		}
 		if ok {
 			cached.Sequence = uint64(len(keptCache) + 1)
-			cached.APIKeyID = ""
+			cached.APIKeyID, cached.Source = "", ""
 			if total := keptBytes + recordCost(&cached); total <= maxSnapshotCacheBytes {
 				s.cache, s.cacheBytes, s.cacheValid = append(keptCache, cached), total, true
 			}

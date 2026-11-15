@@ -34,7 +34,7 @@ import (
 
 const (
 	pluginName    = "usage-audit"
-	pluginVersion = "0.6.1"
+	pluginVersion = "0.6.2"
 	pluginAuthor  = "dohwi"
 	// pluginRepoURL is this plugin's own public repository, shown by the host and the plugin store.
 	pluginRepoURL = "https://github.com/dohwi/cliproxyapi-plugin-usage-audit"
@@ -431,7 +431,8 @@ func handleUsage(request []byte) {
 		// AuthID is intentionally omitted — only the stable AuthIndex is stored.
 		AuthIndex:       rec.AuthIndex,
 		AuthType:        rec.AuthType,
-		Source:          rec.Source,
+		// Source is deliberately omitted: the host fills it with the account e-mail,
+		// the upstream API key of an API-key credential, or the client API key.
 		ReasoningEffort: rec.ReasoningEffort,
 		ServiceTier:     rec.ServiceTier,
 		Generate:        rec.Generate, // false ≠ missing; preserved explicitly
