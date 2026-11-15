@@ -41,7 +41,7 @@
 | Domain | Technology / Specification |
 |---|---|
 | Runtime & ABI | Go 1.26.9, cgo, C shared library (`.so` / `.dylib` / `.dll`) |
-| Host Integration | CLIProxyAPI Plugin C ABI (`v7.2.155` SDK 의존성) |
+| Host Integration | CLIProxyAPI Plugin C ABI (`v8.0.72` SDK 의존성) |
 | Embedded UI | React 19, Radix UI Primitives, esbuild 번들링 |
 | Persistence | JSONL 로테이션 로그, 인메모리 스냅샷 캐시 |
 | Bundled Typography | SUIT Regular/SemiBold, Manrope Variable (self-hosted WOFF2) |

@@ -21,8 +21,8 @@ import (
 
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/queue"
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 // ----------------------------------------------------------------------------

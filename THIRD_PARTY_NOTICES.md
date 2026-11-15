@@ -2,7 +2,7 @@
 
 ## CLIProxyAPI SDK
 
-`usage-audit` depends on `github.com/router-for-me/CLIProxyAPI/v7` at **v7.2.155**, downloaded through Go modules rather than vendored into this repository. Upstream source and its license are available at [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI/tree/v7.2.155). The host binary is not distributed in this source repository.
+`usage-audit` depends on `github.com/router-for-me/CLIProxyAPI/v8` at **v8.0.72**, downloaded through Go modules rather than vendored into this repository. Upstream source and its license are available at [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.72). The host binary is not distributed in this source repository.
 
 ## Bundled fonts
 
