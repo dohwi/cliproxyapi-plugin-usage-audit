@@ -60,7 +60,7 @@ mise install
 
 # 네이티브 빌드 도구: Ubuntu/Debian
 sudo apt-get update && sudo apt-get install -y build-essential
-# macOS: xcode-select --install      Windows: 64비트 mingw-w64 gcc(예: MSYS2 UCRT64)와 Git Bash
+# macOS: xcode-select --install      Windows: mingw-w64 gcc(x64는 MSYS2 UCRT64, arm64는 CLANGARM64)와 Git Bash
 
 # 테스트와 네이티브 ABI 스모크 테스트 (make가 없는 환경에서도 스크립트로 실행 가능)
 make verify
@@ -91,7 +91,7 @@ npm run build
 
 [CLIProxyAPI Plugins Store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store)에 등록되면 호스트의 플러그인 페이지에서 `usage-audit`를 설치할 수 있습니다. 수동 설치는 [최신 릴리스](https://github.com/dohwi/cliproxyapi-plugin-usage-audit/releases/latest)에서 `usage-audit_<version>_<os>_<arch>.zip`과 `checksums.txt`를 받아 `sha256sum -c checksums.txt`(macOS는 `shasum -a 256 -c`)로 확인한 뒤, 라이브러리를 호스트의 플러그인 디렉터리에 풉니다.
 
-모든 릴리스는 스토어가 요구하는 5개 플랫폼을 함께 게시합니다. Release 워크플로는 5개가 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 게시합니다.
+모든 릴리스는 스토어가 요구하는 6개 플랫폼을 함께 게시합니다. Release 워크플로는 6개가 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 게시합니다.
 
 | 플랫폼 | 에셋 | 라이브러리 |
 |---|---|---|
@@ -100,6 +100,7 @@ npm run build
 | macOS Intel | `usage-audit_<version>_darwin_amd64.zip` | `usage-audit.dylib` |
 | macOS Apple silicon | `usage-audit_<version>_darwin_arm64.zip` | `usage-audit.dylib` |
 | Windows x64 | `usage-audit_<version>_windows_amd64.zip` | `usage-audit.dll` |
+| Windows arm64 | `usage-audit_<version>_windows_arm64.zip` | `usage-audit.dll` |
 
 Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합니다.
 
@@ -107,11 +108,13 @@ Linux 빌드는 glibc 2.36 이하(공식 Debian bookworm 이미지)가 필요합
 
 사용량 기록은 `usage.jsonl`(로테이션 시 `.1`, `.2`, ...)에 저장되며, 디렉터리는 호스트 프로세스의 `USAGE_AUDIT_DATA_DIR` 환경변수 → 호스트 `config.yaml`의 `plugins.configs.usage-audit.data_dir` → 사용자별 기본 경로 순으로 정해집니다. 기본 경로는 `<user-config-dir>/cliproxyapi/usage-audit`를 씁니다(Linux `~/.config/cliproxyapi/usage-audit`, macOS `~/Library/Application Support/cliproxyapi/usage-audit`, Windows `%AppData%\cliproxyapi\usage-audit`). **별도 설정은 필요 없습니다.** 같은 플러그인 설정에 `strict_decoding: true`를 넣으면 엄격한 레코드 디코딩을 켭니다. 모두 사용할 수 없으면 저장소 없이 동작하며 로그를 남깁니다. 이전 빌드는 고정된 `/var/lib/homelab/...` 경로가 기본값이었으니, 기존 디렉터리를 계속 쓰려면 `USAGE_AUDIT_DATA_DIR`을 지정하세요.
 
+기록에는 토큰 수, 시간, 공급자·모델 이름, 고정된 자격 증명 인덱스만 남습니다. 클라이언트 API 키, 호스트의 사용량 `source`(업스트림 API 키나 계정 이메일일 수 있음), 프롬프트, 응답은 저장하지 않습니다. 0.6.2부터는 로그를 열 때 이전 버전이 남긴 `api_key_id`, `source` 필드도 지웁니다.
+
 ### 릴리스
 
 `internal/plugin/plugin.go`의 `pluginVersion`을 올려 `main`에 푸시하면 끝입니다. 릴리스 워크플로가 버전을 읽고, `vX.Y.Z`가 이미 있으면 건너뜁니다. 없으면 테스트 후 플랫폼별 네이티브 러너에서 빌드해 `<id>_<version>_<os>_<arch>.zip`으로 패키징하고, `checksums.txt`와 함께 태그와 GitHub 릴리스를 만듭니다. CLIProxyAPI 플러그인 스토어가 최신 릴리스를 읽으므로 플러그인 페이지에 업데이트가 표시됩니다.
 
-같은 버전의 `vX.Y.Z` 태그를 직접 푸시하거나 워크플로를 수동 실행해도 됩니다. 버전은 점 구분 숫자(`vX.Y.Z`)이고 `pluginVersion`과 일치해야 하며, 5개 플랫폼이 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 릴리스가 게시됩니다.
+같은 버전의 `vX.Y.Z` 태그를 직접 푸시하거나 워크플로를 수동 실행해도 됩니다. 버전은 점 구분 숫자(`vX.Y.Z`)이고 `pluginVersion`과 일치해야 하며, 6개 플랫폼이 모두 빌드되고 네이티브 스모크 테스트를 통과해야만 릴리스가 게시됩니다.
 
 ## Language
 
