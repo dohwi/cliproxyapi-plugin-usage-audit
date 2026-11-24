@@ -1561,6 +1561,31 @@
   /* Weights: 400/500/600; 700 only for headings and KPI values. */
   .empty-state-title, .chart-empty-state { font-weight: 600; }
   .date-range-separator { font-weight: 500; }
-  .records-page-list .ui-pagination-link[data-active='true'], .records-page-list .ui-pagination-link.active { font-weight: 600; color: var(--text-primary); }
-  .ui-pagination-direction { border-radius: 6px; }
+  /* Pagination (Ghost + Hairline Inset Fill): scoped under #recordsPagination so it overrides vendor .ui-pagination-link. */
+  #recordsPagination .ui-pagination-content { gap: 4px; }
+  #recordsPagination .ui-pagination-link {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    min-width: 32px; height: 32px; min-height: 32px; padding: 0 6px;
+    border: 1px solid transparent; border-radius: 6px;
+    background: transparent; color: var(--text-secondary);
+    font-size: 13px; line-height: 20px; font-weight: 500; font-variant-numeric: tabular-nums;
+    cursor: pointer; transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
+  }
+  #recordsPagination .ui-pagination-direction { padding: 0 10px; color: var(--text-primary); }
+  #recordsPagination .ui-pagination-direction svg { width: 14px; height: 14px; flex: none; }
+  #recordsPagination .ui-pagination-link:hover:not(:disabled, [aria-disabled='true'], [data-active='true'], .active) {
+    background: var(--surface-hover); border-color: transparent; color: var(--text-primary);
+  }
+  #recordsPagination .records-page-list .ui-pagination-link[data-active='true'],
+  #recordsPagination .records-page-list .ui-pagination-link.active {
+    background: var(--row-selected); border-color: var(--row-selected-border); color: var(--text-primary); font-weight: 600;
+  }
+  #recordsPagination .ui-pagination-direction:disabled,
+  #recordsPagination .ui-pagination-direction[aria-disabled='true'] {
+    opacity: 1; background: transparent; border-color: transparent; color: var(--disabled-fg); cursor: not-allowed; pointer-events: none;
+  }
+  #recordsPagination .ui-pagination-link:focus-visible { outline: 2px solid var(--ctl); outline-offset: 2px; }
+  @media (max-width: 767px), (pointer: coarse) {
+    #recordsPagination .ui-pagination-link { min-width: 44px; height: 44px; min-height: 44px; }
+  }
   .card-desc, .card-title { line-height: 20px; }
