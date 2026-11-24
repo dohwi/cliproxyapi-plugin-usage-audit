@@ -231,7 +231,7 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 	if strings.Contains(body, ".kpi-card {\n    background") || strings.Contains(body, ".kpi-card {\r\n    background") {
 		t.Errorf("Dashboard must not apply card background on individual .kpi-card rows (no nested card appearance)")
 	}
-	pastelTokens := []string{"--surface-toolbar: #ffffff", "--surface-hover: #ededf0", "--surface-tab-active: #ffffff", "--surface-loading: #f5f5f7", "--surface-error: #fef2f2", "--row-selected: #ffffff", "--row-selected-border: #e2e2e7", "--ctl: #000000", "--ctl-hover: #27272a", "--ctl-fg: #ffffff", "--ov-bg: #ffffff", "--ov-border: #c7c7cf", "--shadow-overlay: 0 8px 20px -8px rgb(0 0 0 / .14), 0 2px 6px -2px rgb(0 0 0 / .06)", "--bg-page: #101012", "--bg-group: #161619", "--surface-toolbar: #222227", "--ov-bg: #1c1c21", "--ov-border: #3f3f46", "--shadow-overlay: none"}
+	pastelTokens := []string{"--surface-toolbar: #ffffff", "--surface-hover: #ededf0", "--surface-tab-active: #ffffff", "--surface-loading: #f5f5f7", "--surface-error: #fef2f2", "--row-selected: #ffffff", "--row-selected-border: #e2e2e7", "--ctl: #2563eb", "--ctl-hover: #1d4ed8", "--ctl-fg: #ffffff", "--ov-bg: #ffffff", "--ov-border: #c7c7cf", "--shadow-overlay: 0 8px 20px -8px rgb(0 0 0 / .14), 0 2px 6px -2px rgb(0 0 0 / .06)", "--bg-page: #101012", "--bg-group: #161619", "--surface-toolbar: #222227", "--ov-bg: #1c1c21", "--ov-border: #3f3f46", "--shadow-overlay: none"}
 	for _, token := range pastelTokens {
 		if !strings.Contains(body, token) {
 			t.Errorf("Dashboard CSS missing pastel semantic value %q", token)
@@ -1033,7 +1033,7 @@ func TestDashboardNativeSelectOptionsAndNoVisualShadows(t *testing.T) {
 	}
 	for _, required := range []string{
 		"--filter-control-height: 38px;", "--filter-control-radius: 8px;", "--filter-control-border: #d4d4d8;",
-		"--filter-control-focus: #000000;", "--filter-label-color: #52525b;", "--filter-gap: 8px;",
+		"--filter-control-focus: #2563eb;", "--filter-label-color: #52525b;", "--filter-gap: 8px;",
 		`<select id="filterProvider" class="select compact-select"`, `<select id="filterEndpoint" class="select compact-select"`, `<select id="filterModel" class="select compact-select"`, `<select id="filterStatus" class="select compact-select"`,
 		"function populateSelectOptions", "option.textContent = label;", "option.dataset.transient = 'true';", "selectEl.value = selectedValue || '';",
 		"Object.keys(knownMap).sort", "field.addEventListener('change', applyFilters);", "@media (max-width: 359px)",
@@ -1261,7 +1261,7 @@ func TestDashboardReadableSharedHeadingsAndSemanticContrast(t *testing.T) {
 		".chart-card-compact {\n    width: 100%;",
 		".chart-wrapper svg { display: block; min-width: 0; margin-inline: auto; }",
 		".dashboard-main-grid > .card, .col-left-5 > .card, .col-right-7 > .card { margin-bottom: 0; }",
-		"--accent-blue: #09090b;", "--tok-in: #7c3aed;", "--tok-out: #059669;", "--text-error: #b91c1c;",
+		"--accent-blue: #2563eb;", "--tok-in: #6d28d9;", "--tok-out: #047857;", "--text-error: #b91c1c;",
 		".preset-btn.active { color: var(--ctl-fg); background: var(--ctl);",
 		".tab-btn.active {\n    color: var(--ctl-fg);\n    background-color: var(--ctl);",
 

@@ -7,8 +7,8 @@
     --divider: #e4e4e7;
     --row-selected: #ffffff;
     --row-selected-border: #e2e2e7;
-    --ctl: #000000;
-    --ctl-hover: #27272a;
+    --ctl: #2563eb;
+    --ctl-hover: #1d4ed8;
     --ctl-fg: #ffffff;
     --ov-bg: #ffffff;
     --ov-border: #c7c7cf;
@@ -17,9 +17,9 @@
     --text-primary: #09090b;
     --text-secondary: #52525b;
     --text-muted: #52525b;
-    --accent-blue: #09090b;
-    --accent-blue-hover: #000000;
-    --accent-blue-light: #ededf0;
+    --accent-blue: #2563eb;
+    --accent-blue-hover: #1d4ed8;
+    --accent-blue-light: #eef4fb;
     --radius-card: 8px;
     --radius-sm: 6px;
     --radius-pill: 9999px;
@@ -28,7 +28,7 @@
     --filter-control-border: #d4d4d8;
     --filter-control-bg: #ffffff;
     --filter-control-hover-bg: #ededf0;
-    --filter-control-focus: #000000;
+    --filter-control-focus: #2563eb;
     --filter-label-color: #52525b;
     --filter-gap: 8px;
 
@@ -46,14 +46,14 @@
     --text-success: #047857;
 
     /* Semantic token colors (AA-safe for text/legend/table numerals) */
-    --tok-in: #7c3aed;
-    --tok-out: #059669;
+    --tok-in: #6d28d9;
+    --tok-out: #047857;
     --tok-reason: #a75d24;
     --tok-cache: #a24d78;
 
     /* Semantic KPI accents on near-white surfaces. */
-    --in-fg: #7c3aed;   --in-tint: #f4f2fc;   --in-strip: #7c3aed;
-    --out-fg: #059669;  --out-tint: #eef8f2;  --out-strip: #059669;
+    --in-fg: #6d28d9;   --in-tint: #f4f2fc;   --in-strip: #6d28d9;
+    --out-fg: #047857;  --out-tint: #eef8f2;  --out-strip: #047857;
     --total-fg: #2563eb; --total-tint: #eef4fb; --total-strip: #2563eb;
     --reason-fg: #a75d24; --reason-tint: #fdf4ec; --reason-strip: #f2c6a0;
     --cache-fg: #a24d78; --cache-tint: #fbf0f5; --cache-strip: #e6b8cf;
@@ -93,15 +93,15 @@
     --text-primary: #fafafa;
     --text-secondary: #a1a1aa;
     --text-muted: #a1a1aa;
-    --accent-blue: #fafafa;
-    --accent-blue-hover: #ffffff;
-    --accent-blue-light: #222227;
+    --accent-blue: #60a5fa;
+    --accent-blue-hover: #93c5fd;
+    --accent-blue-light: #1e293b;
     --surface-group: var(--bg-group);
     --row-selected: #222227;
     --row-selected-border: #323238;
-    --ctl: #f4f4f5;
-    --ctl-hover: #e4e4e7;
-    --ctl-fg: #09090b;
+    --ctl: #60a5fa;
+    --ctl-hover: #93c5fd;
+    --ctl-fg: #0b1220;
     --ov-bg: #1c1c21;
     --ov-border: #3f3f46;
     --shadow-overlay: none;
@@ -109,7 +109,7 @@
     --filter-control-border: #2b2b30;
     --filter-control-bg: #101012;
     --filter-control-hover-bg: #1c1c21;
-    --filter-control-focus: #f4f4f5;
+    --filter-control-focus: #60a5fa;
     --filter-label-color: #a1a1aa;
 
     --surface-toolbar: #222227;
@@ -587,9 +587,12 @@
     display: block;
     text-align: left;
   }
-  /* Semantic values keep neutral metric row backgrounds. */
-  .kpi-value-request, .kpi-value-input-report, .kpi-value-input, .kpi-value-cache,
-  .kpi-value-output, .kpi-value-reason, .kpi-value-total { color: var(--text-primary); }
+  /* Semantic KPI values on neutral tinted groups (AA >= 4.5:1). */
+  .kpi-value-request, .kpi-value-total { color: var(--total-fg); }
+  .kpi-value-input-report, .kpi-value-input { color: var(--in-fg); }
+  .kpi-value-cache { color: var(--cache-fg); }
+  .kpi-value-output { color: var(--out-fg); }
+  .kpi-value-reason { color: var(--reason-fg); }
 
   /* Compat hidden elements (tests reference these IDs) */
   .kpi-compat-hidden { display: none; }
@@ -632,7 +635,7 @@
   .chart-wrapper { position: relative; }
   .daily-chart-bar { cursor: pointer; }
   .daily-chart-bar:focus-visible { stroke: var(--ctl); stroke-width: 2; outline: none; }
-  .daily-chart-bar { fill: #c7c7cf; } .daily-chart-bar.is-focal { fill: var(--ctl); }
+  .daily-chart-bar { fill: #93b4d8; } .daily-chart-bar.is-focal { fill: var(--ctl); }
   .chart-wrapper svg text { font-variant-numeric: tabular-nums; fill: var(--text-secondary); }
   .daily-chart-axis { stroke: var(--divider); stroke-width: 1; }
   .daily-chart-tooltip {
@@ -1103,6 +1106,9 @@
   body .kpi-group-title-wrap { gap: 6px; padding: 0; border-radius: 0; background: transparent; }
   body .kpi-group-title { font-size: 12px; line-height: 16px; }
   body .kpi-group-icon { width: 14px; height: 14px; opacity: 1; color: var(--text-secondary); }
+  body .kpi-group-overview .kpi-group-title, body .kpi-group-overview .kpi-group-icon { color: var(--total-fg); }
+  body .kpi-group-input .kpi-group-title, body .kpi-group-input .kpi-group-icon { color: var(--in-fg); }
+  body .kpi-group-output .kpi-group-title, body .kpi-group-output .kpi-group-icon { color: var(--out-fg); }
   body .kpi-group-metrics { padding: 0 var(--space-2) var(--space-1); }
   body .kpi-metric-row + .kpi-metric-row { border-left: 0; }
   body .kpi-label { font-size: 0.875rem; font-weight: 600; }
@@ -1418,7 +1424,7 @@
   :root[data-theme='dark'] .skeleton-block { background: var(--surface-active); }
   :root[data-theme='dark'] #usageDataContent.is-loading .kpi-value-wrap > span { background: var(--surface-active); }
     :root[data-theme='dark'] .daily-chart-tooltip { background: #2a2a30; color: #fafafa; border: 1px solid #3f3f46; }
-  :root[data-theme='dark'] .daily-chart-bar { fill: #3f3f46; } :root[data-theme='dark'] .daily-chart-bar.is-focal { fill: var(--ctl); }
+  :root[data-theme='dark'] .daily-chart-bar { fill: #3b5575; } :root[data-theme='dark'] .daily-chart-bar.is-focal { fill: var(--ctl); }
   :root[data-theme='dark'] .daily-chart-bar:focus-visible { stroke: #f4f4f5; }
   :root[data-theme='dark'] .daily-chart-tooltip-note { color: var(--text-secondary); }
   :root[data-theme='dark'] .record-dialog { background: var(--ov-bg); border-color: var(--ov-border); box-shadow: none; }
