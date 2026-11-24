@@ -1569,9 +1569,18 @@
     min-width: 32px; height: 32px; min-height: 32px; padding: 0 6px;
     border: 1px solid transparent; border-radius: 6px;
     background: transparent; color: var(--text-secondary);
-    font-size: 13px; line-height: 20px; font-weight: 500; font-variant-numeric: tabular-nums;
+    font-size: 13px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums;
     cursor: pointer; transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
   }
+  #recordsPagination .ui-pagination-direction > span,
+  #recordsPagination .records-page-list .ui-pagination-link > span,
+  #recordsPagination .records-page-compact-text {
+    display: inline-block; line-height: 1; transform: translateY(0.5px);
+  }
+  :root[lang='ko'] #recordsPagination .ui-pagination-direction > span { transform: translateY(0.75px); }
+  :root[lang^='zh'] #recordsPagination .ui-pagination-direction > span,
+  :root[lang^='zh'] #recordsPagination .records-page-list .ui-pagination-link > span,
+  :root[lang^='zh'] #recordsPagination .records-page-compact-text { transform: none; }
   #recordsPagination .ui-pagination-direction { padding: 0 10px; color: var(--text-primary); }
   #recordsPagination .ui-pagination-edge { width: 32px; padding: 0; color: var(--text-secondary); }
   #recordsPagination .ui-pagination-edge.is-hidden { display: none; }

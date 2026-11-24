@@ -1843,10 +1843,13 @@ function updatePaginationControls() {
 
   if (compactEl) {
     compactEl.replaceChildren();
+    var wrap = document.createElement('span');
+    wrap.className = 'records-page-compact-text';
     var strong = document.createElement('strong');
     strong.textContent = String(curPage);
-    compactEl.appendChild(strong);
-    compactEl.appendChild(document.createTextNode(' / ' + String(totalPages)));
+    wrap.appendChild(strong);
+    wrap.appendChild(document.createTextNode(' / ' + String(totalPages)));
+    compactEl.appendChild(wrap);
   }
 
   if (pageList) {
@@ -1861,7 +1864,9 @@ function updatePaginationControls() {
         btn.setAttribute('aria-current', 'page');
       }
       btn.setAttribute('aria-label', t('pagination.page', { page: pNum }));
-      btn.textContent = String(pNum);
+      var label = document.createElement('span');
+      label.textContent = String(pNum);
+      btn.appendChild(label);
       btn.addEventListener('click', function() {
         if (pNum === curPage) return;
         goToRecordsPage(pNum);
