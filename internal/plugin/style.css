@@ -1561,8 +1561,9 @@
   /* Weights: 400/500/600; 700 only for headings and KPI values. */
   .empty-state-title, .chart-empty-state { font-weight: 600; }
   .date-range-separator { font-weight: 500; }
-  /* Pagination (Ghost + Hairline Inset Fill): scoped under #recordsPagination so it overrides vendor .ui-pagination-link. */
-  #recordsPagination .ui-pagination-content { gap: 4px; }
+  /* Pagination (Ghost + Hairline Inset Fill, 5-page fixed blocks): scoped under #recordsPagination so it overrides vendor .ui-pagination-link. */
+  #recordsPagination .ui-pagination-content { gap: 2px; }
+  #recordsPagination .records-page-list { gap: 4px; margin: 0 8px; }
   #recordsPagination .ui-pagination-link {
     display: inline-flex; align-items: center; justify-content: center; gap: 4px;
     min-width: 32px; height: 32px; min-height: 32px; padding: 0 6px;
@@ -1572,21 +1573,26 @@
     cursor: pointer; transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
   }
   #recordsPagination .ui-pagination-direction { padding: 0 10px; color: var(--text-primary); }
-  #recordsPagination .ui-pagination-direction svg { width: 14px; height: 14px; flex: none; }
+  #recordsPagination .ui-pagination-edge { width: 32px; padding: 0; color: var(--text-secondary); }
+  #recordsPagination .ui-pagination-edge.is-hidden { display: none; }
+  #recordsPagination .ui-pagination-direction svg,
+  #recordsPagination .ui-pagination-edge svg { width: 14px; height: 14px; flex: none; }
   #recordsPagination .ui-pagination-link:hover:not(:disabled, [aria-disabled='true'], [data-active='true'], .active) {
     background: var(--surface-hover); border-color: transparent; color: var(--text-primary);
   }
   #recordsPagination .records-page-list .ui-pagination-link[data-active='true'],
   #recordsPagination .records-page-list .ui-pagination-link.active {
-    background: var(--row-selected); border-color: var(--row-selected-border); color: var(--text-primary); font-weight: 600;
+    background: var(--row-selected); border-color: var(--border-color); color: var(--text-primary); font-weight: 600;
+  }
+  :root[data-theme='dark'] #recordsPagination .records-page-list .ui-pagination-link[data-active='true'],
+  :root[data-theme='dark'] #recordsPagination .records-page-list .ui-pagination-link.active {
+    border-color: #3f3f46;
   }
   #recordsPagination .ui-pagination-direction:disabled,
-  #recordsPagination .ui-pagination-direction[aria-disabled='true'] {
+  #recordsPagination .ui-pagination-direction[aria-disabled='true'],
+  #recordsPagination .ui-pagination-edge:disabled,
+  #recordsPagination .ui-pagination-edge[aria-disabled='true'] {
     opacity: 1; background: transparent; border-color: transparent; color: var(--disabled-fg); cursor: not-allowed; pointer-events: none;
-  }
-  #recordsPagination .records-page-ellipsis {
-    display: inline-flex; align-items: center; justify-content: center;
-    min-width: 32px; height: 32px; color: var(--text-muted); font-size: 13px; user-select: none;
   }
   #recordsPagination .records-page-compact {
     display: none; align-items: center; justify-content: center; gap: 4px;
@@ -1598,9 +1604,11 @@
   #recordsPanel.is-page-loading #recordsTableMount { opacity: 0.55; transition: opacity 120ms ease-out; }
   @media (max-width: 767px), (pointer: coarse) {
     #recordsPagination .ui-pagination-link { min-width: 44px; height: 44px; min-height: 44px; }
+    #recordsPagination .ui-pagination-edge { width: 44px; }
   }
   @media (max-width: 640px) {
-    #recordsPagination .records-page-list { display: none; }
+    #recordsPagination .records-page-list,
+    #recordsPagination .ui-pagination-content > li:has(> .ui-pagination-edge) { display: none; }
     #recordsPagination .records-page-compact { display: inline-flex; height: 44px; }
   }
   .card-desc, .card-title { line-height: 20px; }

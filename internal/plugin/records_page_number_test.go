@@ -175,20 +175,19 @@ assert(JSON.stringify(computePaginationSlots(1, 0)) === '[]', '0 pages');
 assert(JSON.stringify(computePaginationSlots(1, 1)) === '[]', '1 page');
 assert(JSON.stringify(computePaginationSlots(1, 3)) === '[1,2,3]', '3 pages p1');
 assert(JSON.stringify(computePaginationSlots(3, 3)) === '[1,2,3]', '3 pages p3');
-assert(JSON.stringify(computePaginationSlots(4, 7)) === '[1,2,3,4,5,6,7]', '7 pages');
+assert(JSON.stringify(computePaginationSlots(4, 5)) === '[1,2,3,4,5]', '5 pages');
+assert(JSON.stringify(computePaginationSlots(6, 6)) === '[2,3,4,5,6]', '6 pages tail fill');
+assert(JSON.stringify(computePaginationSlots(5, 62)) === '[1,2,3,4,5]', '62 pages p5 stays in first block');
+assert(JSON.stringify(computePaginationSlots(6, 62)) === '[6,7,8,9,10]', '62 pages p6 moves to second block');
+assert(JSON.stringify(computePaginationSlots(62, 62)) === '[58,59,60,61,62]', '62 pages p62 keeps 5 slots');
 
-for (const total of [8, 9, 10, 62]) {
+for (const total of [6, 7, 10, 62]) {
   for (let cur = 1; cur <= total; cur++) {
     const slots = computePaginationSlots(cur, total);
-    assert(slots.length === 7, 'fixed 7 slots for total=' + total + ' cur=' + cur + ' got ' + JSON.stringify(slots));
-    assert(slots[0] === 1 && slots[slots.length - 1] === total, 'endpoints for total=' + total + ' cur=' + cur);
+    assert(slots.length === 5, 'fixed 5 slots for total=' + total + ' cur=' + cur + ' got ' + JSON.stringify(slots));
     assert(slots.includes(cur), 'includes cur=' + cur + ' in ' + JSON.stringify(slots));
-    for (let i = 0; i < slots.length; i++) {
-      if (slots[i] === '...') {
-        const prev = slots[i - 1], next = slots[i + 1];
-        assert(typeof prev === 'number' && typeof next === 'number' && next - prev >= 3,
-          'ellipsis must hide >=2 pages for total=' + total + ' cur=' + cur + ': ' + JSON.stringify(slots));
-      }
+    for (let i = 1; i < slots.length; i++) {
+      assert(slots[i] === slots[i - 1] + 1, 'contiguous pages for total=' + total + ' cur=' + cur + ': ' + JSON.stringify(slots));
     }
   }
 }

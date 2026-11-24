@@ -52,6 +52,8 @@ var I18N = {
     'auth.invalid': '관리 키가 올바르지 않거나 접근이 거부되었습니다. 다시 입력하세요.',
     'theme.system': '시스템', 'theme.light': '라이트', 'theme.dark': '다크',
     'theme.label': '테마: {mode} (클릭하면 {next})',
+    'pagination.first': '첫 페이지',
+    'pagination.last': '마지막 페이지 ({page})',
     'pagination.prev': '이전',
     'pagination.next': '다음',
     'pagination.page': '{page}페이지',
@@ -226,6 +228,8 @@ var I18N = {
     'auth.invalid': 'The management key is invalid or access was denied. Enter it again.',
     'theme.system': 'System', 'theme.light': 'Light', 'theme.dark': 'Dark',
     'theme.label': 'Theme: {mode} (click for {next})',
+    'pagination.first': 'First page',
+    'pagination.last': 'Last page ({page})',
     'pagination.prev': 'Previous',
     'pagination.next': 'Next',
     'pagination.page': 'Page {page}',
@@ -401,6 +405,8 @@ var I18N = {
     'auth.invalid': '管理密钥无效或访问被拒绝，请重新输入。',
     'theme.system': '跟随系统', 'theme.light': '浅色', 'theme.dark': '深色',
     'theme.label': '主题：{mode}（点击切换为{next}）',
+    'pagination.first': '第一页',
+    'pagination.last': '最后一页 ({page})',
     'pagination.prev': '上一页',
     'pagination.next': '下一页',
     'pagination.page': '第 {page} 页',
@@ -1706,23 +1712,25 @@ function renderRecords(data, append) {
   }
   paintRecords();
 }
-// Fixed-slot pagination model:
-// - totalPages <= 1: hidden ([])
-// - totalPages 2..7: all pages [1..totalPages] without ellipsis
-// - totalPages >= 8: always exactly 7 slots so Prev/Next stay anchored:
-//     cur <= 4:            [1, 2, 3, 4, 5, '...', N]
-//     cur >= N - 3:        [1, '...', N-4, N-3, N-2, N-1, N]
-//     5 <= cur <= N - 4:   [1, '...', cur-1, cur, cur+1, '...', N]
+// 5-page fixed block pagination (no ellipsis):
+//   totalPages <= 1: [] (bar hidden)
+//   totalPages <= 5: [1..totalPages]
+//   totalPages >= 6: contiguous 5-page block (1..5, 6..10, ...; tail pulled back so length is always 5)
 function computePaginationSlots(curPage, totalPages) {
   if (!totalPages || totalPages <= 1) return [];
-  if (totalPages <= 7) {
-    var all = [];
-    for (var i = 1; i <= totalPages; i++) all.push(i);
-    return all;
+  var blockSize = 5;
+  var out = [];
+  if (totalPages <= blockSize) {
+    for (var i = 1; i <= totalPages; i++) out.push(i);
+    return out;
   }
-  if (curPage <= 4) return [1, 2, 3, 4, 5, '...', totalPages];
-  if (curPage >= totalPages - 3) return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-  return [1, '...', curPage - 1, curPage, curPage + 1, '...', totalPages];
+  var start = Math.floor((curPage - 1) / blockSize) * blockSize + 1;
+  var end = Math.min(totalPages, start + blockSize - 1);
+  if (end - start + 1 < blockSize) {
+    start = Math.max(1, end - blockSize + 1);
+  }
+  for (var p = start; p <= end; p++) out.push(p);
+  return out;
 }
 function resolvedRecordsTotal() {
   if (typeof state.recordsTotal === 'number' && state.recordsTotal >= 0) return state.recordsTotal;
@@ -1797,20 +1805,40 @@ function updatePaginationControls() {
   var hideBar = (knownTotal !== null ? knownTotal === 0 : totalRecords === 0) || totalPages <= 1;
   loadMoreBar.classList.toggle('is-hidden', hideBar);
 
+  var firstBtn = document.getElementById('recordsFirstBtn');
   var prevBtn = document.getElementById('recordsPrevBtn');
   var nextBtn = document.getElementById('recordsNextBtn');
+  var lastBtn = document.getElementById('recordsLastBtn');
   var pageList = document.getElementById('recordsPageList');
   var compactEl = document.getElementById('recordsPageCompact');
 
+  var showEdge = totalPages > 5;
+  var prevDisabled = curPage <= 1;
+  var nextDisabled = curPage >= totalPages && !state.hasMore;
+
+  if (firstBtn) {
+    firstBtn.classList.toggle('is-hidden', !showEdge);
+    if (firstBtn.parentElement) firstBtn.parentElement.classList.toggle('is-hidden', !showEdge);
+    firstBtn.disabled = prevDisabled;
+    firstBtn.setAttribute('aria-disabled', prevDisabled ? 'true' : 'false');
+    firstBtn.title = t('pagination.first');
+  }
   if (prevBtn) {
-    var prevDisabled = curPage <= 1;
     prevBtn.disabled = prevDisabled;
     prevBtn.setAttribute('aria-disabled', prevDisabled ? 'true' : 'false');
   }
   if (nextBtn) {
-    var nextDisabled = curPage >= totalPages && !state.hasMore;
     nextBtn.disabled = nextDisabled;
     nextBtn.setAttribute('aria-disabled', nextDisabled ? 'true' : 'false');
+  }
+  if (lastBtn) {
+    var lastLabel = t('pagination.last', { page: totalPages });
+    lastBtn.classList.toggle('is-hidden', !showEdge);
+    if (lastBtn.parentElement) lastBtn.parentElement.classList.toggle('is-hidden', !showEdge);
+    lastBtn.disabled = nextDisabled;
+    lastBtn.setAttribute('aria-disabled', nextDisabled ? 'true' : 'false');
+    lastBtn.setAttribute('aria-label', lastLabel);
+    lastBtn.title = lastLabel;
   }
 
   if (compactEl) {
@@ -1824,30 +1852,21 @@ function updatePaginationControls() {
   if (pageList) {
     pageList.replaceChildren();
     var pagesToShow = computePaginationSlots(curPage, totalPages);
-    pagesToShow.forEach(function(item) {
-      if (item === '...') {
-        var span = document.createElement('span');
-        span.className = 'records-page-ellipsis';
-        span.setAttribute('aria-hidden', 'true');
-        span.textContent = '…';
-        pageList.appendChild(span);
-      } else {
-        var pNum = item;
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'ui-pagination-link' + (pNum === curPage ? ' active' : '');
-        if (pNum === curPage) {
-          btn.setAttribute('data-active', 'true');
-          btn.setAttribute('aria-current', 'page');
-        }
-        btn.setAttribute('aria-label', t('pagination.page', { page: pNum }));
-        btn.textContent = String(pNum);
-        btn.addEventListener('click', function() {
-          if (pNum === curPage) return;
-          goToRecordsPage(pNum);
-        });
-        pageList.appendChild(btn);
+    pagesToShow.forEach(function(pNum) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ui-pagination-link' + (pNum === curPage ? ' active' : '');
+      if (pNum === curPage) {
+        btn.setAttribute('data-active', 'true');
+        btn.setAttribute('aria-current', 'page');
       }
+      btn.setAttribute('aria-label', t('pagination.page', { page: pNum }));
+      btn.textContent = String(pNum);
+      btn.addEventListener('click', function() {
+        if (pNum === curPage) return;
+        goToRecordsPage(pNum);
+      });
+      pageList.appendChild(btn);
     });
   }
 }
@@ -2092,6 +2111,12 @@ function bindDashboardEvents() {
     field.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); applyFilters(); } });
   });
 
+  var firstBtn = document.getElementById('recordsFirstBtn');
+  if (firstBtn) {
+    firstBtn.addEventListener('click', function() {
+      if (state.recordsPage > 1) goToRecordsPage(1);
+    });
+  }
   var prevBtn = document.getElementById('recordsPrevBtn');
   if (prevBtn) {
     prevBtn.addEventListener('click', function() {
@@ -2102,6 +2127,15 @@ function bindDashboardEvents() {
   if (nextBtn) {
     nextBtn.addEventListener('click', function() {
       goToRecordsPage(state.recordsPage + 1);
+    });
+  }
+  var lastBtn = document.getElementById('recordsLastBtn');
+  if (lastBtn) {
+    lastBtn.addEventListener('click', function() {
+      var knownTotal = resolvedRecordsTotal();
+      if (knownTotal === null) return;
+      var totalPages = Math.max(1, Math.ceil(knownTotal / (state.pageSize || 20)));
+      if (state.recordsPage < totalPages) goToRecordsPage(totalPages);
     });
   }
 }
