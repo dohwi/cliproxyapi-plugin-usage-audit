@@ -601,9 +601,10 @@
     padding-right: 0 !important;
   }
   .dashboard-preset-mount { min-width: 0; }
-  #presetGroupControl { width: 100%; }
+  #presetGroupControl { width: 100%; border: 0; padding: 4px; background: #e9e9ed; }
+  :root[data-theme='dark'] #presetGroupControl { background: #101012; }
   #presetGroupControl .ui-segmented-item, #presetGroupControl .preset-btn {
-    min-height: var(--filter-control-height);
+    min-height: calc(var(--filter-control-height) - 8px);
     background: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
