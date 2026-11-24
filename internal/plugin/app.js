@@ -71,6 +71,7 @@ var I18N = {
     'err.future_from': '시작일로 미래 시각을 지정할 수 없습니다.',
     'err.invalid_status': '상태 필터 값이 올바르지 않습니다.',
     'err.invalid_limit': '한 번에 불러올 개수가 허용 범위를 벗어났습니다.',
+    'err.invalid_page': '요청한 페이지 번호가 올바르지 않습니다.',
     'err.summary_range_too_large': '조회 기간이 너무 깁니다. 366일 이내로 줄이세요.',
     'err.summary_bucket_limit': '집계 항목이 너무 많습니다. 기간을 줄이거나 필터 조건을 추가하세요.',
     'err.invalid_cursor': '페이지 정보가 올바르지 않습니다. 처음부터 다시 불러오세요.',
@@ -244,6 +245,7 @@ var I18N = {
     'err.future_from': 'The start date cannot be in the future.',
     'err.invalid_status': 'The status filter is invalid.',
     'err.invalid_limit': 'The page size is out of range.',
+    'err.invalid_page': 'The requested page number is out of range.',
     'err.summary_range_too_large': 'The range is too long. Keep it within 366 days.',
     'err.summary_bucket_limit': 'Too many groups to summarize. Narrow the range or filters.',
     'err.invalid_cursor': 'The page position is invalid. Reload from the start.',
@@ -418,6 +420,7 @@ var I18N = {
     'err.future_from': '开始日期不能是未来的时间。',
     'err.invalid_status': '状态筛选值无效。',
     'err.invalid_limit': '每页条数超出允许范围。',
+    'err.invalid_page': '请求的页码超出允许范围。',
     'err.summary_range_too_large': '时间范围过长，请缩短到 366 天以内。',
     'err.summary_bucket_limit': '汇总分组过多，请缩短时间范围或增加筛选条件。',
     'err.invalid_cursor': '分页位置无效，请从头重新加载。',
@@ -872,15 +875,19 @@ var state = {
   cursor: null,
   hasMore: false,
   records: [],
+  recordsTotal: null,
+  recordsPagedMode: false,
   recordsExpanded: false,
   recordsPage: 1,
   pageSize: 20,
   targetRecordsPage: null,
   drawerOpener: null,
   requestID: 0,
+  pageRequestID: 0,
   pollTimer: null,
   inFlight: false,
   abortCtrl: null,
+  pageAbortCtrl: null,
   hasLoadedData: false,
   serverSnapshot: null,
   snapshotFilterKey: '',
@@ -1193,6 +1200,7 @@ function scheduleNextPoll(delayMs) {
   state.pollTimer = setTimeout(function() {
     state.pollTimer = null;
     if (document.hidden) return; // paused; will reload on visibilitychange
+    if (state.recordsPage > 1) return;
     if (!state.inFlight) loadData(false);
   }, delayMs);
 }
@@ -1343,6 +1351,7 @@ function loadData(appendRecords, forceReplace) {
     return;
   }
   if (!appendRecords && state.recordsExpanded && !forceReplace && state.hasLoadedData && state.snapshotFilterKey === snapshotFilterKey()) { showError(t('err.expanded')); return; }
+  if (state.pageAbortCtrl) { state.pageAbortCtrl.abort(); state.pageAbortCtrl = null; var rp = document.getElementById('recordsPanel'); if (rp) rp.classList.remove('is-page-loading'); }
   if (state.inFlight && state.abortCtrl) state.abortCtrl.abort();
   var requestID = ++state.requestID; state.abortCtrl = new AbortController(); state.inFlight = true;
   if (!appendRecords && !state.hasLoadedData) renderSkeletons(); else setDashboardBusy(true);
@@ -1675,8 +1684,14 @@ function renderBreakdowns(data) {
 function renderRecords(data, append) {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar'), recordsList=[];
   if(Array.isArray(data)){recordsList=data;state.hasMore=false;state.cursor=null;}else if(data&&Array.isArray(data.records)){recordsList=data.records;state.hasMore=!!data.has_more;state.cursor=data.next_cursor||null;}
+  if (data && typeof data.total_count === 'number' && data.total_count >= 0) {
+    state.recordsTotal = data.total_count;
+  } else if (!append) {
+    state.recordsTotal = null;
+  }
   if(append){
     state.records=state.records.concat(recordsList);
+    state.recordsPagedMode=false;
     state.recordsExpanded=true;
     if (state.targetRecordsPage) {
       state.recordsPage = state.targetRecordsPage;
@@ -1684,25 +1699,52 @@ function renderRecords(data, append) {
     }
   }else{
     state.records=recordsList;
+    state.recordsPagedMode=false;
     state.recordsExpanded=false;
     state.recordsPage=1;
     state.targetRecordsPage=null;
   }
   paintRecords();
 }
+// Fixed-slot pagination model:
+// - totalPages <= 1: hidden ([])
+// - totalPages 2..7: all pages [1..totalPages] without ellipsis
+// - totalPages >= 8: always exactly 7 slots so Prev/Next stay anchored:
+//     cur <= 4:            [1, 2, 3, 4, 5, '...', N]
+//     cur >= N - 3:        [1, '...', N-4, N-3, N-2, N-1, N]
+//     5 <= cur <= N - 4:   [1, '...', cur-1, cur, cur+1, '...', N]
+function computePaginationSlots(curPage, totalPages) {
+  if (!totalPages || totalPages <= 1) return [];
+  if (totalPages <= 7) {
+    var all = [];
+    for (var i = 1; i <= totalPages; i++) all.push(i);
+    return all;
+  }
+  if (curPage <= 4) return [1, 2, 3, 4, 5, '...', totalPages];
+  if (curPage >= totalPages - 3) return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  return [1, '...', curPage - 1, curPage, curPage + 1, '...', totalPages];
+}
+function resolvedRecordsTotal() {
+  if (typeof state.recordsTotal === 'number' && state.recordsTotal >= 0) return state.recordsTotal;
+  if (lastSummaryData && typeof lastSummaryData.total_count === 'number' && lastSummaryData.total_count >= 0) return lastSummaryData.total_count;
+  return null;
+}
 // Builds the table from state.records; reused when the language changes.
 function paintRecords() {
   var countBadge=DOM.recordsCountBadge || document.getElementById('recordsCountBadge'), loadMoreBar=DOM.loadMoreBar || document.getElementById('loadMoreBar');
   var totalRecords = (state.records && state.records.length) || 0;
-  countBadge.textContent=tn('records.count', totalRecords);
+  var knownTotal = resolvedRecordsTotal();
+  countBadge.textContent=tn('records.count', knownTotal !== null ? knownTotal : totalRecords);
   var pageSize = state.pageSize || 20;
-  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
-  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
-  var curPage = state.recordsPage;
-  var start = (curPage - 1) * pageSize;
-  var end = Math.min(start + pageSize, totalRecords);
-  var pageRecords = state.records.slice(start, end);
+  var start = 0;
+  var pageRecords = state.records || [];
+  if (!state.recordsPagedMode) {
+    var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+    if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
+    if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+    start = (state.recordsPage - 1) * pageSize;
+    pageRecords = pageRecords.slice(start, Math.min(start + pageSize, totalRecords));
+  }
 
   var rows=pageRecords.map(function(rec,relIdx) {
     var idx = start + relIdx;
@@ -1740,17 +1782,25 @@ function updatePaginationControls() {
   if (!loadMoreBar) return;
   var totalRecords = (state.records && state.records.length) || 0;
   var pageSize = state.pageSize || 20;
-  var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  var knownTotal = resolvedRecordsTotal();
+  var totalPages;
+  if (knownTotal !== null) {
+    totalPages = Math.max(1, Math.ceil(knownTotal / pageSize));
+  } else {
+    var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+    totalPages = state.hasMore ? loadedPages + 1 : loadedPages;
+  }
   if (!state.recordsPage || state.recordsPage < 1) state.recordsPage = 1;
-  if (state.recordsPage > loadedPages) state.recordsPage = loadedPages;
+  if (state.recordsPage > totalPages) state.recordsPage = totalPages;
   var curPage = state.recordsPage;
-  var maxPage = state.hasMore ? loadedPages + 1 : loadedPages;
 
-  loadMoreBar.classList.toggle('is-hidden', totalRecords === 0 || (loadedPages <= 1 && !state.hasMore));
+  var hideBar = (knownTotal !== null ? knownTotal === 0 : totalRecords === 0) || totalPages <= 1;
+  loadMoreBar.classList.toggle('is-hidden', hideBar);
 
   var prevBtn = document.getElementById('recordsPrevBtn');
   var nextBtn = document.getElementById('recordsNextBtn');
   var pageList = document.getElementById('recordsPageList');
+  var compactEl = document.getElementById('recordsPageCompact');
 
   if (prevBtn) {
     var prevDisabled = curPage <= 1;
@@ -1758,28 +1808,27 @@ function updatePaginationControls() {
     prevBtn.setAttribute('aria-disabled', prevDisabled ? 'true' : 'false');
   }
   if (nextBtn) {
-    var nextDisabled = curPage >= loadedPages && !state.hasMore;
+    var nextDisabled = curPage >= totalPages && !state.hasMore;
     nextBtn.disabled = nextDisabled;
     nextBtn.setAttribute('aria-disabled', nextDisabled ? 'true' : 'false');
   }
 
+  if (compactEl) {
+    compactEl.replaceChildren();
+    var strong = document.createElement('strong');
+    strong.textContent = String(curPage);
+    compactEl.appendChild(strong);
+    compactEl.appendChild(document.createTextNode(' / ' + String(totalPages)));
+  }
+
   if (pageList) {
     pageList.replaceChildren();
-    var pagesToShow = [];
-    if (maxPage <= 7) {
-      for (var p = 1; p <= maxPage; p++) pagesToShow.push(p);
-    } else {
-      var s = Math.max(1, curPage - 2);
-      var e = Math.min(maxPage, curPage + 2);
-      if (s > 1) { pagesToShow.push(1); if (s > 2) pagesToShow.push('...'); }
-      for (var p = s; p <= e; p++) pagesToShow.push(p);
-      if (e < maxPage) { if (e < maxPage - 1) pagesToShow.push('...'); pagesToShow.push(maxPage); }
-    }
-
+    var pagesToShow = computePaginationSlots(curPage, totalPages);
     pagesToShow.forEach(function(item) {
       if (item === '...') {
         var span = document.createElement('span');
         span.className = 'records-page-ellipsis';
+        span.setAttribute('aria-hidden', 'true');
         span.textContent = '…';
         pageList.appendChild(span);
       } else {
@@ -1795,17 +1844,68 @@ function updatePaginationControls() {
         btn.textContent = String(pNum);
         btn.addEventListener('click', function() {
           if (pNum === curPage) return;
-          if (pNum <= loadedPages) {
-            state.recordsPage = pNum;
-            paintRecords();
-          } else if (pNum === loadedPages + 1 && state.hasMore) {
-            loadNextRecordsPage();
-          }
+          goToRecordsPage(pNum);
         });
         pageList.appendChild(btn);
       }
     });
   }
+}
+
+function goToRecordsPage(targetPage, retried) {
+  if (!mgmtKey) return;
+  var pageSize = state.pageSize || 20;
+  var knownTotal = resolvedRecordsTotal();
+  if (knownTotal === null) {
+    // Fallback when total_count is unavailable (legacy/mock responses).
+    var loadedPages = Math.max(1, Math.ceil(((state.records && state.records.length) || 0) / pageSize));
+    if (targetPage >= 1 && targetPage <= loadedPages) {
+      state.recordsPage = targetPage;
+      paintRecords();
+    } else if (targetPage === loadedPages + 1 && state.hasMore) {
+      loadNextRecordsPage();
+    }
+    return;
+  }
+  var totalPages = Math.max(1, Math.ceil(knownTotal / pageSize));
+  var clamped = Math.max(1, Math.min(totalPages, targetPage));
+  if (clamped === state.recordsPage && state.recordsPagedMode) return;
+  if (state.pageAbortCtrl) state.pageAbortCtrl.abort();
+  var reqID = ++state.pageRequestID;
+  var ctrl = new AbortController();
+  state.pageAbortCtrl = ctrl;
+  var panel = document.getElementById('recordsPanel');
+  if (panel) panel.classList.add('is-page-loading');
+
+  var qs = buildQueryString(true, null);
+  var sep = qs.indexOf('?') === -1 ? '?' : '&';
+  var url = MGMT_BASE + '/data/records' + qs + sep + 'page=' + encodeURIComponent(String(clamped));
+  fetchWithTimeout(url, ctrl.signal).then(function(data) {
+    if (reqID !== state.pageRequestID || ctrl.signal.aborted) return;
+    state.pageAbortCtrl = null;
+    if (panel) panel.classList.remove('is-page-loading');
+    var list = Array.isArray(data) ? data : (data && Array.isArray(data.records) ? data.records : []);
+    if (data && typeof data.total_count === 'number' && data.total_count >= 0) state.recordsTotal = data.total_count;
+    var nextTotalPages = Math.max(1, Math.ceil((resolvedRecordsTotal() || 0) / pageSize));
+    if (list.length === 0 && nextTotalPages < clamped && !retried) {
+      goToRecordsPage(nextTotalPages, true);
+      return;
+    }
+    state.records = list;
+    state.recordsPagedMode = true;
+    state.recordsExpanded = clamped > 1;
+    state.recordsPage = Math.min(clamped, nextTotalPages);
+    state.hasMore = !!(data && data.has_more);
+    state.cursor = null;
+    clearError();
+    paintRecords();
+  }).catch(function(err) {
+    if (reqID !== state.pageRequestID) return;
+    state.pageAbortCtrl = null;
+    if (panel) panel.classList.remove('is-page-loading');
+    if (err && err.authRequired) { dropKeyAndPrompt(); return; }
+    if (err && err.name !== 'AbortError') showError(err.message === 'The user aborted a request.' ? t('err.timeout') : t('err.load', { e: err.message }));
+  });
 }
 
 function loadNextRecordsPage() {
@@ -1846,8 +1946,8 @@ document.addEventListener('visibilitychange', function() {
     // Cancel pending poll timer; will refresh on visible.
     if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
   } else {
-    // Refresh immediately on becoming visible.
-    if (!state.inFlight) loadData(false);
+    // Refresh immediately on becoming visible when on page 1.
+    if (!state.inFlight && state.recordsPage === 1) loadData(false);
   }
 });
 
@@ -1857,6 +1957,10 @@ window.addEventListener('beforeunload', function() {
   if (state.abortCtrl) {
     state.abortCtrl.abort();
     state.abortCtrl = null;
+  }
+  if (state.pageAbortCtrl) {
+    state.pageAbortCtrl.abort();
+    state.pageAbortCtrl = null;
   }
 });
 
@@ -1991,24 +2095,13 @@ function bindDashboardEvents() {
   var prevBtn = document.getElementById('recordsPrevBtn');
   if (prevBtn) {
     prevBtn.addEventListener('click', function() {
-      if (state.recordsPage > 1) {
-        state.recordsPage--;
-        paintRecords();
-      }
+      if (state.recordsPage > 1) goToRecordsPage(state.recordsPage - 1);
     });
   }
   var nextBtn = document.getElementById('recordsNextBtn');
   if (nextBtn) {
     nextBtn.addEventListener('click', function() {
-      var totalRecords = (state.records && state.records.length) || 0;
-      var pageSize = state.pageSize || 20;
-      var loadedPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-      if (state.recordsPage < loadedPages) {
-        state.recordsPage++;
-        paintRecords();
-      } else if (state.hasMore && state.cursor) {
-        loadNextRecordsPage();
-      }
+      goToRecordsPage(state.recordsPage + 1);
     });
   }
 }

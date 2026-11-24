@@ -107,33 +107,51 @@ func decodeRecordsCursor(value, fingerprint string) (*recordsCursor, error) {
 // continuation page. Rotation/clear/external edits expire the generation rather
 // than silently returning incomplete history.
 func recordsPage(st *store.Store, opts store.FilterOptions, scope, value string, limit int) ([]store.LogRecord, string, error) {
+	page, next, _, _, err := recordsPageQuery(st, opts, scope, value, 0, limit)
+	return page, next, err
+}
+
+// recordsPageQuery supports both cursor continuation (pageNum == 0) and
+// 1-indexed direct page jumps (pageNum > 0). Both modes return total matching
+// records and hasMore so the UI can render fixed-slot numbered pagination.
+func recordsPageQuery(st *store.Store, opts store.FilterOptions, scope, cursorValue string, pageNum, limit int) (page []store.LogRecord, next string, total int, hasMore bool, err error) {
+	if pageNum > 0 && cursorValue != "" {
+		return nil, "", 0, false, &pageError{400, codeInvalidCursor, "cannot combine page and cursor"}
+	}
+	if pageNum > 0 {
+		snap, err := st.SnapshotView()
+		if err != nil {
+			return nil, "", 0, false, err
+		}
+		page, total, hasMore = selectRecordsPageByNumber(snap.Records[:int(snap.Boundary)], opts, pageNum, limit)
+		return page, "", total, hasMore, nil
+	}
 	fingerprint := filterFingerprint(opts, scope)
-	cursor, err := decodeRecordsCursor(value, fingerprint)
+	cursor, err := decodeRecordsCursor(cursorValue, fingerprint)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, false, err
 	}
 	snap, err := st.SnapshotView() // read-only: only the selected page is copied
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, false, err
 	}
 	boundary := snap.Boundary
 	if cursor != nil {
 		if cursor.Generation != snap.Generation || cursor.Boundary > snap.Boundary {
-			return nil, "", &pageError{409, codeCursorExpired, "cursor snapshot expired; restart pagination"}
+			return nil, "", 0, false, &pageError{409, codeCursorExpired, "cursor snapshot expired; restart pagination"}
 		}
 		boundary = cursor.Boundary
 	}
 	// Scan only the original append frontier, including out-of-order timestamps.
-	page, more, anchorFound := selectRecordsPage(snap.Records[:int(boundary)], opts, cursor, limit)
+	page, hasMore, anchorFound, total := selectRecordsPageWithTotal(snap.Records[:int(boundary)], opts, cursor, limit)
 	if !anchorFound {
-		return nil, "", &pageError{400, codeInvalidCursor, "cursor anchor not found; restart pagination"}
+		return nil, "", 0, false, &pageError{400, codeInvalidCursor, "cursor anchor not found; restart pagination"}
 	}
-	next := ""
-	if more {
+	if hasMore {
 		r := page[len(page)-1]
 		next = encodeRecordsCursor(recordsCursor{1, fingerprint, snap.Generation, boundary, r.EffectiveTimestamp().UTC(), r.Sequence})
 	}
-	return page, next, nil
+	return page, next, total, hasMore, nil
 }
 
 func recordsPageFailure(err error) (int, string, string) {

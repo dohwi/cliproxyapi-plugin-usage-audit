@@ -58,6 +58,11 @@ func (h *recordPageHeap) replaceOldest(index int) {
 // Keeping limit+1 indexes determines has_more in O(N log(limit+1)) time and
 // O(limit+1) memory; only the returned page is copied.
 func selectRecordsPage(records []store.LogRecord, opts store.FilterOptions, cursor *recordsCursor, limit int) (page []store.LogRecord, more, anchorFound bool) {
+	page, more, anchorFound, _ = selectRecordsPageWithTotal(records, opts, cursor, limit)
+	return page, more, anchorFound
+}
+
+func selectRecordsPageWithTotal(records []store.LogRecord, opts store.FilterOptions, cursor *recordsCursor, limit int) (page []store.LogRecord, more, anchorFound bool, total int) {
 	k := limit + 1
 	h := recordPageHeap{records: records, indexes: make([]int, 0, min(k, len(records)))}
 	anchorFound = cursor == nil
@@ -66,6 +71,7 @@ func selectRecordsPage(records []store.LogRecord, opts store.FilterOptions, curs
 		if !store.MatchRecord(r, &opts) {
 			continue
 		}
+		total++
 		if cursor != nil {
 			ts := r.EffectiveTimestamp()
 			if r.Sequence == cursor.Sequence && ts.Equal(cursor.Timestamp) {
@@ -82,7 +88,7 @@ func selectRecordsPage(records []store.LogRecord, opts store.FilterOptions, curs
 		}
 	}
 	if !anchorFound {
-		return nil, false, false
+		return nil, false, false, 0
 	}
 	slices.SortFunc(h.indexes, func(i, j int) int {
 		if h.newer(i, j) {
@@ -98,5 +104,41 @@ func selectRecordsPage(records []store.LogRecord, opts store.FilterOptions, curs
 	for i := range page {
 		page[i] = records[h.indexes[i]]
 	}
-	return page, more, true
+	return page, more, true, total
+}
+
+// selectRecordsPageByNumber returns a 1-indexed page in the exact same newest-first
+// order as selectRecordsPage, plus total matching count and has_more.
+func selectRecordsPageByNumber(records []store.LogRecord, opts store.FilterOptions, pageNum, limit int) (page []store.LogRecord, total int, more bool) {
+	h := recordPageHeap{records: records}
+	indexes := make([]int, 0, min(len(records), 64))
+	for i := range records {
+		if store.MatchRecord(&records[i], &opts) {
+			indexes = append(indexes, i)
+		}
+	}
+	total = len(indexes)
+	if total == 0 || pageNum < 1 || limit < 1 {
+		return []store.LogRecord{}, total, false
+	}
+	start := (pageNum - 1) * limit
+	if start >= total {
+		return []store.LogRecord{}, total, false
+	}
+	slices.SortFunc(indexes, func(i, j int) int {
+		if h.newer(i, j) {
+			return -1
+		}
+		if h.newer(j, i) {
+			return 1
+		}
+		return 0
+	})
+	end := min(start+limit, total)
+	more = end < total
+	page = make([]store.LogRecord, end-start)
+	for i := start; i < end; i++ {
+		page[i-start] = records[indexes[i]]
+	}
+	return page, total, more
 }

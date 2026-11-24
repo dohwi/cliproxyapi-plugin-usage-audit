@@ -871,9 +871,18 @@ func handleGetRecords(req managementHandleRequest) []byte {
 		limit = n
 	}
 
+	pageNum := 0
+	if v := queryFirst(req.Query, "page"); v != "" {
+		p, err := strconv.Atoi(v)
+		if err != nil || p < 1 || p > 100000 {
+			return jsonMgmtResp(400, errorBody(codeInvalidPage, "invalid page; must be 1..100000"))
+		}
+		pageNum = p
+	}
+
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
-	paged, nextCursor, err := recordsPage(ps.st, opts, "management", queryFirst(req.Query, "cursor"), limit)
+	paged, nextCursor, totalCount, hasMore, err := recordsPageQuery(ps.st, opts, "management", queryFirst(req.Query, "cursor"), pageNum, limit)
 	if err != nil {
 		status, code, message := recordsPageFailure(err)
 		if status == 500 {
@@ -884,9 +893,13 @@ func handleGetRecords(req managementHandleRequest) []byte {
 	resp := map[string]any{
 		"records":        paged,
 		"count":          len(paged),
-		"has_more":       nextCursor != "",
+		"total_count":    totalCount,
+		"has_more":       hasMore,
 		"storage_health": ps.st.Health(),
 		"dropped":        ps.q.DroppedCount(),
+	}
+	if pageNum > 0 {
+		resp["page"] = pageNum
 	}
 	if nextCursor != "" {
 		resp["next_cursor"] = nextCursor
@@ -1310,9 +1323,17 @@ func handleGetDashboardRecords(req managementHandleRequest) []byte {
 		}
 		limit = n
 	}
+	pageNum := 0
+	if v := queryFirst(req.Query, "page"); v != "" {
+		p, e := strconv.Atoi(v)
+		if e != nil || p < 1 || p > 100000 {
+			return jsonResourceResp(400, errorBody(codeInvalidPage, "invalid page; must be 1..100000"))
+		}
+		pageNum = p
+	}
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
-	page, nextCursor, err := recordsPage(ps.st, opts, "resource", queryFirst(req.Query, "cursor"), limit)
+	page, nextCursor, totalCount, hasMore, err := recordsPageQuery(ps.st, opts, "resource", queryFirst(req.Query, "cursor"), pageNum, limit)
 	if err != nil {
 		status, code, message := recordsPageFailure(err)
 		if status == 500 {
@@ -1324,7 +1345,10 @@ func handleGetDashboardRecords(req managementHandleRequest) []byte {
 	for _, r := range page {
 		out = append(out, toResourceRecord(r))
 	}
-	resp := map[string]any{"records": out, "count": len(out), "has_more": nextCursor != "", "dropped": ps.q.DroppedCount(), "storage_health": ps.st.Health()}
+	resp := map[string]any{"records": out, "count": len(out), "total_count": totalCount, "has_more": hasMore, "dropped": ps.q.DroppedCount(), "storage_health": ps.st.Health()}
+	if pageNum > 0 {
+		resp["page"] = pageNum
+	}
 	if nextCursor != "" {
 		resp["next_cursor"] = nextCursor
 	}

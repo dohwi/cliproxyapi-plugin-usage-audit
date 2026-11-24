@@ -31,6 +31,7 @@ const (
 	codeFutureFrom          = "future_from"
 	codeInvalidStatus       = "invalid_status"
 	codeInvalidLimit        = "invalid_limit"
+	codeInvalidPage         = "invalid_page"
 	codeSummaryRange        = "summary_range_too_large"
 	codeSummaryBucketLimit  = "summary_bucket_limit"
 	codeInvalidCursor       = "invalid_cursor"

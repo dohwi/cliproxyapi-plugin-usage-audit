@@ -1584,8 +1584,23 @@
   #recordsPagination .ui-pagination-direction[aria-disabled='true'] {
     opacity: 1; background: transparent; border-color: transparent; color: var(--disabled-fg); cursor: not-allowed; pointer-events: none;
   }
+  #recordsPagination .records-page-ellipsis {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 32px; height: 32px; color: var(--text-muted); font-size: 13px; user-select: none;
+  }
+  #recordsPagination .records-page-compact {
+    display: none; align-items: center; justify-content: center; gap: 4px;
+    min-width: 68px; height: 32px; padding: 0 8px;
+    font-size: 13px; line-height: 20px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+  }
+  #recordsPagination .records-page-compact strong { color: var(--text-primary); font-weight: 600; }
   #recordsPagination .ui-pagination-link:focus-visible { outline: 2px solid var(--ctl); outline-offset: 2px; }
+  #recordsPanel.is-page-loading #recordsTableMount { opacity: 0.55; transition: opacity 120ms ease-out; }
   @media (max-width: 767px), (pointer: coarse) {
     #recordsPagination .ui-pagination-link { min-width: 44px; height: 44px; min-height: 44px; }
+  }
+  @media (max-width: 640px) {
+    #recordsPagination .records-page-list { display: none; }
+    #recordsPagination .records-page-compact { display: inline-flex; height: 44px; }
   }
   .card-desc, .card-title { line-height: 20px; }
