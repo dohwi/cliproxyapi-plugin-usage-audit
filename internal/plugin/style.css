@@ -1500,8 +1500,9 @@
   /* Borderless tinted groups with crisp 1px inner controls. */
   .card, .kpi-group, .filter-card, #recordsPanel, #chartCard, #breakdownSection { background: var(--bg-group); border: 0; border-radius: 8px; box-shadow: none; }
   .dashboard-control-panel { border-radius: 8px; }
-  .preset-group, #presetGroupControl { border-radius: 6px; background: var(--bg-card); }
-  .preset-btn { border-radius: 4px; }
+  .preset-group, body .preset-group, #presetGroupControl { border-radius: 6px; background: #e9e9ed; }
+  :root[data-theme='dark'] .preset-group, :root[data-theme='dark'] body .preset-group, :root[data-theme='dark'] #presetGroupControl { background: #101012; }
+  .preset-btn, #presetGroupControl .ui-segmented-item { border-radius: 4px; line-height: 20px; padding: 0 10px; }
   .usage-table-scroll, .table-responsive, .breakdown-table-wrap { border: 1px solid var(--divider); border-radius: 8px; background: var(--bg-page); }
   .skeleton-kpi-group, .skeleton-panel { background: var(--bg-group); border: 0; border-radius: 8px; }
   .kpi-metric-row { min-height: 0; padding: 8px 6px; }
