@@ -254,31 +254,31 @@
   --motion-normal: 220ms;
   --motion-slow: 300ms;
   --motion-ease: cubic-bezier(.2, .8, .2, 1);
-  --motion-ripple: 180ms;
+  --motion-ripple: 620ms;
   --motion-dialog-shift: 8px;
-  --motion-dialog-scale: 1;
-  --motion-popup-scale: 1;
+  --motion-dialog-scale: .98;
+  --motion-popup-scale: .97;
   --motion-spring: cubic-bezier(.2, .8, .2, 1);
 }
 :where([data-motion-style='material']) {
-  --motion-fast: 140ms;
-  --motion-normal: 160ms;
-  --motion-slow: 180ms;
-  --motion-ease: ease-out;
-  --motion-dialog-shift: 8px;
-  --motion-dialog-scale: 1;
-  --motion-popup-scale: 1;
-  --motion-spring: ease-out;
+  --motion-fast: 180ms;
+  --motion-normal: 360ms;
+  --motion-slow: 460ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-dialog-shift: 18px;
+  --motion-dialog-scale: .94;
+  --motion-popup-scale: .9;
+  --motion-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 :where([data-motion-style='standard']) {
   --motion-fast: 140ms;
-  --motion-normal: 160ms;
-  --motion-slow: 180ms;
-  --motion-ease: ease-out;
+  --motion-normal: 220ms;
+  --motion-slow: 300ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
   --motion-dialog-shift: 8px;
-  --motion-dialog-scale: 1;
-  --motion-popup-scale: 1;
-  --motion-spring: ease-out;
+  --motion-dialog-scale: .98;
+  --motion-popup-scale: .97;
+  --motion-spring: cubic-bezier(.2, .8, .2, 1);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -297,6 +297,7 @@
   :where([data-motion='on']) .ui-segmented[data-indicator-animate] > .ui-segmented-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
   :where([data-motion='on']) .ui-tabs-list[data-indicator-animate] > .ui-tabs-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
   :where([data-motion='on']) .ui-switch-thumb { transition: transform var(--motion-normal) var(--motion-spring); }
+  :where([data-motion='on'][data-motion-style='material']) .ui-button:active:not(:disabled) { transform: scale(.94); }
   :where([data-motion='on'][data-motion-style='material']) .ui-button-ripple { animation: ui-material-ripple var(--motion-ripple) var(--motion-ease); }
   [data-motion='on'][data-motion-style='material'] .ui-checkbox-indicator[data-state='checked'],
   [data-motion='on'][data-motion-style='material'] .ui-radio-group-indicator[data-state='checked'] { animation-name: ui-material-indicator; animation-duration: var(--motion-normal); }
@@ -560,6 +561,7 @@
     [data-indicator-animate] > .ui-segmented-indicator, [data-indicator-animate] > .ui-tabs-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
     #breakdownSection[data-tabs-direction] .tab-pane.active { animation: ui-content-in var(--motion-normal) var(--motion-ease); }
     .ui-ripple-host { transition: transform var(--motion-fast) var(--motion-ease); }
+    [data-motion='on'][data-motion-style='material'] .ui-button:active:not(:disabled) { transform: none; }
     .ui-ripple-host .ui-button-ripple { animation: ui-material-ripple var(--motion-ripple) var(--motion-ease); }
     .is-entering { animation: ui-enter-up var(--motion-slow) var(--motion-ease) both; animation-delay: var(--enter-delay, 0ms); }
     .ui-select-content[data-state='open'], .ui-date-picker-content[data-state='open'] { animation: ui-popup-in var(--motion-normal) var(--motion-ease); }
