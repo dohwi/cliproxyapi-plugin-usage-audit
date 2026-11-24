@@ -833,12 +833,12 @@
     line-height: 20px;
   }
   .badge-success {
-    background-color: #ecfdf5;
-    color: #047857;
+    background-color: rgb(4 120 87 / .10);
+    color: #065f46;
   }
   .badge-fail {
-    background-color: #fef2f2;
-    color: #b91c1c;
+    background-color: rgb(185 28 28 / .10);
+    color: #991b1b;
   }
   .badge-tag {
     background-color: #e9e9ed;
