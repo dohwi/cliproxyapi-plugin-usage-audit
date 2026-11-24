@@ -1288,7 +1288,12 @@ function showAuthGate(messageKey) {
   if (heading) heading.classList.add('is-hidden');
   if (gate) gate.classList.remove('is-hidden');
   if (message) { message.textContent = messageKey ? t(messageKey) : ''; message.classList.toggle('is-hidden', !messageKey); }
-  if (input) { input.value = ''; try { input.focus(); } catch (e) {} }
+  if (input) {
+    // A failed key keeps what was typed (so a typo can be fixed) and is marked invalid; a plain prompt starts empty.
+    if (!messageKey) input.value = '';
+    if (messageKey) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    try { input.focus(); } catch (e) {}
+  }
 }
 function hideAuthGate() {
   var gate = document.getElementById('authGate'), content = DOM.dashboardContent || document.getElementById('dashboardContent');
@@ -1317,7 +1322,7 @@ function initAuthGate() {
     var input = document.getElementById('authKeyInput'), value = input ? String(input.value || '').trim() : '';
     if (!value) { showAuthGate('auth.empty'); return; }
     mgmtKey = value; keyVerified = false; hostKeyFromStore = false;
-    if (input) input.value = '';
+    if (input) input.removeAttribute('aria-invalid');
     hideAuthGate();
     state.hasLoadedData = false; state.recordsExpanded = false;
     loadData(false, true);
@@ -1328,7 +1333,7 @@ function fetchWithTimeout(url, signal) {
   if (!mgmtKey) return Promise.reject(authError());
   var timedOut = false, timeoutCtrl = new AbortController(), timeout = setTimeout(function() { timedOut = true; timeoutCtrl.abort(); }, UA_FETCH_TIMEOUT_MS), relayAbort = function() { timeoutCtrl.abort(); };
   signal.addEventListener('abort', relayAbort, { once: true });
-  return fetch(url, { signal: timeoutCtrl.signal, cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { 'Authorization': 'Bearer ' + mgmtKey } }).then(function(response) { if (response.status === 401 || response.status === 403) throw authError(); if (!response.ok) return safeErrorMessage(response).then(function(message) { throw new Error(message); }); return response.json().then(function(data) { if (!keyVerified) { keyVerified = true; writeStoredKey(mgmtKey); } return data; }); }).catch(function(err) { if (timedOut) throw new Error(t('err.timeout')); throw err; }).finally(function() { clearTimeout(timeout); signal.removeEventListener('abort', relayAbort); });
+  return fetch(url, { signal: timeoutCtrl.signal, cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { 'Authorization': 'Bearer ' + mgmtKey } }).then(function(response) { if (response.status === 401 || response.status === 403) throw authError(); if (!response.ok) return safeErrorMessage(response).then(function(message) { throw new Error(message); }); return response.json().then(function(data) { if (!keyVerified) { keyVerified = true; writeStoredKey(mgmtKey); var authInput = document.getElementById('authKeyInput'); if (authInput) { authInput.value = ''; authInput.removeAttribute('aria-invalid'); } } return data; }); }).catch(function(err) { if (timedOut) throw new Error(t('err.timeout')); throw err; }).finally(function() { clearTimeout(timeout); signal.removeEventListener('abort', relayAbort); });
 }
 function loadData(appendRecords, forceReplace) {
   if (!mgmtKey) {
@@ -1627,18 +1632,20 @@ function renderChartFromDaily(dailyMap) {
   var geometry = getDailyChartGeometry(days.length, chartCard.clientWidth > 24 ? chartCard.clientWidth - 24 : 280);
   var svgWidth = geometry.width, svgHeight = 135, barWidth = geometry.barWidth, chartBottom = 110, chartTop = 15;
   var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('width', String(svgWidth)); svg.setAttribute('height', String(svgHeight)); svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', t('chart.aria')); svg.setAttribute('aria-describedby', 'dailyChartTooltip');
-  var line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); line.setAttribute('x1', '10'); line.setAttribute('x2', String(svgWidth - 10)); line.setAttribute('y1', String(chartBottom)); line.setAttribute('y2', String(chartBottom)); line.setAttribute('stroke', '#e5e7eb'); line.setAttribute('stroke-width', '1'); svg.appendChild(line);
+  var line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); line.setAttribute('x1', '10'); line.setAttribute('x2', String(svgWidth - 10)); line.setAttribute('y1', String(chartBottom)); line.setAttribute('y2', String(chartBottom)); line.setAttribute('class', 'daily-chart-axis'); line.setAttribute('stroke-width', '1'); svg.appendChild(line);
+  var focalDay = days[days.length - 1];
+  days.forEach(function(day) { if ((Number(dailyMap[day].requests) || 0) === maxVal) focalDay = day; });
   days.forEach(function(day, k) {
     var detail = dailyMap[day], barH = Math.max(6, Math.round(((Number(detail.requests) || 0) / maxVal) * (chartBottom - chartTop)));
     var x = geometry.centers[k] - barWidth / 2, y = chartBottom - barH, rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x',String(x));rect.setAttribute('y',String(y));rect.setAttribute('width',String(barWidth));rect.setAttribute('height',String(barH));rect.setAttribute('fill',detail.requests ? 'var(--accent-blue, #3b6593)' : '#cbd5e1');rect.setAttribute('rx','3');rect.setAttribute('class','daily-chart-bar');rect.setAttribute('tabindex','0');rect.setAttribute('role','button');rect.setAttribute('data-day',day);rect.setAttribute('aria-describedby','dailyChartTooltip');rect.setAttribute('aria-label',t('chart.bar',{date:detail.date,n:formatExactNumber(detail.requests)}));
+    rect.setAttribute('x',String(x));rect.setAttribute('y',String(y));rect.setAttribute('width',String(barWidth));rect.setAttribute('height',String(barH));rect.setAttribute('rx','3');rect.setAttribute('class','daily-chart-bar' + (day === focalDay ? ' is-focal' : ''));rect.setAttribute('tabindex','0');rect.setAttribute('role','button');rect.setAttribute('data-day',day);rect.setAttribute('aria-describedby','dailyChartTooltip');rect.setAttribute('aria-label',t('chart.bar',{date:detail.date,n:formatExactNumber(detail.requests)}));
     if (day === focusedDay) focusedBar = rect;
     rect.addEventListener('pointerenter',function(){showDailyChartTooltip(detail,rect);});rect.addEventListener('pointerleave',closeDailyChartTooltip);rect.addEventListener('focus',function(){showDailyChartTooltip(detail,rect);});rect.addEventListener('click',function(e){e.stopPropagation();showDailyChartTooltip(detail,rect);});rect.addEventListener('blur',closeDailyChartTooltip);rect.addEventListener('keydown',function(e){if(e.key === 'Enter'||e.key === ' '){e.preventDefault();showDailyChartTooltip(detail,rect);}if(e.key === 'Escape'){e.preventDefault();closeDailyChartTooltip();rect.blur();}}); svg.appendChild(rect);
     if (geometry.slot >= 36) {
-      var value=document.createElementNS('http://www.w3.org/2000/svg','text');value.setAttribute('x',String(geometry.centers[k]));value.setAttribute('y',String(y-4));value.setAttribute('text-anchor','middle');value.setAttribute('font-size',geometry.slot >= 64 ? '10' : '9');value.setAttribute('font-variant-numeric','tabular-nums');value.setAttribute('fill','#6b7280');value.textContent=formatExactNumber(detail.requests);svg.appendChild(value);
+      var value=document.createElementNS('http://www.w3.org/2000/svg','text');value.setAttribute('x',String(geometry.centers[k]));value.setAttribute('y',String(y-4));value.setAttribute('text-anchor','middle');value.setAttribute('font-size',geometry.slot >= 64 ? '12' : '11');value.setAttribute('class','daily-chart-value');value.textContent=formatExactNumber(detail.requests);svg.appendChild(value);
     }
     if (geometry.labelIndices.indexOf(k) !== -1) {
-      var label=document.createElementNS('http://www.w3.org/2000/svg','text');label.setAttribute('x',String(geometry.centers[k]));label.setAttribute('y',String(chartBottom+14));label.setAttribute('text-anchor','middle');label.setAttribute('font-size','10');label.setAttribute('fill','#6b7280');label.textContent=formatCalendarDay(detail.date, { month: 'numeric', day: 'numeric' });svg.appendChild(label);
+      var label=document.createElementNS('http://www.w3.org/2000/svg','text');label.setAttribute('x',String(geometry.centers[k]));label.setAttribute('y',String(chartBottom+14));label.setAttribute('text-anchor','middle');label.setAttribute('font-size','11');label.setAttribute('class','daily-chart-label');label.textContent=formatCalendarDay(detail.date, { month: 'numeric', day: 'numeric' });svg.appendChild(label);
     }
   });
   chartArea.appendChild(svg);

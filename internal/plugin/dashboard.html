@@ -254,31 +254,31 @@
   --motion-normal: 220ms;
   --motion-slow: 300ms;
   --motion-ease: cubic-bezier(.2, .8, .2, 1);
-  --motion-ripple: 620ms;
+  --motion-ripple: 180ms;
   --motion-dialog-shift: 8px;
-  --motion-dialog-scale: .98;
-  --motion-popup-scale: .97;
+  --motion-dialog-scale: 1;
+  --motion-popup-scale: 1;
   --motion-spring: cubic-bezier(.2, .8, .2, 1);
 }
 :where([data-motion-style='material']) {
-  --motion-fast: 180ms;
-  --motion-normal: 360ms;
-  --motion-slow: 460ms;
-  --motion-ease: cubic-bezier(.22, 1, .36, 1);
-  --motion-dialog-shift: 18px;
-  --motion-dialog-scale: .94;
-  --motion-popup-scale: .9;
-  --motion-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --motion-fast: 140ms;
+  --motion-normal: 160ms;
+  --motion-slow: 180ms;
+  --motion-ease: ease-out;
+  --motion-dialog-shift: 8px;
+  --motion-dialog-scale: 1;
+  --motion-popup-scale: 1;
+  --motion-spring: ease-out;
 }
 :where([data-motion-style='standard']) {
   --motion-fast: 140ms;
-  --motion-normal: 220ms;
-  --motion-slow: 300ms;
-  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+  --motion-normal: 160ms;
+  --motion-slow: 180ms;
+  --motion-ease: ease-out;
   --motion-dialog-shift: 8px;
-  --motion-dialog-scale: .98;
-  --motion-popup-scale: .97;
-  --motion-spring: cubic-bezier(.2, .8, .2, 1);
+  --motion-dialog-scale: 1;
+  --motion-popup-scale: 1;
+  --motion-spring: ease-out;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -297,7 +297,6 @@
   :where([data-motion='on']) .ui-segmented[data-indicator-animate] > .ui-segmented-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
   :where([data-motion='on']) .ui-tabs-list[data-indicator-animate] > .ui-tabs-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
   :where([data-motion='on']) .ui-switch-thumb { transition: transform var(--motion-normal) var(--motion-spring); }
-  :where([data-motion='on'][data-motion-style='material']) .ui-button:active:not(:disabled) { transform: scale(.94); }
   :where([data-motion='on'][data-motion-style='material']) .ui-button-ripple { animation: ui-material-ripple var(--motion-ripple) var(--motion-ease); }
   [data-motion='on'][data-motion-style='material'] .ui-checkbox-indicator[data-state='checked'],
   [data-motion='on'][data-motion-style='material'] .ui-radio-group-indicator[data-state='checked'] { animation-name: ui-material-indicator; animation-duration: var(--motion-normal); }
@@ -550,9 +549,9 @@
   /* Material motion tokens copied from dohwi-ui/src/components/ui/motion.css.
      Only transform and opacity are animated; colors, borders and sizes never change. */
   :root {
-    --motion-fast: 180ms; --motion-normal: 360ms; --motion-slow: 460ms; --motion-ripple: 620ms;
-    --motion-ease: cubic-bezier(.22, 1, .36, 1); --motion-spring: cubic-bezier(.34, 1.56, .64, 1);
-    --motion-dialog-shift: 18px; --motion-dialog-scale: .94; --motion-popup-scale: .9;
+    --motion-fast: 140ms; --motion-normal: 160ms; --motion-slow: 180ms; --motion-ripple: 180ms;
+    --motion-ease: ease-out; --motion-spring: ease-out;
+    --motion-dialog-shift: 8px; --motion-dialog-scale: 1; --motion-popup-scale: 1;
   }
   .ui-button-ripple-layer { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
   .ui-button-ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: 0; pointer-events: none; transform: translate(-50%, -50%) scale(0); }
@@ -560,25 +559,23 @@
   @media (prefers-reduced-motion: no-preference) {
     [data-indicator-animate] > .ui-segmented-indicator, [data-indicator-animate] > .ui-tabs-indicator { transition: transform var(--motion-normal) var(--motion-ease), width var(--motion-normal) var(--motion-ease), height var(--motion-normal) var(--motion-ease); }
     #breakdownSection[data-tabs-direction] .tab-pane.active { animation: ui-content-in var(--motion-normal) var(--motion-ease); }
-    .ui-ripple-host:active:not(:disabled) { transform: scale(.96); }
     .ui-ripple-host { transition: transform var(--motion-fast) var(--motion-ease); }
     .ui-ripple-host .ui-button-ripple { animation: ui-material-ripple var(--motion-ripple) var(--motion-ease); }
     .is-entering { animation: ui-enter-up var(--motion-slow) var(--motion-ease) both; animation-delay: var(--enter-delay, 0ms); }
     .ui-select-content[data-state='open'], .ui-date-picker-content[data-state='open'] { animation: ui-popup-in var(--motion-normal) var(--motion-ease); }
-    .ui-select-item-indicator { animation: ui-material-indicator var(--motion-normal) var(--motion-ease); }
     .compact-select-wrap::after { transition: transform var(--motion-normal) var(--motion-spring); }
-    @keyframes ui-enter-up { from { opacity: 0; transform: translate(0, 14px); } to { opacity: 1; transform: translate(0, 0); } }
-    @keyframes ui-content-in { from { opacity: 0; transform: translate(var(--tabs-enter-x, 18px), 0); } to { opacity: 1; transform: translate(0, 0); } }
+    @keyframes ui-enter-up { from { opacity: 0; transform: translate(0, 8px); } to { opacity: 1; transform: translate(0, 0); } }
+    @keyframes ui-content-in { from { opacity: 0; transform: translate(var(--tabs-enter-x, 8px), 0); } to { opacity: 1; transform: translate(0, 0); } }
     @keyframes ui-popup-in { from { opacity: 0; transform: translate(0, var(--popup-y, -4px)) scale(var(--motion-popup-scale)); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
     @keyframes ui-material-ripple { 0% { opacity: .24; transform: translate(-50%, -50%) scale(0); } 45% { opacity: .16; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
-    @keyframes ui-material-indicator { 0% { opacity: 0; transform: scale(.4); } 65% { opacity: 1; transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
+    @keyframes ui-material-indicator { 0% { opacity: 0; } 100% { opacity: 1; } }
     #usageDataContent .kpi-group.is-entering, #usageDataContent #breakdownSection.is-entering, #usageDataContent #recordsPanel.is-entering, #usageDataContent #chartCard.is-entering { will-change: transform, opacity; }
-    .record-dialog { transition: opacity var(--motion-fast) ease, transform var(--motion-normal) var(--motion-spring); transform: translateY(var(--motion-dialog-shift)) scale(var(--motion-dialog-scale)); }
-    .detail-overlay.open .record-dialog { transform: translateY(0) scale(1); }
+    .record-dialog { transition: opacity var(--motion-normal) ease-out, transform var(--motion-normal) ease-out; transform: translateY(var(--motion-dialog-shift)); }
+    .detail-overlay.open .record-dialog { transform: translateY(0); }
   }
 </style>
 <style data-dashboard-ui="adapter">
-  :root { --border: var(--filter-control-border); --radius: var(--filter-control-radius); --background: var(--bg-card); --surface: var(--bg-card); --foreground: var(--text-primary); --muted: var(--surface-toolbar); --muted-foreground: var(--text-secondary); --shadow-popover: 0 4px 16px #18223014; }
+  :root { --border: var(--filter-control-border); --radius: var(--filter-control-radius); --background: var(--bg-card); --surface: var(--ov-bg); --foreground: var(--text-primary); --muted: var(--surface-toolbar); --muted-foreground: var(--text-secondary); --shadow-popover: var(--shadow-overlay); }
   /* Completely neutralize Radix react-remove-scroll so it cannot hide the scrollbar or shift the layout */
   html body[data-scroll-locked] {
     overflow: visible !important;
@@ -586,18 +583,14 @@
     position: static !important;
     margin: 0 !important;
     margin-right: 0 !important;
-    padding-top: 24px !important;
+    padding-top: var(--dashboard-top-offset) !important;
     padding-right: 14px !important;
     padding-bottom: 16px !important;
     padding-left: 14px !important;
     --removed-body-scroll-bar-size: 0px !important;
   }
-  @media (max-width: 1199px) {
-    html body[data-scroll-locked] { padding-top: 20px !important; }
-  }
   @media (max-width: 767px) {
     html body[data-scroll-locked] {
-      padding-top: 16px !important;
       padding-right: 10px !important;
       padding-bottom: 12px !important;
       padding-left: 10px !important;
@@ -637,9 +630,11 @@
   .ui-select-viewport { max-height: min(320px, var(--radix-select-content-available-height)); }
   .ui-popover-content { box-sizing: border-box; }
   .ui-calendar-cell { border-bottom: 0; }
-  @media (max-width: 600px), (pointer: coarse) {
+  @media (max-width: 767px), (pointer: coarse) {
     #presetGroupControl .ui-segmented-item, #dateRangeMount .ui-date-picker-trigger, .ui-select-item { min-height: 44px; }
+    .ui-calendar-day { min-width: 0; height: 44px; }
   }
+  .ui-select-trigger:focus-visible, .ui-date-picker-trigger:focus-visible { outline: 2px solid var(--ctl); outline-offset: -1px; }
 </style>
 </head>
 <body>
@@ -702,7 +697,7 @@
             </div>
           </fieldset>
           <div class="filter-topmeta">
-            <div id="activeFilterBadge" class="active-filter-badge" aria-label="적용 조건" data-i18n-aria="filter.activeAria" role="status" aria-live="polite" tabindex="0">
+            <div id="activeFilterBadge" class="active-filter-badge" aria-label="적용 조건" data-i18n-aria="filter.activeAria" role="status" aria-live="polite">
               <span class="active-filter-label" data-i18n="filter.activeLabel">조회 조건</span>
               <span id="activeFilterText" class="active-filter-text" data-i18n="filter.default">오늘 · 전체 Provider · 전체 Model</span>
             </div>
@@ -780,7 +775,7 @@
           <div class="kpi-metric-row kpi-card kpi-accent kpi-request">
             <div class="kpi-metric-label-wrap">
               <span class="kpi-label" data-i18n="lbl.requests">총 요청</span>
-              <span class="kpi-sub" id="kpiSubFail" tabindex="0" data-i18n="kpi.failPlaceholder">실패: -건 (-)</span>
+              <span class="kpi-sub" id="kpiSubFail" data-i18n="kpi.failPlaceholder">실패: -건 (-)</span>
             </div>
             <div class="kpi-value-wrap">
               <span class="kpi-value kpi-value-request" id="kpiTotalCount" title="0" aria-label="총 요청: 0" data-i18n-label="lbl.requests">-</span>

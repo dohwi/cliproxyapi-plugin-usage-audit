@@ -231,7 +231,7 @@ func TestDashboardHTMLIntegrityAndElements(t *testing.T) {
 	if strings.Contains(body, ".kpi-card {\n    background") || strings.Contains(body, ".kpi-card {\r\n    background") {
 		t.Errorf("Dashboard must not apply card background on individual .kpi-card rows (no nested card appearance)")
 	}
-	pastelTokens := []string{"--surface-toolbar: #f7f8fc", "--surface-hover: #f3f7fc", "--surface-tab-active: #eef4fb", "--surface-loading: #f7f8fc", "--surface-error: #fdf1f1"}
+	pastelTokens := []string{"--surface-toolbar: #ffffff", "--surface-hover: #ededf0", "--surface-tab-active: #ffffff", "--surface-loading: #f5f5f7", "--surface-error: #fef2f2", "--row-selected: #ffffff", "--row-selected-border: #e2e2e7", "--ctl: #000000", "--ctl-hover: #27272a", "--ctl-fg: #ffffff", "--ov-bg: #ffffff", "--ov-border: #c7c7cf", "--shadow-overlay: 0 8px 20px -8px rgb(0 0 0 / .14), 0 2px 6px -2px rgb(0 0 0 / .06)", "--bg-page: #101012", "--bg-group: #161619", "--surface-toolbar: #222227", "--ov-bg: #1c1c21", "--ov-border: #3f3f46", "--shadow-overlay: none"}
 	for _, token := range pastelTokens {
 		if !strings.Contains(body, token) {
 			t.Errorf("Dashboard CSS missing pastel semantic value %q", token)
@@ -331,8 +331,8 @@ func TestRequestDetailModalSheetContract(t *testing.T) {
 		`id="recordDialog" class="record-dialog"`, `role="dialog"`, `aria-modal="true"`,
 		`id="recordDialogClose"`, `class="dialog-drag-handle" aria-hidden="true"`,
 		`width: min(680px, calc(100vw - 32px));`, `max-height: 82dvh;`,
-		`box-shadow: 0 16px 40px`, `translateY(10px) scale(0.98)`,
-		`@media (max-width: 767px)`, `max-height: 86dvh;`, `border-radius: 18px 18px 0 0;`,
+		`box-shadow: none`, `border: 1px solid var(--ov-border); border-radius: 8px;`,
+		`@media (max-width: 767px)`, `max-height: 86dvh;`, `border-radius: 8px 8px 0 0;`,
 		`env(safe-area-inset-bottom)`, `grid-template-columns: repeat(2, minmax(0, 1fr));`,
 		`grid-template-columns: 1fr;`, `overscroll-behavior: contain;`,
 		`function lockBodyScroll()`, `function unlockBodyScroll()`, `document.body.style.overflow='hidden'`,
@@ -427,30 +427,18 @@ console.log("ALL_PASSED");
 func TestRootTopSpacingRequirements(t *testing.T) {
 	body := plugin.DashboardHTML
 
-	// Exact var declarations.
+	// Exactly one declaration, at :root, never varied by media query.
+	if n := strings.Count(body, "--dashboard-top-offset:"); n != 1 {
+		t.Errorf("--dashboard-top-offset must be declared exactly once (single :root variable), got %d", n)
+	}
 	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
 		t.Errorf("dashboard :root must declare --dashboard-top-offset: 88px;")
 	}
-	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
-		t.Errorf("dashboard must set --dashboard-top-offset: 20px at the <=1199px breakpoint")
-	}
-	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
-		t.Errorf("dashboard must set --dashboard-top-offset: 16px at the <=767px breakpoint")
-	}
-
-	// 20px must live inside a max-width:1199px media query, 16px inside max-width:767px.
-	mediaRe := regexp.MustCompile(`(?s)@media[^{]*max-width: 1199px[^{]*\{(.*?)\n  \}`)
-	if m := mediaRe.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
-		t.Errorf("20px var must be declared within the <=1199px media query")
-	}
-	media767Re := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := media767Re.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
-		t.Errorf("16px var must be declared within the <=767px media query")
-	}
 
 	// The var must be consumed exactly once, as the body padding-top.
-	if uses := strings.Count(body, "var(--dashboard-top-offset)"); uses != 1 {
-		t.Errorf("--dashboard-top-offset must be used exactly once, got %d", uses)
+	// Used twice: the body padding-top and the Radix scroll-lock override.
+	if uses := strings.Count(body, "var(--dashboard-top-offset)"); uses != 2 {
+		t.Errorf("--dashboard-top-offset must be used by body and scroll-lock padding only, got %d", uses)
 	}
 	if !strings.Contains(body, "padding: var(--dashboard-top-offset) 14px 16px 14px;") {
 		t.Errorf("body padding-top must use the var and preserve horizontal/bottom (14px 16px 14px)")
@@ -724,12 +712,12 @@ func TestVisualTokens(t *testing.T) {
 	body := plugin.DashboardHTML
 
 	tokens := []string{
-		"--bg-page: #f7f8fa",
-		"--bg-card: #ffffff",
-		"--border-color: #e1e6ed",
-		"--text-primary: #182230",
-		"--text-muted: #667085",
-		"--radius-card: 12px",
+		"--bg-page: #ffffff",
+		"--bg-card: #f5f5f7",
+		"--border-color: #d4d4d8",
+		"--text-primary: #09090b",
+		"--text-muted: #52525b",
+		"--radius-card: 8px",
 		"--filter-control-height: 38px",
 	}
 	for _, tok := range tokens {
@@ -775,16 +763,26 @@ func TestUpdateStatusRemoved(t *testing.T) {
 func TestTopOffset88_88_88(t *testing.T) {
 	body := plugin.DashboardHTML
 
-	if !strings.Contains(body, "--dashboard-top-offset: 88px;") {
-		t.Errorf("desktop top offset must be 88px")
+	if n := strings.Count(body, "--dashboard-top-offset:"); n != 1 || !strings.Contains(body, "--dashboard-top-offset: 88px;") {
+		t.Errorf("exactly one --dashboard-top-offset: 88px declaration expected, got %d", n)
 	}
-	mediaTablet := regexp.MustCompile(`(?s)@media[^{]*max-width: 1199px[^{]*\{(.*?)\n  \}`)
-	if m := mediaTablet.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
-		t.Errorf("tablet top offset must be 88px inside <=1199px media query")
+	// Radix scroll-lock (Select/DatePicker open) must keep the 88px clearance at every width.
+	lock := regexp.MustCompile(`(?s)body\[data-scroll-locked\]\s*\{([^}]*)\}`).FindAllStringSubmatch(body, -1)
+	if len(lock) == 0 {
+		t.Fatalf("scroll-lock override rules missing")
 	}
-	mediaMobile := regexp.MustCompile(`(?s)@media[^{]*max-width: 767px[^{]*\{(.*?)\n  \}`)
-	if m := mediaMobile.FindStringSubmatch(body); len(m) < 2 || !strings.Contains(m[1], "--dashboard-top-offset: 88px;") {
-		t.Errorf("mobile top offset must be 88px inside <=767px media query")
+	for _, m := range lock {
+		if strings.Contains(m[1], "padding-top") && !strings.Contains(m[1], "padding-top: var(--dashboard-top-offset) !important;") {
+			t.Errorf("scroll-locked padding-top must be var(--dashboard-top-offset) !important, got: %s", m[1])
+		}
+	}
+	if !strings.Contains(body, "padding-top: var(--dashboard-top-offset) !important;") {
+		t.Errorf("scroll-lock must preserve the 88px top clearance")
+	}
+	for _, bad := range []string{"padding-top: 24px !important", "padding-top: 20px !important", "padding-top: 16px !important"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("scroll-lock must not shrink the top clearance: %q", bad)
+		}
 	}
 }
 
@@ -927,7 +925,7 @@ func TestV53UnifiedControlPanelAndSelfHostedFontCSS(t *testing.T) {
 		`font-family: "Manrope"`, `font-family: "SUIT"`, "manrope-variable.woff2", "font-weight: 400;", "font-weight: 600;", "font-display: swap;",
 		`/v0/resource/plugins/usage-audit/assets/fonts/suit-regular.woff2`,
 		`/v0/resource/plugins/usage-audit/assets/fonts/suit-semibold.woff2`,
-		`font-family: "Manrope", "SUIT"`,
+		`font-family: "Pretendard", "Manrope", "SUIT"`,
 	} {
 		if !strings.Contains(body, required) {
 			t.Errorf("V5.3 control/font contract missing %q", required)
@@ -1034,8 +1032,8 @@ func TestDashboardNativeSelectOptionsAndNoVisualShadows(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"--filter-control-height: 38px;", "--filter-control-radius: 8px;", "--filter-control-border: #c7ced8;",
-		"--filter-control-focus: #2563eb;", "--filter-label-color: #667085;", "--filter-gap: 8px;",
+		"--filter-control-height: 38px;", "--filter-control-radius: 8px;", "--filter-control-border: #d4d4d8;",
+		"--filter-control-focus: #000000;", "--filter-label-color: #52525b;", "--filter-gap: 8px;",
 		`<select id="filterProvider" class="select compact-select"`, `<select id="filterEndpoint" class="select compact-select"`, `<select id="filterModel" class="select compact-select"`, `<select id="filterStatus" class="select compact-select"`,
 		"function populateSelectOptions", "option.textContent = label;", "option.dataset.transient = 'true';", "selectEl.value = selectedValue || '';",
 		"Object.keys(knownMap).sort", "field.addEventListener('change', applyFilters);", "@media (max-width: 359px)",
@@ -1263,13 +1261,13 @@ func TestDashboardReadableSharedHeadingsAndSemanticContrast(t *testing.T) {
 		".chart-card-compact {\n    width: 100%;",
 		".chart-wrapper svg { display: block; min-width: 0; margin-inline: auto; }",
 		".dashboard-main-grid > .card, .col-left-5 > .card, .col-right-7 > .card { margin-bottom: 0; }",
-		"--accent-blue: #3b6593;", "--tok-in: #7c3aed;", "--tok-out: #059669;", "--text-error: #b91c1c;",
-		".preset-btn.active { color: #294e76; background: #e8eef5;",
-		".tab-btn.active {\n    color: #294e76;\n    background-color: #e8eef5;",
+		"--accent-blue: #09090b;", "--tok-in: #7c3aed;", "--tok-out: #059669;", "--text-error: #b91c1c;",
+		".preset-btn.active { color: var(--ctl-fg); background: var(--ctl);",
+		".tab-btn.active {\n    color: var(--ctl-fg);\n    background-color: var(--ctl);",
 
 		"font-size: 1rem;\n    font-weight: 700;", "font-size: 0.9rem;", "font-size: 0.84rem;",
 		"font-size: clamp(0.95rem, 0.8rem + 0.35vw, 1.125rem);", "font-size: 0.85rem;", "font-size: 0.8rem;",
-		"label.setAttribute('font-size','10')",
+		"label.setAttribute('font-size','11')",
 	} {
 		if !strings.Contains(body, required) {
 			t.Errorf("missing readability/layout contract %q", required)
@@ -1327,7 +1325,7 @@ func TestDashboardChartSectionAlwaysVisible(t *testing.T) {
 			t.Errorf("chart must not be a collapsible disclosure: %q", forbidden)
 		}
 	}
-	for _, token := range []string{"#chartCard { flex: 0 0 auto; }", "overflow-wrap: anywhere; margin: 4px 0 0; }", ".daily-chart-bar:focus-visible { stroke: #0f172a;", `id="chartArea"`, `id="dailyChartTooltip"`, `id="dailyChartSummary"`} {
+	for _, token := range []string{"#chartCard { flex: 0 0 auto; }", "overflow-wrap: anywhere; margin: 4px 0 0; }", ".daily-chart-bar:focus-visible { stroke: var(--ctl);", `id="chartArea"`, `id="dailyChartTooltip"`, `id="dailyChartSummary"`} {
 		if !strings.Contains(body, token) {
 			t.Errorf("missing accessible chart section %q", token)
 		}
@@ -1542,7 +1540,7 @@ func TestDashboardDailyChartResponsiveAndEmptyContract(t *testing.T) {
 	for _, required := range []string{
 		`id="dailyChartSummary" class="card-desc"`, "일 · 총 ", "건 · 최고 ", "선택 기간 요청 없음",
 		"if (!maxVal) { appendText(chartArea, 'chart-empty-state'", "chartCard.clientWidth - 24 : 280",
-		"geometry.slot >= 36", "var(--accent-blue, #3b6593)", "'#cbd5e1'", "barH = Math.max(6,",
+		"geometry.slot >= 36", "focalDay", "is-focal", "barH = Math.max(6,",
 		"setAttribute('role','button')", "setAttribute('data-day',day)", "chartArea.contains(document.activeElement)",
 		"focusedBar.focus({ preventScroll: true })", "cancelAnimationFrame(dailyChartRedrawFrame)",
 		"new ResizeObserver", "chartResizeObserver.observe(chartCard)",
@@ -1627,7 +1625,7 @@ func TestDashboardKPISharedContentDrivenRows(t *testing.T) {
 			t.Error("tablet/mobile must inherit shared content-driven KPI row sizing")
 		}
 	}
-	if !strings.Contains(body, "color: var(--text-primary);\n    line-height: 1.35;\n    font-variant-numeric: tabular-nums;") {
+	if !strings.Contains(body, "color: var(--text-primary);\n    line-height: 24px;\n    font-variant-numeric: tabular-nums;") {
 		t.Error("KPI value line height must leave room for loaded font glyphs")
 	}
 	for _, selector := range []string{".kpi-groups", ".kpi-group", ".kpi-group-head", ".kpi-group-metrics", ".kpi-metric-row"} {

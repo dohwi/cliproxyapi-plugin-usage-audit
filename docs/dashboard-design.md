@@ -13,7 +13,11 @@ Usage-audit embeds the actual exported dohwi-ui **SegmentedControl**, **DatePick
 
 ## Layout
 
-- Existing dashboard colors, 38px desktop controls and responsive layout remain host tokens. Mobile controls/calendar days are at least 44px.
+- Visual system follows design-principles (macOS HIG x Resend Hairline x shadcn Nova): achromatic palette (light `#fff`/`#f5f5f7`, `#000` controls; dark `#101012`/`#161619`, `#f4f4f5` controls), borderless `--bg-group` cards (8px radius), 4px soft-tinted badges (20px, no border), 6px/4px segmented tabs, and **hybrid zero-shadow**: shadows are removed everywhere (cards, dialog, toast, dark surfaces); only `--shadow-overlay` is allowed on light non-modal popovers (select, popover, language menu). The record dialog is flat (`1px solid var(--ov-border)`, 8px radius).
+- Focus uses `outline: 2px solid var(--ctl)` (offset `-1px` on bordered inputs/selects, `2px` on buttons). Disabled controls use explicit muted tokens (`--disabled-*`), not opacity, so the disabled date range stays legible.
+- Motion is `140-180ms ease-out` on transform/opacity; popovers and dialogs shift+fade only (no scale). Skeletons are static.
+- Top clearance: one `:root { --dashboard-top-offset: 88px; }`, never varied by media query. Radix scroll-lock (`body[data-scroll-locked]`, set while Select/DatePicker is open) keeps `padding-top: var(--dashboard-top-offset) !important`.
+- 38px desktop controls remain; at <=767px controls, calendar days and header buttons are at least 44px with 16px input text.
 - Usage aggregation and recent-request ledgers are rendered with the actual exported dohwi-ui `TableContainer`, `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, and `TableCell` React primitives. The source is vendored at `scripts/dashboard-ui/vendor/table.tsx`; the adapter only adds the existing dense widths, sticky header, right-aligned numeric cells, scroll height, and record click behavior. dohwi-ui owns the rounded outer border and row rules—there are no per-column vertical borders or handwritten replacement table markup. Empty/loading/data states all use the same Table component tree.
 - Usage trends are always visible in a labelled section; no details/summary disclosure or collapse listener remains.
 - Calendar week rows do not inherit the data-table Hover/cursor rules; only individual days/range bands are highlighted.
