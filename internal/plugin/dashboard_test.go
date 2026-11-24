@@ -435,10 +435,9 @@ func TestRootTopSpacingRequirements(t *testing.T) {
 		t.Errorf("dashboard :root must declare --dashboard-top-offset: 88px;")
 	}
 
-	// The var must be consumed exactly once, as the body padding-top.
-	// Used twice: the body padding-top and the Radix scroll-lock override.
-	if uses := strings.Count(body, "var(--dashboard-top-offset)"); uses != 2 {
-		t.Errorf("--dashboard-top-offset must be used by body and scroll-lock padding only, got %d", uses)
+	// Used three times: body padding-top, the Radix scroll-lock override, and symmetric bottom padding for centering the auth gate.
+	if uses := strings.Count(body, "var(--dashboard-top-offset)"); uses != 3 {
+		t.Errorf("--dashboard-top-offset must be used by body, scroll-lock, and auth-gate bottom padding only, got %d", uses)
 	}
 	if !strings.Contains(body, "padding: var(--dashboard-top-offset) 14px 16px 14px;") {
 		t.Errorf("body padding-top must use the var and preserve horizontal/bottom (14px 16px 14px)")
