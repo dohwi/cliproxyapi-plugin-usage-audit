@@ -2,6 +2,7 @@
     /* Shared conceptual tokens (aligned with quota-monitor) */
     --bg-page: #ffffff;
     --bg-group: #f5f5f7;
+    --group-border: #e4e4e7;
     --bg-card: #f5f5f7;
     --border-color: #d4d4d8;
     --divider: #e4e4e7;
@@ -86,6 +87,7 @@
     color-scheme: dark;
     --bg-page: #101012;
     --bg-group: #161619;
+    --group-border: #2b2b30;
     --bg-card: #161619;
     --border-color: #2b2b30;
     --border-subtle: #242429;
@@ -1412,7 +1414,7 @@
   :root[data-theme='dark'] .input:hover { background-color: var(--surface-hover); border-color: var(--border-focus); }
   :root[data-theme='dark'] .active-filter-badge { background: transparent; border-color: transparent; color: var(--text-secondary); }
   :root[data-theme='dark'] .active-filter-badge:hover, :root[data-theme='dark'] .active-filter-badge:focus-visible { border-color: var(--border-focus); background: var(--surface-hover); color: var(--text-primary); }
-  :root[data-theme='dark'] .kpi-group { background: var(--bg-group); border: 0; }
+  :root[data-theme='dark'] .kpi-group { background: var(--bg-group); border: 1px solid var(--group-border); }
   :root[data-theme='dark'] .kpi-metric-row { border-color: var(--border-color); }
   :root[data-theme='dark'] .usage-table-scroll .ui-table-head { background: var(--bg-card); color: var(--text-muted); border-bottom-color: var(--border-color); }
   :root[data-theme='dark'] .usage-table-scroll .ui-table-cell { border-bottom-color: var(--border-color); color: var(--text-primary); }
@@ -1497,15 +1499,15 @@
   .compact-select, .compact-select:hover:not(:disabled) { color: var(--text-primary); }
   .compact-select:focus-visible { outline-offset: -1px; }
 
-  /* Borderless tinted groups with crisp 1px inner controls. */
-  .card, .kpi-group, .filter-card, #recordsPanel, #chartCard, #breakdownSection { background: var(--bg-group); border: 0; border-radius: 8px; box-shadow: none; }
+  /* Hairline tinted groups with crisp 1px inner controls. */
+  .card, .kpi-group, .filter-card, #recordsPanel, #chartCard, #breakdownSection { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; box-shadow: none; }
   .dashboard-control-panel { border-radius: 8px; }
   .preset-group, body .preset-group, #presetGroupControl, body #presetGroupControl { border-radius: 6px; background: #e9e9ed; }
   :root[data-theme='dark'] .preset-group, :root[data-theme='dark'] body .preset-group, :root[data-theme='dark'] #presetGroupControl, :root[data-theme='dark'] body #presetGroupControl { background: #101012; }
   :root[data-theme='dark'] #presetGroupControl .ui-segmented-indicator { background: #27272a; border-color: #3f3f46; }
   .preset-btn, #presetGroupControl .ui-segmented-item { border-radius: 4px; line-height: 20px; padding: 0 10px; }
   .usage-table-scroll, .table-responsive, .breakdown-table-wrap { border: 1px solid var(--divider); border-radius: 8px; background: var(--bg-page); }
-  .skeleton-kpi-group, .skeleton-panel { background: var(--bg-group); border: 0; border-radius: 8px; }
+  .skeleton-kpi-group, .skeleton-panel { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; }
   .kpi-metric-row { min-height: 0; padding: 8px 6px; }
   .kpi-value-wrap { min-height: 24px; }
   .kpi-metric-label-wrap { height: auto; min-height: 0; }
@@ -1551,8 +1553,8 @@
   body:has(#authGate:not(.is-hidden)) { min-height: 100dvh; display: flex; flex-direction: column; padding-bottom: var(--dashboard-top-offset); }
   body:has(#authGate:not(.is-hidden)) .container { width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; }
   body .auth-gate { margin: auto; }
-  .auth-gate { background: var(--bg-group); border: 0; }
-  :root[data-theme='dark'] .auth-gate { background: var(--bg-group); border: 0; }
+  .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
+  :root[data-theme='dark'] .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
 
   /* Empty state: compact; single CTA reset button when filters are active. */
   .empty-state-action { margin-top: 8px; }
