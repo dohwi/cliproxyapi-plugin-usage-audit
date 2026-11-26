@@ -64,14 +64,14 @@ watchValue(from, renderDate); watchValue(to, renderDate);
 flushSync(renderDate);
 
 // Use the exported dohwi-ui Table primitives for all table semantics and structure.
-type TableCellData = { text?: string; content?: React.ReactNode; time?: {full:string; mobile:string}; badge?: {text:string; className:string}; badges?: Array<{text:string; className:string; title?:string}>; className?: string; title?: string; changeKey?: string; tone?: string; label?: string; colSpan?: number };
+type TableCellData = { text?: string; content?: React.ReactNode; time?: {full:string; mobile:string}; badge?: {text:string; className:string}; meta?: {text:string; title?:string}; className?: string; title?: string; changeKey?: string; tone?: string; label?: string; colSpan?: number };
 type TableRowData = { key: string; cells: TableCellData[]; onClick?: (event: React.MouseEvent<HTMLTableRowElement>) => void; onKeyDown?: (event: React.KeyboardEvent<HTMLTableRowElement>) => void; tabIndex?: number; dataIndex?: number };
 type TableViewProps = { mountId: string; tableId: string; bodyId: string; label: string; wrapperClass: string; headers: Array<{text:string; className?:string}>; rows: TableRowData[]; emptyText?: string; tableClass?: string };
 const tableRoots = new Map<string, ReturnType<typeof createRoot>>();
 function cellContent(cell: TableCellData) {
   if (cell.time) return <><span className="record-time-full">{cell.time.full}</span><span className="record-time-mobile">{cell.time.mobile}</span></>;
   if (cell.badge) return <span className={cell.badge.className}>{cell.badge.text}</span>;
-  if (cell.badges && cell.badges.length) return <span className="model-cell-wrap"><span className="cell-clamp">{cell.text ?? ''}</span><span className="model-cell-badges">{cell.badges.map((b, i) => <span key={i} className={b.className} title={b.title}>{b.text}</span>)}</span></span>;
+  if (cell.meta && cell.meta.text) return <span className="model-cell-stack"><span className="cell-clamp">{cell.text ?? ''}</span><span className="model-cell-meta" title={cell.meta.title}>{cell.meta.text}</span></span>;
   return cell.content ?? cell.text ?? ''; // cellContent(cell); title={cell.title}; flashValue(el,cell.tone,cell.label)
 }
 const EMPTY_ICONS: Record<string, React.ReactNode> = {
@@ -93,7 +93,7 @@ function TableView({tableId, bodyId, label, wrapperClass, headers, rows, emptyTe
         {rows.length ? rows.map(row=><TableRow key={row.key} tabIndex={row.tabIndex} data-index={row.dataIndex} data-row-key={row.key} onClick={row.onClick} onKeyDown={row.onKeyDown}>
           {row.cells.map((cell, i)=><TableCell key={i} colSpan={cell.colSpan} className={cell.className} title={cell.title} data-change-key={cell.changeKey}
             ref={el=>{if(el && cell.tone && typeof (window as any).flashValue==='function') (window as any).flashValue(el,cell.tone,cell.label);}}>
-            {cell.className && cell.className.indexOf('cell-ellipsis')>=0 && !cell.content && !cell.time && !cell.badge && !(cell.badges && cell.badges.length) ? <span className="cell-clamp">{cellContent(cell)}</span> : cellContent(cell)}
+            {cell.className && cell.className.indexOf('cell-ellipsis')>=0 && !cell.content && !cell.time && !cell.badge && !(cell.meta && cell.meta.text) ? <span className="cell-clamp">{cellContent(cell)}</span> : cellContent(cell)}
           </TableCell>)}
         </TableRow>) : <TableRow><TableCell colSpan={headers.length} className="text-muted table-empty"><EmptyState kind="empty" title={emptyText || t('empty.data')} hint={emptyText === t('empty.records') ? t('empty.records.hint') : t('empty.data.hint')}/></TableCell></TableRow>}
       </TableBody>

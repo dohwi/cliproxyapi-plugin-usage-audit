@@ -1623,25 +1623,12 @@
   }
   .card-desc, .card-title { line-height: 20px; }
 
-/* Model-cell mode badges: soft translucent 4px micro-badges (thinking, fast, priority). */
+/* Model-cell secondary mode metadata: quiet middle-dot caption under model name. */
 body #recordsPanel td.cell-ellipsis:nth-child(4) { max-width: none; }
-body #recordsPanel .model-cell-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
-body #recordsPanel .model-cell-wrap .cell-clamp { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-body #recordsPanel .model-cell-badges { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-.badge-mode {
-  display: inline-flex; align-items: center; justify-content: center; flex: none;
-  height: 16px; padding: 0 4px; border: 0; border-radius: 4px;
-  font-size: 11px; font-weight: 600; line-height: 16px; white-space: nowrap;
-  box-shadow: none; background-image: none;
-}
-.badge-thinking { background-color: rgb(109 40 217 / .12); color: #5b21b6; }
-.badge-fast { background-color: rgb(180 83 9 / .12); color: #92400e; }
-.badge-priority { background-color: rgb(29 78 216 / .12); color: #1e40af; }
-:root[data-theme='dark'] .badge-thinking { background-color: rgb(167 139 250 / .16); color: #c4b5fd; }
-:root[data-theme='dark'] .badge-fast { background-color: rgb(251 191 36 / .14); color: #fcd34d; }
-:root[data-theme='dark'] .badge-priority { background-color: rgb(96 165 250 / .15); color: #93c5fd; }
-@media (max-width: 767px) {
-  body #recordsPanel .model-cell-wrap { flex-wrap: wrap; row-gap: 3px; column-gap: 4px; }
-  body #recordsPanel .model-cell-wrap .cell-clamp { flex: 1 1 100%; max-width: 100%; }
-  body #recordsPanel .model-cell-badges { flex-wrap: wrap; gap: 3px; }
+body #recordsPanel .model-cell-stack { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
+body #recordsPanel .model-cell-stack .cell-clamp { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body #recordsPanel .model-cell-meta {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; font-weight: 500; line-height: 14px; letter-spacing: 0.01em;
+  color: var(--text-muted);
 }

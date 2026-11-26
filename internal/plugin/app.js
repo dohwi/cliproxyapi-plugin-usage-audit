@@ -185,8 +185,6 @@ var I18N = {
     'dlg.thinkingOn': '켜짐',
     'dlg.thinkingOff': '꺼짐',
     'dlg.tierRequested': '요청: {tier}',
-    'badge.thinking': '추론',
-    'badge.thinkEffort': '추론 · {e}',
     'badge.thinkingTip': '추론 토큰 {n}개',
     'tier.fast': '패스트',
     'tier.priority': '우선',
@@ -373,8 +371,6 @@ var I18N = {
     'dlg.thinkingOn': 'Enabled',
     'dlg.thinkingOff': 'Off',
     'dlg.tierRequested': 'Requested: {tier}',
-    'badge.thinking': 'Thinking',
-    'badge.thinkEffort': 'Think · {e}',
     'badge.thinkingTip': '{n} reasoning tokens',
     'tier.fast': 'Fast',
     'tier.priority': 'Priority',
@@ -561,8 +557,6 @@ var I18N = {
     'dlg.thinkingOn': '已启用',
     'dlg.thinkingOff': '已关闭',
     'dlg.tierRequested': '请求层级：{tier}',
-    'badge.thinking': '思考',
-    'badge.thinkEffort': '思考 · {e}',
     'badge.thinkingTip': '{n} 个推理 Token',
     'tier.fast': '快速',
     'tier.priority': '优先',
@@ -987,12 +981,16 @@ function recordTier(rec) {
   return {requested: requested, actual: actual};
 }
 function tierLabel(tier) { return tier === 'fast' ? t('tier.fast') : tier === 'priority' ? t('tier.priority') : tier === 'standard' ? t('tier.standard') : tier; }
-function recordModelBadges(rec) {
-  var badges = [], th = recordThinking(rec), tier = recordTier(rec);
-  if (th.active) badges.push({text: th.effort ? t('badge.thinkEffort', {e: th.effort}) : t('badge.thinking'), className: 'badge-mode badge-thinking', title: th.tokens > 0 ? t('badge.thinkingTip', {n: formatExactNumber(th.tokens)}) : undefined});
-  if (tier.actual === 'fast') badges.push({text: t('tier.fast'), className: 'badge-mode badge-fast'});
-  else if (tier.actual === 'priority') badges.push({text: t('tier.priority'), className: 'badge-mode badge-priority'});
-  return badges;
+function recordModelMeta(rec) {
+  var parts = [], tips = [], th = recordThinking(rec), tier = recordTier(rec);
+  if (th.active) {
+    parts.push(th.effort || 'thinking');
+    if (th.tokens > 0) tips.push(t('badge.thinkingTip', {n: formatExactNumber(th.tokens)}));
+  }
+  if (tier.actual === 'fast' || tier.actual === 'priority' || tier.actual === 'flex') parts.push(tier.actual);
+  if (!parts.length) return null;
+  var text = parts.join(' · ');
+  return {text: text, title: tips.length ? text + ' (' + tips.join(', ') + ')' : text};
 }
 
 // Provider display mapper: trims/lowers and turns compatible-b.ai aliases into "b.ai"
@@ -1830,11 +1828,12 @@ function paintRecords() {
     var parsedTime=new Date(rawT), mobileTime=Number.isNaN(parsedTime.getTime())?'—':parsedTime.toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit',hour12:false}); // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
     // Compose semantic UI Table cells without HTML string concatenation (legacy: mobileTime.textContent). // mobileTime.textContent, timeCell.title=formatDateTime(rawT)
     var statusCell={badge:{text:failed?t('rec.failed'):t('rec.success'),className:'badge '+(failed?'badge-fail':'badge-success')},tone:changes&&changes[recordKey]||null,label:t('rec.status')};
+    var modelMeta=recordModelMeta(rec);
     return {key:String(rec.id||rec.request_id||rawT||idx),dataIndex:idx,tabIndex:0,onClick:function(e){showRecordDetail(idx,e.currentTarget);},onKeyDown:function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();showRecordDetail(idx,e.currentTarget);}},cells:[
       {time:{full:formatDateTime(rawT),mobile:mobileTime},title:formatDateTime(rawT)},
       {text:displayProv,className:'cell-ellipsis',title:displayProv},
       {text:String(endpoint),className:'cell-ellipsis',title:String(endpoint)},
-      {text:String(model),className:'cell-ellipsis',title:String(model),badges:recordModelBadges(rec)},
+      {text:String(model),className:'cell-ellipsis',title:modelMeta?String(model)+' · '+modelMeta.text:String(model),meta:modelMeta},
       {text:formatExactNumber(rec.fresh_input != null ? rec.fresh_input : null),className:'num-cell num-input'},
       {text:formatExactNumber(rec.cached),className:'num-cell num-input'},
       {text:formatExactNumber(rec.output != null ? rec.output : null),className:'num-cell num-output'},
