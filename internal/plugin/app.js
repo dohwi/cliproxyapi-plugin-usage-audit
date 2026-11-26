@@ -180,6 +180,17 @@ var I18N = {
     'dlg.reasoning': '추론',
     'dlg.cached': '캐시 입력',
     'dlg.alias': '별칭',
+    'dlg.thinking': '추론 모드',
+    'dlg.serviceTier': '서비스 티어',
+    'dlg.thinkingOn': '켜짐',
+    'dlg.thinkingOff': '꺼짐',
+    'dlg.tierRequested': '요청: {tier}',
+    'badge.thinking': '추론',
+    'badge.thinkEffort': '추론 · {e}',
+    'badge.thinkingTip': '추론 토큰 {n}개',
+    'tier.fast': '패스트',
+    'tier.priority': '우선',
+    'tier.standard': '표준',
     'dlg.endpointSource': '엔드포인트·출처',
     'dlg.latency': '총 지연',
     'dlg.ttft': '첫 토큰 시간'
@@ -357,6 +368,17 @@ var I18N = {
     'dlg.reasoning': 'Reasoning tokens',
     'dlg.cached': 'Cached input',
     'dlg.alias': 'Alias',
+    'dlg.thinking': 'Thinking',
+    'dlg.serviceTier': 'Service tier',
+    'dlg.thinkingOn': 'Enabled',
+    'dlg.thinkingOff': 'Off',
+    'dlg.tierRequested': 'Requested: {tier}',
+    'badge.thinking': 'Thinking',
+    'badge.thinkEffort': 'Think · {e}',
+    'badge.thinkingTip': '{n} reasoning tokens',
+    'tier.fast': 'Fast',
+    'tier.priority': 'Priority',
+    'tier.standard': 'Standard',
     'dlg.endpointSource': 'Endpoint / Source',
     'dlg.latency': 'Total latency',
     'dlg.ttft': 'TTFT (time to first token)'
@@ -534,6 +556,17 @@ var I18N = {
     'dlg.reasoning': '推理',
     'dlg.cached': '缓存输入',
     'dlg.alias': '别名',
+    'dlg.thinking': '思考模式',
+    'dlg.serviceTier': '服务层级',
+    'dlg.thinkingOn': '已启用',
+    'dlg.thinkingOff': '已关闭',
+    'dlg.tierRequested': '请求层级：{tier}',
+    'badge.thinking': '思考',
+    'badge.thinkEffort': '思考 · {e}',
+    'badge.thinkingTip': '{n} 个推理 Token',
+    'tier.fast': '快速',
+    'tier.priority': '优先',
+    'tier.standard': '标准',
     'dlg.endpointSource': '端点/来源',
     'dlg.latency': '总延迟',
     'dlg.ttft': '首 Token 延迟（TTFT）'
@@ -931,7 +964,34 @@ function formatExactNumber(num) {
   if (num === null || num === undefined) return '—';
   var n = Number(num);
   if (isNaN(n)) return '—';
-  return Math.round(n).toLocaleString(uiLocale());
+  var loc = uiLocale();
+  var cache = formatExactNumber.cache || (formatExactNumber.cache = {});
+  var fmt = cache[loc] || (cache[loc] = new Intl.NumberFormat(loc));
+  return fmt.format(Math.round(n));
+}
+
+// Mode helpers: thinking effort and served service tier for a usage record.
+var THINKING_OFF = {'': 1, none: 1, off: 1, disabled: 1, '0': 1};
+var THINKING_GENERIC = {auto: 1, enabled: 1, on: 1, true: 1};
+function recordThinking(rec) {
+  var effort = String(rec.reasoning_effort || '').trim().toLowerCase();
+  var tokens = Number(rec.reasoning) || 0;
+  if (effort && !THINKING_OFF[effort]) return {active: true, effort: THINKING_GENERIC[effort] ? '' : effort, tokens: tokens};
+  if (!effort && tokens > 0) return {active: true, effort: '', tokens: tokens, inferred: true};
+  return {active: false, tokens: tokens};
+}
+function recordTier(rec) {
+  var requested = String(rec.service_tier || '').trim().toLowerCase();
+  var actual = String(rec.response_service_tier || rec.effective_service_tier || rec.service_tier || '').trim().toLowerCase();
+  return {requested: requested, actual: actual};
+}
+function tierLabel(tier) { return tier === 'fast' ? t('tier.fast') : tier === 'priority' ? t('tier.priority') : tier === 'standard' ? t('tier.standard') : tier; }
+function recordModelBadges(rec) {
+  var badges = [], th = recordThinking(rec), tier = recordTier(rec);
+  if (th.active) badges.push({text: th.effort ? t('badge.thinkEffort', {e: th.effort}) : t('badge.thinking'), className: 'badge-mode badge-thinking', title: th.tokens > 0 ? t('badge.thinkingTip', {n: formatExactNumber(th.tokens)}) : undefined});
+  if (tier.actual === 'fast') badges.push({text: t('tier.fast'), className: 'badge-mode badge-fast'});
+  else if (tier.actual === 'priority') badges.push({text: t('tier.priority'), className: 'badge-mode badge-priority'});
+  return badges;
 }
 
 // Provider display mapper: trims/lowers and turns compatible-b.ai aliases into "b.ai"
@@ -1053,7 +1113,13 @@ function updateSelectTitle(selectEl) {
 function populateSelectOptions(selectEl, knownMap, allLabel, selectedValue, formatter) {
   if (!selectEl) return;
   var keys = Object.keys(knownMap).sort(function(a, b) { return a.localeCompare(b, currentLang, { sensitivity: 'base' }); });
-  selectEl.replaceChildren();
+  var wanted = [['', allLabel || t('all'), false]];
+  if (selectedValue && keys.indexOf(selectedValue) === -1) wanted.push([selectedValue, formatter ? formatter(selectedValue) : selectedValue, true]);
+  keys.forEach(function(key) { wanted.push([key, formatter ? formatter(key) : key, false]); });
+  var current = selectEl.options || selectEl.children || [];
+  var same = current.length === wanted.length && wanted.every(function(w, i) {
+    return current[i].value === w[0] && current[i].textContent === w[1] && (current[i].dataset.transient === 'true') === w[2];
+  });
   function appendOption(value, label, transient) {
     var option = document.createElement('option');
     option.value = value;
@@ -1061,10 +1127,11 @@ function populateSelectOptions(selectEl, knownMap, allLabel, selectedValue, form
     if (transient) option.dataset.transient = 'true';
     selectEl.appendChild(option);
   }
-  appendOption('', allLabel || t('all'), false);
-  if (selectedValue && keys.indexOf(selectedValue) === -1) appendOption(selectedValue, formatter ? formatter(selectedValue) : selectedValue, true);
-  keys.forEach(function(key) { appendOption(key, formatter ? formatter(key) : key, false); });
-  selectEl.value = selectedValue || '';
+  if (!same) {
+    selectEl.replaceChildren();
+    wanted.forEach(function(w) { appendOption(w[0], w[1], w[2]); });
+  }
+  if (selectEl.value !== (selectedValue || '')) selectEl.value = selectedValue || '';
   updateSelectTitle(selectEl);
 }
 
@@ -1384,12 +1451,13 @@ function loadData(appendRecords, forceReplace) {
   Promise.all([summaryReq, recordsReq]).then(function(data) {
     if (!currentRequest()) return;
     state.inFlight = false; clearError();
+    var finalSnapshot = appendRecords ? null : makeUsageSnapshot(data[0], data[1]);
     if (!progressive) {
-      state.pendingChanges=appendRecords ? {values:{},rows:{},records:{}} : diffUsageSnapshots(previous, makeUsageSnapshot(data[0], data[1]));
+      state.pendingChanges=appendRecords ? {values:{},rows:{},records:{}} : diffUsageSnapshots(previous, finalSnapshot);
       if (data[0]) renderSummary(data[0]); renderRecords(data[1], appendRecords); state.pendingChanges=null;
     }
-    if (!appendRecords) { state.serverSnapshot=makeUsageSnapshot(data[0], data[1]); state.snapshotFilterKey=filterKey; }
-    extractFilterOptions(data[0], data[1]); state.hasLoadedData = true; hideSkeletons(); setDashboardBusy(false);
+    if (!appendRecords) { state.serverSnapshot=finalSnapshot; state.snapshotFilterKey=filterKey; }
+    extractFilterOptions(data[0], data[1]); state.hasLoadedData = true; state.lastFetchOk = Date.now(); hideSkeletons(); setDashboardBusy(false);
     if (!appendRecords) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset));
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
@@ -1764,7 +1832,7 @@ function paintRecords() {
       {time:{full:formatDateTime(rawT),mobile:mobileTime},title:formatDateTime(rawT)},
       {text:displayProv,className:'cell-ellipsis',title:displayProv},
       {text:String(endpoint),className:'cell-ellipsis',title:String(endpoint)},
-      {text:String(model),className:'cell-ellipsis',title:String(model)},
+      {text:String(model),className:'cell-ellipsis',title:String(model),badges:recordModelBadges(rec)},
       {text:formatExactNumber(rec.fresh_input != null ? rec.fresh_input : null),className:'num-cell num-input'},
       {text:formatExactNumber(rec.cached),className:'num-cell num-input'},
       {text:formatExactNumber(rec.output != null ? rec.output : null),className:'num-cell num-output'},
@@ -1774,14 +1842,10 @@ function paintRecords() {
     ]};
   });
   if(window.renderDohwiTable)window.renderDohwiTable('recordsTableMount',rows,t('empty.records'));else window.pendingDohwiTableUpdates=(window.pendingDohwiTableUpdates||[]).concat([['recordsTableMount',rows,t('empty.records')]]);
-  var renderedRows=document.querySelectorAll('#recordsBody tr.ui-table-row');
-  renderedRows.forEach(function(row,relIndex){
-    var index = start + relIndex;
-    row.dataset.index=String(index);
-    row.dataset.rowKey=rows[relIndex]?rows[relIndex].key:'';
-    var rec=state.records[index];
-    if(rec&&state.pendingChanges&&state.pendingChanges.records['record:'+String(rec.id||rec.request_id||rec.requested_at||index)])applyPanelPulse(document.getElementById('recordsPanel'));
-  });
+  if(state.pendingChanges&&state.pendingChanges.records){
+    for(var pi=0;pi<pageRecords.length;pi++){var prec=pageRecords[pi];
+      if(state.pendingChanges.records['record:'+String(prec.id||prec.request_id||prec.requested_at||(start+pi))]){applyPanelPulse(document.getElementById('recordsPanel'));break;}}
+  }
   updatePaginationControls();
 }
 
@@ -1957,9 +2021,20 @@ function detailRow(key, value, className, sub) { var row=document.createElement(
 function detailSection(title, rows) { var section=document.createElement('section'), heading=document.createElement('div');section.className='detail-section';heading.className='detail-section-title';heading.textContent=title;section.appendChild(heading);rows.forEach(function(row){section.appendChild(row);});return section; }
 function lockBodyScroll() { if (state.dialogScrollLock) return; state.dialogScrollLock={overflow:document.body.style.overflow,paddingRight:document.body.style.paddingRight}; var gutter=typeof getComputedStyle==='function'?getComputedStyle(document.documentElement).scrollbarGutter:'';var width=gutter&&gutter.indexOf('stable')!==-1?0:window.innerWidth-document.documentElement.clientWidth; document.body.style.overflow='hidden'; if(width>0)document.body.style.paddingRight=width+'px'; }
 function unlockBodyScroll() { if(!state.dialogScrollLock)return; document.body.style.overflow=state.dialogScrollLock.overflow;document.body.style.paddingRight=state.dialogScrollLock.paddingRight;state.dialogScrollLock=null; }
+function detailThinkingRow(rec) {
+  var th = recordThinking(rec), effort = String(rec.reasoning_effort || '').trim();
+  var text = th.active ? (th.effort || t('dlg.thinkingOn')) : (effort ? t('dlg.thinkingOff') : '-');
+  return detailRow(t('dlg.thinking'), text);
+}
+function detailTierRow(rec) {
+  var tier = recordTier(rec);
+  var text = tier.actual ? tierLabel(tier.actual) : '-';
+  var sub = tier.requested && tier.requested !== tier.actual ? t('dlg.tierRequested', {tier: tierLabel(tier.requested)}) : '';
+  return detailRow(t('dlg.serviceTier'), text, '', sub);
+}
 function showRecordDetail(idx, opener) {
   var rec=state.records[idx];if(!rec)return;state.openRecordIdx=idx;var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay'),body=DOM.dialogBody||document.getElementById('dialogBody'),rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp,rawProv=rec.provider||rec.Provider||'-',displayProv=formatProvider(rawProv),model=rec.model||rec.Model||'-',alias=rec.alias||rec.Alias||'-',endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-',failed=!!(rec.failed||rec.Failed),latency=formatLatency(rec.latency_ms != null?rec.latency_ms:(rec.latency != null?rec.latency:rec.Latency)),ttft=formatLatency(rec.ttft_ms != null?rec.ttft_ms:(rec.ttft != null?rec.ttft:rec.TTFT));
-  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;body.replaceChildren();var grid=document.createElement('div');grid.className='detail-grid';grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT),'detail-val-time',String(rawT||'-')),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow(t('lbl.provider'),displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow(t('lbl.model'),String(model)),detailRow(t('dlg.alias'),String(alias)),detailRow(t('dlg.endpointSource'),String(endpoint))]));grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));body.appendChild(grid);lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
+  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;body.replaceChildren();var grid=document.createElement('div');grid.className='detail-grid';grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT),'detail-val-time',String(rawT||'-')),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow(t('lbl.provider'),displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow(t('lbl.model'),String(model)),detailRow(t('dlg.alias'),String(alias)),detailThinkingRow(rec),detailTierRow(rec),detailRow(t('dlg.endpointSource'),String(endpoint))]));grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));body.appendChild(grid);lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
 }
 function closeDrawer() { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');var wasOpen=!!(overlay&&overlay.classList.contains('open'));if(dialog)dialog.setAttribute('aria-hidden','true');if(overlay){overlay.classList.remove('open');overlay.setAttribute('aria-hidden','true');}unlockBodyScroll();var opener=state.drawerOpener;state.drawerOpener=null;state.openRecordIdx=null;if(wasOpen&&opener&&document.contains(opener))opener.focus(); }
 function trapDrawerFocus(e) { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');if(e.key!=='Tab'||!dialog||!overlay||!overlay.classList.contains('open'))return;var items=dialog.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');if(!items.length){e.preventDefault();return;}var first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();} }
@@ -1971,6 +2046,10 @@ document.addEventListener('visibilitychange', function() {
     if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
   } else {
     // Refresh immediately on becoming visible when on page 1.
+    var toMs = state.toRFC3339 ? new Date(state.toRFC3339).getTime() : 0;
+    var historical = toMs && toMs < Date.now() - 60000;
+    var fresh = state.lastFetchOk && Date.now() - state.lastFetchOk < 10000;
+    if (state.hasLoadedData && (historical || fresh)) { if (!historical) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset)); return; }
     if (!state.inFlight && state.recordsPage === 1) loadData(false);
   }
 });
