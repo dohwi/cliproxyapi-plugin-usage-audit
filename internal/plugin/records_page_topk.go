@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"math"
 	"slices"
 
 	"github.com/dohwi/cliproxyapi-plugin-usage-audit/internal/store"
@@ -183,7 +184,14 @@ func selectRecordsPageByNumberBlocks(records []store.LogRecord, blocks []store.B
 	if len(records) == 0 || pageNum < 1 || limit < 1 {
 		return []store.LogRecord{}, 0, false
 	}
+	// Guard against int overflow in (pageNum-1)*limit + limit + 1.
+	if pageNum-1 > (math.MaxInt-limit-1)/limit {
+		return []store.LogRecord{}, countMatchingRecords(records, blocks, &opts), false
+	}
 	start := (pageNum - 1) * limit
+	if start >= len(records) {
+		return []store.LogRecord{}, countMatchingRecords(records, blocks, &opts), false
+	}
 	k := start + limit + 1
 
 	// Bounded top-K heap path for pages 1..~100 (at limit=20): O(N log k) time
@@ -293,6 +301,43 @@ func selectRecordsPageByNumberBlocks(records []store.LogRecord, blocks []store.B
 		page[i-start] = records[indexes[i]]
 	}
 	return page, total, more
+}
+
+func countMatchingRecords(records []store.LogRecord, blocks []store.BlockMeta, opts *store.FilterOptions) int {
+	total := 0
+	timeOnly := !hasNonTimeFilters(opts)
+	if len(blocks) == 0 {
+		for i := range records {
+			if store.MatchRecord(&records[i], opts) {
+				total++
+			}
+		}
+		return total
+	}
+	n := len(records)
+	for bi := range blocks {
+		blk := &blocks[bi]
+		if blk.Start >= n {
+			continue
+		}
+		blkEnd := blk.End
+		if blkEnd > n {
+			blkEnd = n
+		}
+		if blockOutsideRange(blk, opts) {
+			continue
+		}
+		if timeOnly && blkEnd == blk.End && blockFullyInsideRange(blk, opts) {
+			total += blkEnd - blk.Start
+			continue
+		}
+		for i := blk.Start; i < blkEnd; i++ {
+			if store.MatchRecord(&records[i], opts) {
+				total++
+			}
+		}
+	}
+	return total
 }
 
 // nthElement partitions a in-place so that a[k] is in its final sorted position,

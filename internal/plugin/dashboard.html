@@ -1171,7 +1171,7 @@
       Array.prototype.forEach.call(m.addedNodes, function(node) {
         if (node.nodeType !== 1) return;
         if (node.matches && node.matches(RIPPLE)) node.classList.add('ui-ripple-host');
-        if (node.querySelectorAll) bindRipples(node);
+        if (node.firstElementChild && node.querySelectorAll) bindRipples(node);
       });
     });
   }).observe(document.body, { childList: true, subtree: true });

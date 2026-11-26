@@ -961,20 +961,21 @@ function esc(str) {
 // negative => '-1,234'
 // integer, grouped per the UI locale (en-US and ko-KR both group with commas)
 function formatExactNumber(num) {
-  if (num === null || num === undefined) return '—';
+  if (num === null || num === undefined || typeof num === 'boolean') return '—';
+  if (typeof num === 'string' && !num.trim()) return '—';
   var n = Number(num);
-  if (isNaN(n)) return '—';
+  if (!isFinite(n)) return '—';
   var loc = uiLocale();
   var cache = formatExactNumber.cache || (formatExactNumber.cache = {});
   var fmt = cache[loc] || (cache[loc] = new Intl.NumberFormat(loc));
-  return fmt.format(Math.round(n));
+  return fmt.format(Math.round(n) || 0);
 }
 
 // Mode helpers: thinking effort and served service tier for a usage record.
 var THINKING_OFF = {'': 1, none: 1, off: 1, disabled: 1, '0': 1};
 var THINKING_GENERIC = {auto: 1, enabled: 1, on: 1, true: 1};
 function recordThinking(rec) {
-  var effort = String(rec.reasoning_effort || '').trim().toLowerCase();
+  var effort = (rec.reasoning_effort != null ? String(rec.reasoning_effort) : '').trim().toLowerCase();
   var tokens = Number(rec.reasoning) || 0;
   if (effort && !THINKING_OFF[effort]) return {active: true, effort: THINKING_GENERIC[effort] ? '' : effort, tokens: tokens};
   if (!effort && tokens > 0) return {active: true, effort: '', tokens: tokens, inferred: true};
@@ -1107,7 +1108,8 @@ function addKnownOption(knownMap, value) {
 function updateSelectTitle(selectEl) {
   if (!selectEl) return;
   var selected = selectEl.selectedOptions && selectEl.selectedOptions[0];
-  selectEl.title = selected ? selected.textContent : '';
+  var nextTitle = selected ? selected.textContent : '';
+  if (selectEl.title !== nextTitle) selectEl.title = nextTitle;
 }
 
 function populateSelectOptions(selectEl, knownMap, allLabel, selectedValue, formatter) {
@@ -1238,8 +1240,8 @@ function snapshotFilterKey() { return [state.currentPreset,state.fromRFC3339,sta
 function makeUsageSnapshot(summary, records) {
   var snap={ values:{}, rows:{} };
   if (summary) {
-    var total=typeof summary.total_count==='number'?summary.total_count:0, failures=0, tokens=0, input=0, fresh=0, output=0, reasoning=0, cached=0;
-    (Array.isArray(summary.summary)?summary.summary:[]).forEach(function(item){item=item||{}; failures+=Number(item.failures)||0;tokens+=Number(item.total_tokens)||0;input+=Number(item.input_tokens)||0;fresh+=Number(item.fresh_input_tokens)||0;output+=Number(item.output_tokens)||0;reasoning+=Number(item.reasoning_tokens)||0;cached+=Number(item.cached_tokens)||0; if(!total)total+=Number(item.requests)||0;});
+    var hasTotal=typeof summary.total_count==='number', total=hasTotal?summary.total_count:0, failures=0, tokens=0, input=0, fresh=0, output=0, reasoning=0, cached=0;
+    (Array.isArray(summary.summary)?summary.summary:[]).forEach(function(item){item=item||{}; failures+=Number(item.failures)||0;tokens+=Number(item.total_tokens)||0;input+=Number(item.input_tokens)||0;fresh+=Number(item.fresh_input_tokens)||0;output+=Number(item.output_tokens)||0;reasoning+=Number(item.reasoning_tokens)||0;cached+=Number(item.cached_tokens)||0; if(!hasTotal)total+=Number(item.requests)||0;});
     snap.values={ requests:total, failures:failures, tokens:tokens, input:input, fresh:fresh, output:output, reasoning:reasoning, cached:cached };
     [['provider',summary.by_provider],['endpoint',summary.by_endpoint],['model',summary.by_model]].forEach(function(pair){(Array.isArray(pair[1])?pair[1]:[]).forEach(function(row){row=row||{};var rawKey=String(row.key||row[pair[0]]||row.name||row.endpoint||row.source||row.executor_type||''); if(!rawKey) return; var key=pair[0]+':'+rawKey;snap.rows[key]={requests:Number(row.requests||row.count)||0,failures:Number(row.failures)||0,tokens:Number(row.total_tokens)||0};});});
   }
@@ -2022,7 +2024,7 @@ function detailSection(title, rows) { var section=document.createElement('sectio
 function lockBodyScroll() { if (state.dialogScrollLock) return; state.dialogScrollLock={overflow:document.body.style.overflow,paddingRight:document.body.style.paddingRight}; var gutter=typeof getComputedStyle==='function'?getComputedStyle(document.documentElement).scrollbarGutter:'';var width=gutter&&gutter.indexOf('stable')!==-1?0:window.innerWidth-document.documentElement.clientWidth; document.body.style.overflow='hidden'; if(width>0)document.body.style.paddingRight=width+'px'; }
 function unlockBodyScroll() { if(!state.dialogScrollLock)return; document.body.style.overflow=state.dialogScrollLock.overflow;document.body.style.paddingRight=state.dialogScrollLock.paddingRight;state.dialogScrollLock=null; }
 function detailThinkingRow(rec) {
-  var th = recordThinking(rec), effort = String(rec.reasoning_effort || '').trim();
+  var th = recordThinking(rec), effort = (rec.reasoning_effort != null ? String(rec.reasoning_effort) : '').trim();
   var text = th.active ? (th.effort || t('dlg.thinkingOn')) : (effort ? t('dlg.thinkingOff') : '-');
   return detailRow(t('dlg.thinking'), text);
 }

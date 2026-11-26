@@ -333,6 +333,7 @@ func (s *Store) Append(rec LogRecord) (err error) {
 		cached, ok := normalizeLikeDecode(rec)
 		if !ok {
 			// Rare shapes (non-UTC offsets) keep the exact decoder round trip.
+			cached = LogRecord{}
 			ok = json.Unmarshal(bytes.TrimSpace(line), &cached) == nil
 		}
 		if ok {
@@ -573,7 +574,8 @@ func (s *Store) readAllCachedLocked() ([]LogRecord, []cachedFile, decodeReport, 
 	}
 	intern := make(map[string]string, 256)
 	type seg struct {
-		recs []LogRecord
+		recs   []LogRecord
+		cached bool
 	}
 	segs := make([]seg, 0, len(stamps))
 	var nextCached []cachedFile
@@ -590,7 +592,7 @@ func (s *Store) readAllCachedLocked() ([]LogRecord, []cachedFile, decodeReport, 
 				}
 			}
 			if hit != nil {
-				segs = append(segs, seg{hit.records})
+				segs = append(segs, seg{recs: hit.records, cached: true})
 				nextCached = append(nextCached, *hit)
 				totalLen += len(hit.records)
 				continue
@@ -601,14 +603,14 @@ func (s *Store) readAllCachedLocked() ([]LogRecord, []cachedFile, decodeReport, 
 		if err != nil {
 			return nil, nil, report, err
 		}
-		segs = append(segs, seg{recs})
+		segs = append(segs, seg{recs: recs})
 		totalLen += len(recs)
 		if st.path != s.path && fileReport.corruptLines == 0 && fileReport.truncatedLines == 0 && len(recs) > 0 {
 			nextCached = append(nextCached, cachedFile{info: st.info, records: recs})
 		}
 	}
 	s.intern = intern
-	if len(segs) == 1 {
+	if len(segs) == 1 && !segs[0].cached {
 		return segs[0].recs, nextCached, report, nil
 	}
 	slack := min(totalLen/8+256, 8192)

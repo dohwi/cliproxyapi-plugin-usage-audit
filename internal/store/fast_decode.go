@@ -106,14 +106,15 @@ func parseLogRecordObject(data []byte, rec *LogRecord, intern map[string]string)
 			rec.APIKeyID = s
 			next = end
 		case "session_id":
-			s, end, ok := parseInternedString(data, i, intern)
+			// High-cardinality per-conversation IDs: do not fill the low-cardinality intern map.
+			s, end, ok := parseInternedString(data, i, nil)
 			if !ok {
 				return false
 			}
 			rec.SessionID = s
 			next = end
 		case "parent_session_id":
-			s, end, ok := parseInternedString(data, i, intern)
+			s, end, ok := parseInternedString(data, i, nil)
 			if !ok {
 				return false
 			}
@@ -297,10 +298,7 @@ func scanSimpleString(data []byte, start int) (int, bool) {
 			return 0, false
 		}
 		if c >= 0x80 {
-			if !utf8.Valid(data[start:]) {
-				return 0, false
-			}
-			// Continue scanning multi-byte valid UTF-8, still rejecting escapes/controls.
+			// Continue scanning multi-byte UTF-8 and validate only the string slice.
 			for j := i; j < len(data); j++ {
 				b := data[j]
 				if b == '"' {
