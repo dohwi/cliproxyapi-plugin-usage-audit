@@ -1636,3 +1636,26 @@ func TestDashboardKPISharedContentDrivenRows(t *testing.T) {
 		}
 	}
 }
+
+func TestDashboardHairlineGroupBordersNotOverridden(t *testing.T) {
+	body := plugin.DashboardHTML
+	for _, forbidden := range []string{
+		"body .card { border: 0;",
+		"body .kpi-group { border: 0;",
+		"body .detail-section { border: 0;",
+	} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("specificity trap strips 1px hairline border from tinted groups: %q", forbidden)
+		}
+	}
+	for _, required := range []string{
+		"body .card { border: 1px solid var(--group-border);",
+		"body .kpi-group { border: 1px solid var(--group-border);",
+		"body .detail-section { border: 1px solid var(--group-border);",
+		"body .auth-gate, .auth-gate { margin: auto; background: var(--bg-group); border: 1px solid var(--group-border); }",
+	} {
+		if !strings.Contains(body, required) {
+			t.Errorf("missing 1px hairline border rule %q", required)
+		}
+	}
+}

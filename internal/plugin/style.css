@@ -233,7 +233,7 @@
     min-width: 0;
   }
 
-  .card { background: var(--bg-group); border: 0; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; min-width: 0; }
+  .card { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; min-width: 0; }
   .filter-card { padding: 16px; border-radius: 8px; }
   .card-header {
     display: flex;
@@ -502,7 +502,7 @@
   }
 
   /* Group panel: one flat white/subtle surface, colored header, neutral body */
-  .kpi-group { background: var(--bg-group); border: 0; border-radius: 8px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .kpi-group { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
   /* Colored header strip — subtle tint; group body is neutral, no decoration */
   .kpi-group-head {
@@ -1056,7 +1056,7 @@
   /* ===== Design refresh overrides (cascade order preserved; dead declarations removed) ===== */
   /* ---- Page & cards ---- */
   :root { --space-1: 8px; --space-2: 16px; --space-3: 24px; }
-  body .card { border: 0; box-shadow: none; padding: var(--space-3); margin-bottom: 0; }
+  body .card { border: 1px solid var(--group-border); box-shadow: none; padding: var(--space-3); margin-bottom: 0; }
   body .page-heading { margin-bottom: var(--space-2); }
   body .page-heading h1 { font-size: 1.625rem; }
   body #dashboardContent { display: grid; gap: var(--space-2); }
@@ -1099,7 +1099,7 @@
   body .lang-toggle, body .refresh-btn { border-color: var(--filter-control-border); }
 
   /* ---- KPI ---- */
-  body .kpi-group { border: 0; box-shadow: none; }
+  body .kpi-group { border: 1px solid var(--group-border); box-shadow: none; }
   body .kpi-group-head, body .kpi-group-overview .kpi-group-head, body .kpi-group-input .kpi-group-head, body .kpi-group-output .kpi-group-head {
     background: transparent;
     border-bottom: 0;
@@ -1191,7 +1191,7 @@
   body .dialog-title { font-size: 1.0625rem; letter-spacing: -0.02em; }
   body .dialog-body { padding: var(--space-3); background: var(--bg-card); }
   body .detail-grid { gap: var(--space-2); }
-  body .detail-section { border: 0; background: var(--bg-group); border-radius: 8px; padding: var(--space-2); }
+  body .detail-section { border: 1px solid var(--group-border); background: var(--bg-group); border-radius: 8px; padding: var(--space-2); }
   body .detail-section-title {
     text-transform: none;
     letter-spacing: 0;
@@ -1433,11 +1433,11 @@
   :root[data-theme='dark'] .dialog-header { background: var(--surface-toolbar); border-bottom-color: var(--border-color); }
   :root[data-theme='dark'] .dialog-close { color: var(--text-secondary); }
   :root[data-theme='dark'] .dialog-close:hover { color: var(--text-primary); background: var(--surface-hover); }
-  :root[data-theme='dark'] .detail-section { background: var(--bg-group); border-color: var(--border-color); }
+  :root[data-theme='dark'] .detail-section { background: var(--bg-group); border: 1px solid var(--group-border); }
   :root[data-theme='dark'] .detail-key { color: var(--text-secondary); }
   :root[data-theme='dark'] .detail-val { color: var(--text-primary); }
   :root[data-theme='dark'] .detail-overlay { background: rgb(0 0 0 / .52); }
-  :root[data-theme='dark'] .auth-gate { background: var(--bg-card); border-color: var(--border-color); }
+  :root[data-theme='dark'] .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
   :root[data-theme='dark'] .auth-gate-desc { color: var(--text-secondary); }
   :root[data-theme='dark'] .custom-dates .input:disabled { background: var(--surface-toolbar); color: var(--text-secondary); }
 
@@ -1500,7 +1500,7 @@
   .compact-select:focus-visible { outline-offset: -1px; }
 
   /* Hairline tinted groups with crisp 1px inner controls. */
-  .card, .kpi-group, .filter-card, #recordsPanel, #chartCard, #breakdownSection { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; box-shadow: none; }
+  .card, body .card, .kpi-group, body .kpi-group, .filter-card, body .filter-card, #recordsPanel, #chartCard, #breakdownSection { background: var(--bg-group); border: 1px solid var(--group-border); border-radius: 8px; box-shadow: none; }
   .dashboard-control-panel { border-radius: 8px; }
   .preset-group, body .preset-group, #presetGroupControl, body #presetGroupControl { border-radius: 6px; background: #e9e9ed; }
   :root[data-theme='dark'] .preset-group, :root[data-theme='dark'] body .preset-group, :root[data-theme='dark'] #presetGroupControl, :root[data-theme='dark'] body #presetGroupControl { background: #101012; }
@@ -1552,9 +1552,8 @@
   :root[data-theme='dark'] #authKeyInput[aria-invalid='true'] { border-color: #ef4444; }
   body:has(#authGate:not(.is-hidden)) { min-height: 100dvh; display: flex; flex-direction: column; padding-bottom: var(--dashboard-top-offset); }
   body:has(#authGate:not(.is-hidden)) .container { width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; }
-  body .auth-gate { margin: auto; }
-  .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
-  :root[data-theme='dark'] .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
+  body .auth-gate, .auth-gate { margin: auto; background: var(--bg-group); border: 1px solid var(--group-border); }
+  :root[data-theme='dark'] body .auth-gate, :root[data-theme='dark'] .auth-gate { background: var(--bg-group); border: 1px solid var(--group-border); }
 
   /* Empty state: compact; single CTA reset button when filters are active. */
   .empty-state-action { margin-top: 8px; }
