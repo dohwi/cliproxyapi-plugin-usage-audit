@@ -16,14 +16,15 @@ import (
 // source, which is the upstream API key of an API-key credential, the account
 // e-mail, or the client API key).
 var legacySecretFields = []string{"api_key_id", "source"}
+var legacySecretTokens = [][]byte{[]byte(`"api_key_id"`), []byte(`"source"`)}
 
 // lineHasLegacySecret reports whether a JSON object line carries any legacy
 // secret field. It checks the cheap byte form first so clean history is not
 // decoded twice.
 func lineHasLegacySecret(content []byte) bool {
 	found := false
-	for _, k := range legacySecretFields {
-		if bytes.Contains(content, []byte(`"`+k+`"`)) {
+	for _, tok := range legacySecretTokens {
+		if bytes.Contains(content, tok) {
 			found = true
 			break
 		}
@@ -159,7 +160,44 @@ func fileHasLegacySecret(path string) (bool, error) {
 		return false, err
 	}
 	defer f.Close()
-	reader := bufio.NewReader(f)
+
+	// Fast chunked byte scan: clean files (the common case) skip all line
+	// allocations and JSON decoding in a single linear pass.
+	const chunkSize = 256 * 1024
+	const overlap = 16 // > len(`"api_key_id"`)
+	buf := make([]byte, overlap+chunkSize)
+	carry := 0
+	maybeDirty := false
+	for {
+		n, readErr := f.Read(buf[carry : carry+chunkSize])
+		window := buf[:carry+n]
+		for _, tok := range legacySecretTokens {
+			if bytes.Contains(window, tok) {
+				maybeDirty = true
+				break
+			}
+		}
+		if maybeDirty {
+			break
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				return false, nil
+			}
+			return false, readErr
+		}
+		if len(window) >= overlap {
+			copy(buf[:overlap], window[len(window)-overlap:])
+			carry = overlap
+		} else {
+			copy(buf[:len(window)], window)
+			carry = len(window)
+		}
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return false, err
+	}
+	reader := bufio.NewReaderSize(f, 256*1024)
 	for {
 		line, readErr := reader.ReadBytes('\n')
 		if readErr != nil && !errors.Is(readErr, io.EOF) {

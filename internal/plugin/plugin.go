@@ -92,6 +92,8 @@ type pluginState struct {
 	epoch   atomic.Uint64
 	// summaries caches computed summary aggregates per (store version, query).
 	summaries summaryCache
+	// records caches paginated records query results per (store version, query).
+	records recordsCache
 }
 
 // shutdown safely stops the consumer and flushes the store exactly once.
@@ -357,9 +359,11 @@ type usageHandleRequest struct {
 	AuthIndex       string       `json:"AuthIndex"` // stable index — stored
 	AuthType        string       `json:"AuthType"`
 	Source          string       `json:"Source"`
-	ReasoningEffort string       `json:"ReasoningEffort"`
-	ServiceTier     string       `json:"ServiceTier"`
-	Generate        bool         `json:"Generate"`
+	ReasoningEffort      string       `json:"ReasoningEffort"`
+	ServiceTier          string       `json:"ServiceTier"`
+	EffectiveServiceTier string       `json:"EffectiveServiceTier"`
+	ResponseServiceTier  string       `json:"ResponseServiceTier"`
+	Generate             bool         `json:"Generate"`
 	RequestedAt     time.Time    `json:"RequestedAt"`
 	Latency         int64        `json:"Latency"` // nanoseconds
 	TTFT            int64        `json:"TTFT"`    // nanoseconds
@@ -433,9 +437,11 @@ func handleUsage(request []byte) {
 		AuthType:        rec.AuthType,
 		// Source is deliberately omitted: the host fills it with the account e-mail,
 		// the upstream API key of an API-key credential, or the client API key.
-		ReasoningEffort: rec.ReasoningEffort,
-		ServiceTier:     rec.ServiceTier,
-		Generate:        rec.Generate, // false ≠ missing; preserved explicitly
+		ReasoningEffort:      rec.ReasoningEffort,
+		ServiceTier:          rec.ServiceTier,
+		EffectiveServiceTier: rec.EffectiveServiceTier,
+		ResponseServiceTier:  rec.ResponseServiceTier,
+		Generate:             rec.Generate, // false ≠ missing; preserved explicitly
 		RequestedAt:     rec.RequestedAt,
 		LatencyMs:       float64(rec.Latency) / float64(time.Millisecond),
 		TTFTMs:          float64(rec.TTFT) / float64(time.Millisecond),
@@ -882,7 +888,8 @@ func handleGetRecords(req managementHandleRequest) []byte {
 
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
-	paged, nextCursor, totalCount, hasMore, err := recordsPageQuery(ps.st, opts, "management", queryFirst(req.Query, "cursor"), pageNum, limit)
+	cursorVal := queryFirst(req.Query, "cursor")
+	paged, nextCursor, totalCount, hasMore, err := cachedRecordsPageQuery(ps, opts, "management", cursorVal, pageNum, limit)
 	if err != nil {
 		status, code, message := recordsPageFailure(err)
 		if status == 500 {
@@ -1039,11 +1046,12 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 			return 200, summaryResponse(cached, ps)
 		}
 	}
-	recs, err := ps.st.ReadAllView() // read-only: aggregation never mutates records
+	snap, err := ps.st.SnapshotView() // read-only: aggregation never mutates records
 	if err != nil {
 		log.Printf("usage-audit: summary read: %v", err)
 		return 500, map[string]any{"error": "read failed", "code": codeReadFailed, "storage_health": ps.st.Health()}
 	}
+	recs := snap.Records
 
 	buckets := make(map[summaryKey]*summaryBucket)
 	dailyMap := make(map[string]*aggregateItem)
@@ -1053,10 +1061,9 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 
 	matched := 0
 	dayCache := make(map[int64]string) // unix-hour -> formatted day (zone offsets are whole minutes; DST changes on hour edges)
-	for i := range recs {
-		r := &recs[i]
+	processRecord := func(r *store.LogRecord) bool {
 		if !store.MatchRecord(r, &opts) {
-			continue
+			return true
 		}
 		matched++
 		fresh := freshInputTokens(r)
@@ -1083,33 +1090,6 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 			b.GenerateCount++
 		}
 
-		// Aggregate helpers
-		addAgg := func(m map[string]*aggregateItem, key string) {
-			if key == "" {
-				key = "unknown"
-			}
-			agg := m[key]
-			if agg == nil {
-				agg = &aggregateItem{Key: key}
-				m[key] = agg
-			}
-			agg.Requests++
-			if r.Failed {
-				agg.Failures++
-			}
-			agg.InputTokens += r.InputTokens
-			agg.FreshInputTokens += fresh
-			agg.OutputTokens += r.OutputTokens
-			agg.ReasoningTokens += r.ReasoningTokens
-			agg.CachedTokens += r.CachedTokens
-			agg.CacheReadTokens += r.CacheReadTokens
-			agg.CacheCreationTokens += r.CacheCreationTokens
-			agg.TotalTokens += r.TotalTokens
-			if r.Generate {
-				agg.GenerateCount++
-			}
-		}
-
 		// Daily key (YYYY-MM-DD)
 		ts := r.EffectiveTimestamp()
 		hour := ts.Unix() / 3600
@@ -1127,13 +1107,9 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 				dayCache[hour] = dayKey
 			}
 		}
-		addAgg(dailyMap, dayKey)
-
-		// Provider
-		addAgg(byProviderMap, r.Provider)
-
-		// Model
-		addAgg(byModelMap, r.Model)
+		addAggregateItem(dailyMap, dayKey, r, fresh)
+		addAggregateItem(byProviderMap, r.Provider, r, fresh)
+		addAggregateItem(byModelMap, r.Model, r, fresh)
 
 		// Endpoint: executor_type 우선, 없으면 source, 둘 다 없으면 unknown
 		endpoint := r.ExecutorType
@@ -1143,9 +1119,34 @@ func summaryResult(req managementHandleRequest, resource bool) (int, any) {
 		if endpoint == "" {
 			endpoint = "unknown"
 		}
-		addAgg(byEndpointMap, endpoint)
+		addAggregateItem(byEndpointMap, endpoint, r, fresh)
 		if resource && len(buckets)+len(dailyMap)+len(byProviderMap)+len(byEndpointMap)+len(byModelMap) > resourceSummaryMaxBuckets {
-			return 400, errorBody(codeSummaryBucketLimit, "summary bucket limit exceeded; narrow range or filters")
+			return false
+		}
+		return true
+	}
+
+	if len(snap.Blocks) == 0 {
+		for i := range recs {
+			if !processRecord(&recs[i]) {
+				return 400, errorBody(codeSummaryBucketLimit, "summary bucket limit exceeded; narrow range or filters")
+			}
+		}
+	} else {
+		for bi := range snap.Blocks {
+			blk := &snap.Blocks[bi]
+			if blockOutsideRange(blk, &opts) {
+				continue
+			}
+			end := blk.End
+			if end > len(recs) {
+				end = len(recs)
+			}
+			for i := blk.Start; i < end; i++ {
+				if !processRecord(&recs[i]) {
+					return 400, errorBody(codeSummaryBucketLimit, "summary bucket limit exceeded; narrow range or filters")
+				}
+			}
 		}
 	}
 
@@ -1279,29 +1280,88 @@ func maxNonNegative(v int64) int64 {
 }
 
 type resourceRecord struct {
-	RequestedAt   time.Time `json:"requested_at,omitempty"`
-	Provider      string    `json:"provider,omitempty"`
-	Model         string    `json:"model,omitempty"`
-	Alias         string    `json:"alias,omitempty"`
-	ExecutorType  string    `json:"executor_type,omitempty"`
-	Source        string    `json:"source,omitempty"`
-	Input         int64     `json:"input"`
-	FreshInput    int64     `json:"fresh_input"`
-	Cached        int64     `json:"cached"`
-	Output        int64     `json:"output"`
-	Reasoning     int64     `json:"reasoning"`
-	Total         int64     `json:"total"`
-	Latency       float64   `json:"latency"`
-	TTFT          float64   `json:"ttft"`
-	Failed        bool      `json:"failed"`
-	FailureStatus int       `json:"failure_status,omitempty"`
+	RequestedAt          time.Time `json:"requested_at,omitempty"`
+	Provider             string    `json:"provider,omitempty"`
+	Model                string    `json:"model,omitempty"`
+	Alias                string    `json:"alias,omitempty"`
+	ExecutorType         string    `json:"executor_type,omitempty"`
+	Source               string    `json:"source,omitempty"`
+	ReasoningEffort      string    `json:"reasoning_effort,omitempty"`
+	ServiceTier          string    `json:"service_tier,omitempty"`
+	EffectiveServiceTier string    `json:"effective_service_tier,omitempty"`
+	ResponseServiceTier  string    `json:"response_service_tier,omitempty"`
+	Input                int64     `json:"input"`
+	FreshInput           int64     `json:"fresh_input"`
+	Cached               int64     `json:"cached"`
+	Output               int64     `json:"output"`
+	Reasoning            int64     `json:"reasoning"`
+	Total                int64     `json:"total"`
+	Latency              float64   `json:"latency"`
+	TTFT                 float64   `json:"ttft"`
+	Failed               bool      `json:"failed"`
+	FailureStatus        int       `json:"failure_status,omitempty"`
 }
 
 func toResourceRecord(r store.LogRecord) resourceRecord {
-	return resourceRecord{RequestedAt: r.EffectiveTimestamp(), Provider: r.Provider, Model: r.Model, Alias: r.Alias,
-		ExecutorType: r.ExecutorType, Source: r.Source, Input: r.InputTokens, FreshInput: freshInputTokens(&r),
+	return resourceRecord{
+		RequestedAt: r.EffectiveTimestamp(), Provider: r.Provider, Model: r.Model, Alias: r.Alias,
+		ExecutorType: r.ExecutorType, Source: r.Source,
+		ReasoningEffort: r.ReasoningEffort, ServiceTier: r.ServiceTier,
+		EffectiveServiceTier: r.EffectiveServiceTier, ResponseServiceTier: r.ResponseServiceTier,
+		Input: r.InputTokens, FreshInput: freshInputTokens(&r),
 		Cached: r.CachedTokens, Output: r.OutputTokens, Reasoning: r.ReasoningTokens, Total: r.TotalTokens,
-		Latency: r.LatencyMs, TTFT: r.TTFTMs, Failed: r.Failed, FailureStatus: r.FailureStatus}
+		Latency: r.LatencyMs, TTFT: r.TTFTMs, Failed: r.Failed, FailureStatus: r.FailureStatus,
+	}
+}
+
+func addAggregateItem(m map[string]*aggregateItem, key string, r *store.LogRecord, fresh int64) {
+	if key == "" {
+		key = "unknown"
+	}
+	agg := m[key]
+	if agg == nil {
+		agg = &aggregateItem{Key: key}
+		m[key] = agg
+	}
+	agg.Requests++
+	if r.Failed {
+		agg.Failures++
+	}
+	agg.InputTokens += r.InputTokens
+	agg.FreshInputTokens += fresh
+	agg.OutputTokens += r.OutputTokens
+	agg.ReasoningTokens += r.ReasoningTokens
+	agg.CachedTokens += r.CachedTokens
+	agg.CacheReadTokens += r.CacheReadTokens
+	agg.CacheCreationTokens += r.CacheCreationTokens
+	agg.TotalTokens += r.TotalTokens
+	if r.Generate {
+		agg.GenerateCount++
+	}
+}
+
+func cachedRecordsPageQuery(ps *pluginState, opts store.FilterOptions, scope, cursorVal string, pageNum, limit int) ([]store.LogRecord, string, int, bool, error) {
+	cacheKey := ""
+	if version, verr := ps.st.Version(); verr == nil {
+		cacheKey = version + "|" + scope + "|" + filterFingerprint(opts, scope) + "|" +
+			strconv.Itoa(pageNum) + "|" + strconv.Itoa(limit) + "|" + cursorVal
+		if cached, ok := ps.records.get(cacheKey); ok {
+			return cached.page, cached.nextCursor, cached.totalCount, cached.hasMore, nil
+		}
+	}
+	page, nextCursor, totalCount, hasMore, err := recordsPageQuery(ps.st, opts, scope, cursorVal, pageNum, limit)
+	if err != nil {
+		return nil, "", 0, false, err
+	}
+	if cacheKey != "" {
+		ps.records.put(cacheKey, &recordsPageResult{
+			page:       page,
+			nextCursor: nextCursor,
+			totalCount: totalCount,
+			hasMore:    hasMore,
+		})
+	}
+	return page, nextCursor, totalCount, hasMore, nil
 }
 
 func handleGetDashboardRecords(req managementHandleRequest) []byte {
@@ -1333,7 +1393,7 @@ func handleGetDashboardRecords(req managementHandleRequest) []byte {
 	}
 	ps.lifecycle.RLock()
 	defer ps.lifecycle.RUnlock()
-	page, nextCursor, totalCount, hasMore, err := recordsPageQuery(ps.st, opts, "resource", queryFirst(req.Query, "cursor"), pageNum, limit)
+	page, nextCursor, totalCount, hasMore, err := cachedRecordsPageQuery(ps, opts, "resource", queryFirst(req.Query, "cursor"), pageNum, limit)
 	if err != nil {
 		status, code, message := recordsPageFailure(err)
 		if status == 500 {

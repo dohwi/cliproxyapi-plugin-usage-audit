@@ -123,7 +123,7 @@ func recordsPageQuery(st *store.Store, opts store.FilterOptions, scope, cursorVa
 		if err != nil {
 			return nil, "", 0, false, err
 		}
-		page, total, hasMore = selectRecordsPageByNumber(snap.Records[:int(snap.Boundary)], opts, pageNum, limit)
+		page, total, hasMore = selectRecordsPageByNumberBlocks(snap.Records[:int(snap.Boundary)], snap.Blocks, opts, pageNum, limit)
 		return page, "", total, hasMore, nil
 	}
 	fingerprint := filterFingerprint(opts, scope)
@@ -143,7 +143,7 @@ func recordsPageQuery(st *store.Store, opts store.FilterOptions, scope, cursorVa
 		boundary = cursor.Boundary
 	}
 	// Scan only the original append frontier, including out-of-order timestamps.
-	page, hasMore, anchorFound, total := selectRecordsPageWithTotal(snap.Records[:int(boundary)], opts, cursor, limit)
+	page, hasMore, anchorFound, total := selectRecordsPageWithTotalBlocks(snap.Records[:int(boundary)], snap.Blocks, opts, cursor, limit)
 	if !anchorFound {
 		return nil, "", 0, false, &pageError{400, codeInvalidCursor, "cursor anchor not found; restart pagination"}
 	}

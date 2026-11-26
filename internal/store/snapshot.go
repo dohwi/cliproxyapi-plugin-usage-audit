@@ -11,8 +11,22 @@ import (
 
 // maxSnapshotCacheBytes bounds the decoded history kept in memory (estimate is
 // conservative: it counts every string field as if it were not interned). A
-// history above this is re-decoded from disk on each request.
-var maxSnapshotCacheBytes uint64 = 128 << 20
+// history above this is re-decoded from disk on each request. Default 512 MiB
+// accommodates the full default retention (5 × 64 MiB JSONL files) without
+// hitting a cold-decode cliff on every request.
+var maxSnapshotCacheBytes uint64 = 512 << 20
+
+// SnapshotBlockSize is the number of records grouped into one zone-map block
+// for O(1) time-range skipping in summary and pagination queries.
+const SnapshotBlockSize = 1024
+
+// BlockMeta records exact timestamp bounds for Snapshot.Records[Start:End].
+type BlockMeta struct {
+	Start int
+	End   int
+	MinTS time.Time
+	MaxTS time.Time
+}
 
 var generationID atomic.Uint64
 
@@ -43,28 +57,83 @@ func (s *Store) failureLocked(category string) {
 	s.health.LastError, s.health.LastErrorAt = category, time.Now().UTC()
 }
 
-// Snapshot owns its slice. Sequence is stable across appends, including legacy
-// JSONL with no sequence, but invalidated by retention, clear or external edits.
+// Snapshot owns its slice (or aliases a read-only view via SnapshotView).
+// Sequence is stable across appends, including legacy JSONL with no sequence,
+// but invalidated by retention, clear or external edits.
 // Only one bounded decoded cache is retained; callers cannot mutate it.
 type Snapshot struct {
 	Records    []LogRecord
 	Generation string
 	Boundary   uint64
+	Blocks     []BlockMeta
 }
 type fileStamp struct {
 	path string
 	info os.FileInfo
 }
+type cachedFile struct {
+	info    os.FileInfo
+	records []LogRecord
+}
 
 func (s *Store) newGenerationLocked() {
 	s.generation = fmt.Sprintf("%d-%d", time.Now().UnixNano(), generationID.Add(1))
-	s.cache, s.manifest, s.cacheValid, s.cacheBytes = nil, nil, false, 0
+	s.cache, s.cacheBlocks, s.manifest, s.cacheValid, s.blocksShared, s.cacheBytes = nil, nil, nil, false, false, 0
 	s.lastObserve = time.Time{}
 }
 
 // recordCost estimates the retained heap size of one decoded record.
 func recordCost(r *LogRecord) uint64 {
-	return uint64(unsafe.Sizeof(*r)) + uint64(len(r.Provider)+len(r.ExecutorType)+len(r.Model)+len(r.Alias)+len(r.SessionID)+len(r.ParentSessionID)+len(r.AuthIndex)+len(r.AuthType)+len(r.Source)+len(r.ReasoningEffort)+len(r.ServiceTier))
+	return uint64(unsafe.Sizeof(*r)) + uint64(len(r.Provider)+len(r.ExecutorType)+len(r.Model)+len(r.Alias)+len(r.SessionID)+len(r.ParentSessionID)+len(r.AuthIndex)+len(r.AuthType)+len(r.Source)+len(r.ReasoningEffort)+len(r.ServiceTier)+len(r.EffectiveServiceTier)+len(r.ResponseServiceTier))
+}
+
+func buildBlocks(records []LogRecord) []BlockMeta {
+	if len(records) == 0 {
+		return nil
+	}
+	numBlocks := (len(records) + SnapshotBlockSize - 1) / SnapshotBlockSize
+	blocks := make([]BlockMeta, 0, numBlocks)
+	for start := 0; start < len(records); start += SnapshotBlockSize {
+		end := start + SnapshotBlockSize
+		if end > len(records) {
+			end = len(records)
+		}
+		minTS := records[start].EffectiveTimestamp()
+		maxTS := minTS
+		for i := start + 1; i < end; i++ {
+			ts := records[i].EffectiveTimestamp()
+			if ts.Before(minTS) {
+				minTS = ts
+			}
+			if ts.After(maxTS) {
+				maxTS = ts
+			}
+		}
+		blocks = append(blocks, BlockMeta{Start: start, End: end, MinTS: minTS, MaxTS: maxTS})
+	}
+	return blocks
+}
+
+func appendBlock(blocks []BlockMeta, idx int, ts time.Time, shared bool) ([]BlockMeta, bool) {
+	if shared && len(blocks) > 0 {
+		cp := make([]BlockMeta, len(blocks), len(blocks)+1)
+		copy(cp, blocks)
+		blocks = cp
+		shared = false
+	}
+	if len(blocks) == 0 || blocks[len(blocks)-1].End-blocks[len(blocks)-1].Start >= SnapshotBlockSize {
+		blocks = append(blocks, BlockMeta{Start: idx, End: idx + 1, MinTS: ts, MaxTS: ts})
+		return blocks, shared
+	}
+	last := &blocks[len(blocks)-1]
+	last.End = idx + 1
+	if ts.Before(last.MinTS) {
+		last.MinTS = ts
+	}
+	if ts.After(last.MaxTS) {
+		last.MaxTS = ts
+	}
+	return blocks, shared
 }
 func (s *Store) statManifestLocked() ([]fileStamp, error) {
 	paths, err := logPaths(s.path)
@@ -142,22 +211,31 @@ func (s *Store) snapshot(own bool) (snap Snapshot, err error) {
 	if err = s.observeManifestLocked(); err != nil {
 		return snap, err
 	}
-	if err = s.flushLocked(); err != nil {
-		return snap, err
-	}
-	if err = s.refreshManifestLocked(); err != nil {
-		return snap, err
+	if s.bw != nil && s.bw.Buffered() > 0 {
+		if err = s.flushLocked(); err != nil {
+			return snap, err
+		}
+		if err = s.refreshManifestLocked(); err != nil {
+			return snap, err
+		}
 	}
 	if s.cacheValid {
 		s.health.CacheHits++
 		if !own {
 			n := len(s.cache)
-			return Snapshot{s.cache[:n:n], s.generation, uint64(n)}, nil
+			nb := len(s.cacheBlocks)
+			s.blocksShared = true
+			return Snapshot{s.cache[:n:n], s.generation, uint64(n), s.cacheBlocks[:nb:nb]}, nil
 		}
-		return Snapshot{append([]LogRecord(nil), s.cache...), s.generation, uint64(len(s.cache))}, nil
+		return Snapshot{
+			Records:    append([]LogRecord(nil), s.cache...),
+			Generation: s.generation,
+			Boundary:   uint64(len(s.cache)),
+			Blocks:     append([]BlockMeta(nil), s.cacheBlocks...),
+		}, nil
 	}
 	s.health.SnapshotDecodes++
-	records, report, err := readAll(s.path, s.strictDecode)
+	records, nextCachedFiles, report, err := s.readAllCachedLocked()
 	if report.corruptLines > 0 {
 		s.health.DecodeFailures++
 		s.health.CorruptLines += report.corruptLines
@@ -192,21 +270,33 @@ func (s *Store) snapshot(own bool) (snap Snapshot, err error) {
 		r.APIKeyID, r.Source = "", ""
 		size += recordCost(r)
 	}
+	blocks := buildBlocks(records)
 	if size <= maxSnapshotCacheBytes {
 		s.cacheBytes = size
 		s.cacheValid = true
+		s.cacheBlocks = blocks
+		s.cachedFiles = nextCachedFiles
 		if own {
 			// The caller may mutate its copy, so the cache needs its own backing array.
-			s.cache = make([]LogRecord, len(records))
+			s.cache = make([]LogRecord, len(records), len(records)+min(len(records)/8+256, 8192))
 			copy(s.cache, records)
-		} else {
-			// Read-only callers share the freshly decoded slice with the cache:
-			// no second O(n) allocation on a cold build. Capacity is clamped so a
-			// later Append can never write into the array a view may still hold.
-			n := len(records)
-			s.cache = records[:n:n]
-			return Snapshot{s.cache, s.generation, uint64(n)}, nil
+			s.blocksShared = false
+			return Snapshot{records, s.generation, uint64(len(records)), append([]BlockMeta(nil), blocks...)}, nil
 		}
+		// Keep extra capacity on s.cache so subsequent Append calls do not reallocate
+		// and copy the entire history, while clamping the returned view to [:n:n] so
+		// callers can only read [0:n) and never alias appended tail elements.
+		n := len(records)
+		if cap(records) == n && n > 0 {
+			grown := make([]LogRecord, n, n+min(n/8+256, 8192))
+			copy(grown, records)
+			records = grown
+		}
+		s.cache = records
+		s.blocksShared = true
+		nb := len(blocks)
+		return Snapshot{s.cache[:n:n], s.generation, uint64(n), s.cacheBlocks[:nb:nb]}, nil
 	}
-	return Snapshot{records, s.generation, uint64(len(records))}, nil
+	s.cachedFiles = nil
+	return Snapshot{records, s.generation, uint64(len(records)), blocks}, nil
 }

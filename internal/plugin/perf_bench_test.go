@@ -96,3 +96,48 @@ func BenchmarkSummaryPoll(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkRecordsPoll(b *testing.B) {
+	for _, mode := range []string{"unchanged", "after-append"} {
+		b.Run(mode+"/200000", func(b *testing.B) {
+			benchState(b, 200_000)
+			now := time.Now()
+			req := managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/records", Query: benchQuery(now.Add(-24*time.Hour), now)}
+			handleGetDashboardRecords(req)
+			rec := store.LogRecord{T: now.UTC(), Provider: "codex", Model: "model-0", InputTokens: 1, TotalTokens: 1}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if mode == "after-append" {
+					if err := state.st.Append(rec); err != nil {
+						b.Fatal(err)
+					}
+				}
+				handleGetDashboardRecords(req)
+			}
+		})
+	}
+}
+
+func BenchmarkRecordsPageJump(b *testing.B) {
+	for _, page := range []int{5, 200} {
+		b.Run(fmt.Sprintf("page%d/200000", page), func(b *testing.B) {
+			benchState(b, 200_000)
+			now := time.Now()
+			q := benchQuery(now.Add(-30*24*time.Hour), now)
+			q["page"] = []string{fmt.Sprint(page)}
+			req := managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/records", Query: q}
+			// Warm snapshot cache, then vary limit/append to measure uncached page selection.
+			handleGetDashboardRecords(managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/records", Query: benchQuery(now.Add(-24*time.Hour), now)})
+			rec := store.LogRecord{T: now.UTC(), Provider: "codex", Model: "model-0", InputTokens: 1, TotalTokens: 1}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if err := state.st.Append(rec); err != nil {
+					b.Fatal(err)
+				}
+				handleGetDashboardRecords(req)
+			}
+		})
+	}
+}

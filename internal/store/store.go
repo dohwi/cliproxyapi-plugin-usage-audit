@@ -79,6 +79,10 @@ type LogRecord struct {
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 	// ServiceTier is the requested or reported service tier.
 	ServiceTier string `json:"service_tier,omitempty"`
+	// EffectiveServiceTier is the outbound service tier after protocol translation/defaults.
+	EffectiveServiceTier string `json:"effective_service_tier,omitempty"`
+	// ResponseServiceTier is the upstream response/billed tier (e.g. Claude speed "fast"/"standard", OpenAI "priority").
+	ResponseServiceTier string `json:"response_service_tier,omitempty"`
 	// Generate distinguishes actual generation (true) from token-count-only (false).
 	// Stored explicitly: false ≠ missing.
 	Generate bool `json:"generate"`
@@ -125,8 +129,12 @@ type Store struct {
 	manifest     []fileStamp
 	lastObserve  time.Time // last full manifest observation made by Append (throttle)
 	cache        []LogRecord
+	cacheBlocks  []BlockMeta
+	blocksShared bool
 	cacheValid   bool
 	cacheBytes   uint64 // estimated retained size of cache; maintained incrementally by Append
+	cachedFiles  []cachedFile
+	intern       map[string]string
 	health       Health
 	strictDecode bool
 	// Per-store hooks permit deterministic filesystem fault injection.
@@ -252,9 +260,9 @@ func (s *Store) Append(rec LogRecord) (err error) {
 	// Keep the decoded cache across a successful append instead of discarding it:
 	// dropping it forced every dashboard load after any new record to re-decode
 	// the entire retained history. Any failure path below leaves it invalid.
-	keptCache, keptBytes, keptGeneration := s.cache, s.cacheBytes, s.generation
+	keptCache, keptBlocks, keptBlocksShared, keptBytes, keptGeneration := s.cache, s.cacheBlocks, s.blocksShared, s.cacheBytes, s.generation
 	extendCache := s.cacheValid
-	s.cache, s.cacheValid, s.cacheBytes = nil, false, 0
+	s.cache, s.cacheBlocks, s.blocksShared, s.cacheValid, s.cacheBytes = nil, nil, false, false, 0
 	if s.f == nil {
 		if err := s.openFile(); err != nil {
 			return err
@@ -328,10 +336,15 @@ func (s *Store) Append(rec LogRecord) (err error) {
 			ok = json.Unmarshal(bytes.TrimSpace(line), &cached) == nil
 		}
 		if ok {
-			cached.Sequence = uint64(len(keptCache) + 1)
+			s.internRecordLocked(&cached)
+			idx := len(keptCache)
+			cached.Sequence = uint64(idx + 1)
 			cached.APIKeyID, cached.Source = "", ""
 			if total := keptBytes + recordCost(&cached); total <= maxSnapshotCacheBytes {
-				s.cache, s.cacheBytes, s.cacheValid = append(keptCache, cached), total, true
+				s.cache = append(keptCache, cached)
+				s.cacheBlocks, s.blocksShared = appendBlock(keptBlocks, idx, cached.EffectiveTimestamp(), keptBlocksShared)
+				s.cacheBytes = total
+				s.cacheValid = true
 			}
 		}
 	}
@@ -450,6 +463,8 @@ func (s *Store) Clear() error {
 		return os.ErrClosed
 	}
 	s.newGenerationLocked()
+	s.cachedFiles = nil
+	s.intern = nil
 	paths, err := logPaths(s.path)
 	if err != nil {
 		return err
@@ -523,22 +538,103 @@ func (r *decodeReport) add(other decodeReport) {
 	r.truncatedLines += other.truncatedLines
 }
 
+func (s *Store) internRecordLocked(r *LogRecord) {
+	if s.intern == nil {
+		s.intern = make(map[string]string, 256)
+	}
+	in := func(p *string) {
+		if *p == "" {
+			return
+		}
+		if v, ok := s.intern[*p]; ok {
+			*p = v
+			return
+		}
+		if len(s.intern) < maxDecodeInternEntries {
+			s.intern[*p] = *p
+		}
+	}
+	in(&r.Provider)
+	in(&r.ExecutorType)
+	in(&r.Model)
+	in(&r.Alias)
+	in(&r.AuthIndex)
+	in(&r.AuthType)
+	in(&r.ReasoningEffort)
+	in(&r.ServiceTier)
+	in(&r.EffectiveServiceTier)
+	in(&r.ResponseServiceTier)
+}
+
+func (s *Store) readAllCachedLocked() ([]LogRecord, []cachedFile, decodeReport, error) {
+	stamps := s.manifest
+	if len(stamps) == 0 {
+		return nil, nil, decodeReport{}, nil
+	}
+	intern := make(map[string]string, 256)
+	type seg struct {
+		recs []LogRecord
+	}
+	segs := make([]seg, 0, len(stamps))
+	var nextCached []cachedFile
+	var report decodeReport
+	totalLen := 0
+	for _, st := range stamps {
+		if st.path != s.path {
+			var hit *cachedFile
+			for i := range s.cachedFiles {
+				cf := &s.cachedFiles[i]
+				if os.SameFile(cf.info, st.info) && cf.info.Size() == st.info.Size() && cf.info.ModTime().Equal(st.info.ModTime()) {
+					hit = cf
+					break
+				}
+			}
+			if hit != nil {
+				segs = append(segs, seg{hit.records})
+				nextCached = append(nextCached, *hit)
+				totalLen += len(hit.records)
+				continue
+			}
+		}
+		recs, fileReport, err := readFileWithIntern(st.path, s.strictDecode, intern)
+		report.add(fileReport)
+		if err != nil {
+			return nil, nil, report, err
+		}
+		segs = append(segs, seg{recs})
+		totalLen += len(recs)
+		if st.path != s.path && fileReport.corruptLines == 0 && fileReport.truncatedLines == 0 && len(recs) > 0 {
+			nextCached = append(nextCached, cachedFile{info: st.info, records: recs})
+		}
+	}
+	s.intern = intern
+	if len(segs) == 1 {
+		return segs[0].recs, nextCached, report, nil
+	}
+	slack := min(totalLen/8+256, 8192)
+	out := make([]LogRecord, 0, totalLen+slack)
+	for _, sg := range segs {
+		out = append(out, sg.recs...)
+	}
+	return out, nextCached, report, nil
+}
+
 func readAll(path string, strict bool) ([]LogRecord, decodeReport, error) {
 	paths, err := logPaths(path)
 	if err != nil {
 		return nil, decodeReport{}, err
 	}
+	intern := make(map[string]string, 256)
 	var out []LogRecord
 	var report decodeReport
 	for _, name := range paths {
-		recs, fileReport, err := readFile(name, strict)
+		recs, fileReport, err := readFileWithIntern(name, strict, intern)
 		report.add(fileReport)
 		if err != nil {
 			return nil, report, err
 		}
 		out = append(out, recs...)
 	}
-	internRecordStrings(out)
 	return out, report, nil
 }
 
@@ -571,10 +667,16 @@ func internRecordStrings(recs []LogRecord) {
 		in(&r.Source)
 		in(&r.ReasoningEffort)
 		in(&r.ServiceTier)
+		in(&r.EffectiveServiceTier)
+		in(&r.ResponseServiceTier)
 	}
 }
 
 func readFile(path string, strict bool) ([]LogRecord, decodeReport, error) {
+	return readFileWithIntern(path, strict, nil)
+}
+
+func readFileWithIntern(path string, strict bool, intern map[string]string) ([]LogRecord, decodeReport, error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, decodeReport{}, nil
@@ -582,7 +684,11 @@ func readFile(path string, strict bool) ([]LogRecord, decodeReport, error) {
 	if err != nil {
 		return nil, decodeReport{}, err
 	}
-	recs, report, decodeErr := decode(f, strict)
+	var estCap int
+	if info, statErr := f.Stat(); statErr == nil && info.Size() > 0 {
+		estCap = int(info.Size()/240) + 256
+	}
+	recs, report, decodeErr := decodeWithHint(f, strict, estCap, intern)
 	return recs, report, errors.Join(decodeErr, f.Close())
 }
 
@@ -614,19 +720,38 @@ func ReadTail(path string, n int) ([]LogRecord, error) {
 //   - In strict mode, the first malformed or non-object line immediately aborts decoding
 //     with ErrCorruptJSONL without exposing corrupt content, file paths, or line numbers.
 func decode(r io.Reader, strict bool) ([]LogRecord, decodeReport, error) {
+	return decodeWithHint(r, strict, 0, nil)
+}
+
+func decodeWithHint(r io.Reader, strict bool, capHint int, intern map[string]string) ([]LogRecord, decodeReport, error) {
 	var out []LogRecord
+	if capHint > 0 {
+		out = make([]LogRecord, 0, capHint)
+	}
 	var report decodeReport
-	reader := bufio.NewReader(r)
+	reader := bufio.NewReaderSize(r, 256*1024)
+	var longLine []byte
+	var rec LogRecord
 	for {
-		line, readErr := reader.ReadBytes('\n')
+		chunk, readErr := reader.ReadSlice('\n')
+		var line []byte
+		if errors.Is(readErr, bufio.ErrBufferFull) {
+			longLine = append(longLine[:0], chunk...)
+			for errors.Is(readErr, bufio.ErrBufferFull) {
+				chunk, readErr = reader.ReadSlice('\n')
+				longLine = append(longLine, chunk...)
+			}
+			line = longLine
+		} else {
+			line = chunk
+		}
 		if readErr != nil && !errors.Is(readErr, io.EOF) {
 			return nil, report, readErr
 		}
 		data := bytes.TrimSpace(line)
 		if len(data) > 0 {
-			var rec LogRecord
-			unmarshalErr := json.Unmarshal(data, &rec)
-			validObject := unmarshalErr == nil && len(data) >= 2 && data[0] == '{' && data[len(data)-1] == '}'
+			rec = LogRecord{}
+			validObject := decodeLogRecordFast(data, &rec, intern)
 			if !validObject {
 				report.corruptLines++
 				if errors.Is(readErr, io.EOF) && isTruncatedJSONObject(data) {
@@ -761,7 +886,8 @@ func normalizeLikeDecode(r LogRecord) (LogRecord, bool) {
 	}
 	r.T, r.RequestedAt = r.T.Round(0).UTC(), r.RequestedAt.Round(0).UTC()
 	for _, p := range []*string{&r.Provider, &r.ExecutorType, &r.Model, &r.Alias, &r.APIKeyID, &r.SessionID,
-		&r.ParentSessionID, &r.AuthIndex, &r.AuthType, &r.Source, &r.ReasoningEffort, &r.ServiceTier} {
+		&r.ParentSessionID, &r.AuthIndex, &r.AuthType, &r.Source, &r.ReasoningEffort, &r.ServiceTier,
+		&r.EffectiveServiceTier, &r.ResponseServiceTier} {
 		*p = validUTF8Like(*p)
 	}
 	if r.LatencyMs == 0 {
