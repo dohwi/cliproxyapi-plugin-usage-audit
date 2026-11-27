@@ -21,7 +21,11 @@ const summary = {
   by_endpoint: [{ ...metric('a', 'x'), key: 'direct' }], by_model: [{ ...metric('a', 'x'), key: 'claude-opus' }],
   daily: [0, 1, 2].map(i => ({ key: localDayKey(i), requests: 10 + i, total_tokens: 100, input_tokens: 60, output_tokens: 40, failures: i })),
 };
-const records = { has_more: true, next_cursor: 'c1', records: Array.from({ length: 3 }, (_, i) => ({ id: 'r' + i, requested_at: now, provider: 'anthropic', model: 'claude-opus', endpoint: 'direct', fresh_input: 10, cached: 5, output: 20, total: 35, input: 15, reasoning: 1, latency_ms: 1200, ttft_ms: 300, failed: i === 1, failure_status: i === 1 ? '500' : '' })) };
+const records = { has_more: true, next_cursor: 'c1', records: Array.from({ length: 3 }, (_, i) => ({ id: 'r' + i, requested_at: now, provider: 'anthropic', model: 'claude-opus', endpoint: 'direct', auth_index: i === 1 ? 'idx-1' : '0', auth_type: i === 1 ? 'api_key' : 'oauth', fresh_input: 10, cached: 5, output: 20, total: 35, input: 15, reasoning: 1, latency_ms: 1200, ttft_ms: 300, failed: i === 1, failure_status: i === 1 ? '500' : '' })) };
+const authFiles = { files: [
+  { auth_index: '0', name: 'claude-primary.json', email: 'primary@example.invalid', account: 'primary-acct', account_type: 'pro', label: 'Primary', provider: 'claude', disabled: false, runtime_only: false },
+  { auth_index: 'idx-1', name: '', label: 'Backup Key', provider: 'claude', disabled: true, runtime_only: true },
+] };
 const hangul = s => /[가-힣]/.test(s);
 const han = s => /[\u4e00-\u9fff]/.test(s);
 // Native language names in the menu/labels are never translated.
@@ -41,6 +45,7 @@ const NATIVE = /한국어|简体中文|^\s*가(\s+A)?\s*$/;
         if (route.request().resourceType() === 'document') return route.fulfill({ contentType: 'text/html', body: html });
         if (url.pathname.endsWith('/data/summary')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(summary) });
         if (url.pathname.endsWith('/data/records')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(records) });
+        if (url.pathname.endsWith('/management/auth-files')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(authFiles) });
         const asset = path.join(root, 'internal/plugin/assets/fonts', path.basename(url.pathname));
         if (fs.existsSync(asset) && fs.statSync(asset).isFile()) return route.fulfill({ contentType: 'font/woff2', body: fs.readFileSync(asset) });
         return route.fulfill({ status: 404, body: '' });

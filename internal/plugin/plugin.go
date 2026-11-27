@@ -603,7 +603,8 @@ func handleManagementRegister(_ []byte) []byte {
 			{Method: "GET", Path: mgmtBase + "/records"},
 			{Method: "GET", Path: mgmtBase + "/summary"},
 			{Method: "DELETE", Path: mgmtBase + "/records"},
-			// Dashboard-shaped (bounded, auth_index-free) data for the browser UI.
+			// Dashboard-shaped bounded data for the browser UI (/data/summary omits auth_index;
+			// /data/records includes auth_index and auth_type for authenticated routing detail).
 			{Method: "GET", Path: mgmtBase + "/data/summary"},
 			{Method: "GET", Path: mgmtBase + "/data/records"},
 		},
@@ -1285,6 +1286,8 @@ type resourceRecord struct {
 	Model                string    `json:"model,omitempty"`
 	Alias                string    `json:"alias,omitempty"`
 	ExecutorType         string    `json:"executor_type,omitempty"`
+	AuthIndex            string    `json:"auth_index,omitempty"`
+	AuthType             string    `json:"auth_type,omitempty"`
 	Source               string    `json:"source,omitempty"`
 	ReasoningEffort      string    `json:"reasoning_effort,omitempty"`
 	ServiceTier          string    `json:"service_tier,omitempty"`
@@ -1305,7 +1308,7 @@ type resourceRecord struct {
 func toResourceRecord(r store.LogRecord) resourceRecord {
 	return resourceRecord{
 		RequestedAt: r.EffectiveTimestamp(), Provider: r.Provider, Model: r.Model, Alias: r.Alias,
-		ExecutorType: r.ExecutorType, Source: r.Source,
+		ExecutorType: r.ExecutorType, AuthIndex: r.AuthIndex, AuthType: r.AuthType, Source: r.Source,
 		ReasoningEffort: r.ReasoningEffort, ServiceTier: r.ServiceTier,
 		EffectiveServiceTier: r.EffectiveServiceTier, ResponseServiceTier: r.ResponseServiceTier,
 		Input: r.InputTokens, FreshInput: freshInputTokens(&r),

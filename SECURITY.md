@@ -8,7 +8,8 @@ This is a native plugin loaded inside CLIProxyAPI, not an independently authenti
 
 | Route | Purpose |
 |---|---|
-| `GET /data/summary`, `GET /data/records` | Dashboard-shaped, bounded data (no `auth_index`) |
+| `GET /data/summary` | Dashboard-shaped aggregated summary (no `auth_index`) |
+| `GET /data/records` | Dashboard-shaped, bounded records (includes `auth_index` and `auth_type` for routing detail; no `auth_id` or raw secrets) |
 | `GET /summary`, `GET /records` | Management API (includes `auth_index`) |
 | `DELETE /records` | Clear stored records |
 

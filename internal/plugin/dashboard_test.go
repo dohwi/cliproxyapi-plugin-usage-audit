@@ -642,8 +642,10 @@ func TestDashboardUsesAuthenticatedManagementData(t *testing.T) {
 	}
 	for _, good := range []string{
 		"var MGMT_BASE = '/v0/management/plugins/usage-audit';",
+		"var AUTH_FILES_URL = '/v0/management/auth-files';",
 		"MGMT_BASE + '/data/summary'",
 		"MGMT_BASE + '/data/records'",
+		"fetchWithTimeout(AUTH_FILES_URL",
 		"'Authorization': 'Bearer ' + mgmtKey",
 		"credentials: 'omit'",
 		"endpoint=' + encodeURIComponent(state.endpoint)",
@@ -1307,7 +1309,7 @@ func TestDashboardIndependentBoundedPanelHeight(t *testing.T) {
 
 func TestDashboardMobileRecordProgressiveDetail(t *testing.T) {
 	body := plugin.DashboardHTML
-	for _, token := range []string{"#recordsTableMount .ui-table { min-width: 1100px; }", "table-layout: fixed;", ".record-time-full { display: none; }", ".record-time-mobile { display: inline; }", "mobileTime:mobileTime", "전체 토큰·Provider·Endpoint를 확인", "full:formatDateTime(rawT)"} {
+	for _, token := range []string{"#recordsTableMount .ui-table { min-width: 1100px; }", "table-layout: fixed;", ".record-time-full { display: none; }", ".record-time-mobile { display: inline; }", "mobileTime:mobileTime", "전체 토큰·Provider·Endpoint·인증 정보를 확인", "full:formatDateTime(rawT)"} {
 		if !strings.Contains(body, token) {
 			t.Errorf("missing mobile progressive records %q", token)
 		}

@@ -161,7 +161,7 @@ var I18N = {
     'records.title': '최근 요청 기록',
     'records.count': '{n}건',
     'records.desc': '최신 20건 · 필터와 더보기로 전체 로그 추적',
-    'records.hint': '기록을 누르면 전체 토큰·Provider·Endpoint를 확인할 수 있습니다.',
+    'records.hint': '기록을 누르면 전체 토큰·Provider·Endpoint·인증 정보를 확인할 수 있습니다.',
     'records.more': '기록 더보기',
     'rec.success': '성공',
     'rec.failed': '실패',
@@ -169,6 +169,20 @@ var I18N = {
     'dialog.title': '요청 상세 정보',
     'dialog.close': '닫기',
     'dlg.basic': '기본 요청 정보',
+    'dlg.routing': '라우팅 및 인증',
+    'dlg.account': '계정',
+    'dlg.authFile': '인증 파일',
+    'dlg.authLabel': '라벨',
+    'dlg.authType': '인증 방식',
+    'dlg.authIndex': '인증 인덱스',
+    'dlg.authRuntimeOnly': '런타임 전용(파일 없음)',
+    'dlg.authUnmatched': '현재 활성 인증 파일에 없음',
+    'dlg.authFetchFailed': '인증 파일 목록을 불러오지 못함',
+    'dlg.authLoading': '인증 정보를 불러오는 중...',
+    'dlg.authDisabled': '현재 비활성화됨',
+    'dlg.authUnavailable': '기록된 인증 라우팅 정보가 없습니다.',
+    'dlg.authTypeOAuth': 'OAuth',
+    'dlg.authTypeApiKey': 'API 키',
     'dlg.time': '요청 시각',
     'dlg.status': '상태',
     'dlg.failureStatus': '실패 상태',
@@ -347,7 +361,7 @@ var I18N = {
     'records.count': '{n} records',
     'records.count.one': '1 record',
     'records.desc': 'Latest 20 \u00b7 Trace the full log with filters and Load more',
-    'records.hint': 'Tap a record to see full tokens, provider and endpoint.',
+    'records.hint': 'Tap a record to see full tokens, provider, endpoint and auth file.',
     'records.more': 'Load more',
     'rec.success': 'Success',
     'rec.failed': 'Failed',
@@ -355,6 +369,20 @@ var I18N = {
     'dialog.title': 'Request details',
     'dialog.close': 'Close',
     'dlg.basic': 'Request info',
+    'dlg.routing': 'Routing & auth',
+    'dlg.account': 'Account',
+    'dlg.authFile': 'Auth file',
+    'dlg.authLabel': 'Label',
+    'dlg.authType': 'Auth type',
+    'dlg.authIndex': 'Auth index',
+    'dlg.authRuntimeOnly': 'Runtime only (no file)',
+    'dlg.authUnmatched': 'Not in active auth files',
+    'dlg.authFetchFailed': 'Could not load auth files',
+    'dlg.authLoading': 'Loading auth info…',
+    'dlg.authDisabled': 'Currently disabled',
+    'dlg.authUnavailable': 'No routing auth recorded.',
+    'dlg.authTypeOAuth': 'OAuth',
+    'dlg.authTypeApiKey': 'API key',
     'dlg.time': 'Requested at',
     'dlg.status': 'Status',
     'dlg.failureStatus': 'Failure status',
@@ -533,7 +561,7 @@ var I18N = {
     'records.count': '{n} 条',
     'records.count.one': '{n} 条',
     'records.desc': '最新 20 条 \u00b7 可通过筛选和“加载更多”查看完整日志',
-    'records.hint': '点击记录可查看完整的 Token、提供商和端点信息。',
+    'records.hint': '点击记录可查看完整的 Token、提供商、端点和认证文件信息。',
     'records.more': '加载更多',
     'rec.success': '成功',
     'rec.failed': '失败',
@@ -541,6 +569,20 @@ var I18N = {
     'dialog.title': '请求详情',
     'dialog.close': '关闭',
     'dlg.basic': '请求信息',
+    'dlg.routing': '路由与认证',
+    'dlg.account': '账号',
+    'dlg.authFile': '认证文件',
+    'dlg.authLabel': '标签',
+    'dlg.authType': '认证方式',
+    'dlg.authIndex': '认证索引',
+    'dlg.authRuntimeOnly': '仅运行时（无文件）',
+    'dlg.authUnmatched': '不在当前认证文件列表中',
+    'dlg.authFetchFailed': '无法加载认证文件列表',
+    'dlg.authLoading': '正在加载认证信息…',
+    'dlg.authDisabled': '当前已禁用',
+    'dlg.authUnavailable': '未记录认证路由信息。',
+    'dlg.authTypeOAuth': 'OAuth',
+    'dlg.authTypeApiKey': 'API 密钥',
     'dlg.time': '请求时间',
     'dlg.status': '状态',
     'dlg.failureStatus': '失败状态',
@@ -791,7 +833,10 @@ function setLanguage(lang) {
   if (lastSummaryData) renderSummary(lastSummaryData);
   if (state.hasLoadedData) paintRecords();
   var overlay = DOM.detailOverlay || document.getElementById('detailOverlay');
-  if (overlay && overlay.classList && overlay.classList.contains('open') && state.openRecordIdx != null) showRecordDetail(state.openRecordIdx, state.drawerOpener);
+  if (overlay && overlay.classList && overlay.classList.contains('open') && (state.openRecord || state.openRecordIdx != null)) {
+    if (typeof refreshOpenRecordDetail === 'function') refreshOpenRecordDetail();
+    else showRecordDetail(state.openRecordIdx, state.drawerOpener);
+  }
 }
 // selectLanguagePref stores a menu choice ('auto' | 'en' | 'ko' | 'zh-CN') and shows it.
 function selectLanguagePref(pref) {
@@ -924,7 +969,14 @@ var state = {
   hasLoadedData: false,
   serverSnapshot: null,
   snapshotFilterKey: '',
-  pendingChanges: null
+  pendingChanges: null,
+  openRecord: null,
+  authFilesByIndex: Object.create(null),
+  authFilesLoadedAt: 0,
+  authFilesFailedAt: 0,
+  authFilesInFlight: false,
+  authFilesAbortCtrl: null,
+  authFilesEpoch: 0
 };
 
 // Adaptive polling intervals (ms) for usage-audit dashboard
@@ -1315,6 +1367,9 @@ function hideSkeletons() {
 // (never in a URL). Without a key no data request is sent at all, which also keeps
 // the host's failed-attempt counter from banning the operator's IP.
 var MGMT_BASE = '/v0/management/plugins/usage-audit';
+var AUTH_FILES_URL = '/v0/management/auth-files';
+var AUTH_FILES_TTL_MS = 60000;
+var AUTH_FILES_RETRY_MS = 60000;
 var KEY_STORAGE = 'cpa_usage_audit_mgmt_key';
 var mgmtKey = '';
 // The host counts every rejected request toward a 5-strike IP ban. A key is therefore
@@ -1387,6 +1442,7 @@ function dropKeyAndPrompt() {
   // A refused host key is not retried on this page load: every rejection counts toward the host's IP ban.
   if (hostKeyFromStore) hostKeyRejected = true;
   hostKeyFromStore = false;
+  resetAuthFilesCache();
   mgmtKey = ''; keyVerified = false; writeStoredKey(''); showAuthGate('auth.invalid');
 }
 function initAuthGate() {
@@ -1402,11 +1458,93 @@ function initAuthGate() {
     e.preventDefault();
     var input = document.getElementById('authKeyInput'), value = input ? String(input.value || '').trim() : '';
     if (!value) { showAuthGate('auth.empty'); return; }
+    resetAuthFilesCache();
     mgmtKey = value; keyVerified = false; hostKeyFromStore = false;
     if (input) input.removeAttribute('aria-invalid');
     hideAuthGate();
     state.hasLoadedData = false; state.recordsExpanded = false;
     loadData(false, true);
+  });
+}
+
+function normalizeAuthIndex(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+function isApiKeyAuthKind(v) {
+  var norm = String(v || '').trim().toLowerCase();
+  return norm === 'api_key' || norm === 'apikey' || norm === 'api-key';
+}
+function parseAuthFilesIndex(data) {
+  var list = Array.isArray(data) ? data : (data && Array.isArray(data.files) ? data.files : []);
+  var map = Object.create(null);
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    if (!item || typeof item !== 'object') continue;
+    var idx = normalizeAuthIndex(item.auth_index);
+    if (!idx) continue;
+    var accountType = item.account_type != null ? String(item.account_type).trim() : '';
+    var rawAccount = item.account != null ? String(item.account).trim() : '';
+    // CLIProxyAPI's Auth.AccountInfo() returns the raw upstream API key as `account`
+    // for api_key auths — drop it at parse time so secrets never enter cache or DOM.
+    var safeAccount = isApiKeyAuthKind(accountType) ? '' : rawAccount;
+    // Whitelist non-secret routing metadata only (never persist paths, tokens, or API keys).
+    map[idx] = {
+      name: item.name != null ? String(item.name).trim() : '',
+      email: item.email != null ? String(item.email).trim() : '',
+      account: safeAccount,
+      accountType: accountType,
+      label: item.label != null ? String(item.label).trim() : '',
+      provider: item.provider != null ? String(item.provider).trim() : '',
+      type: item.type != null ? String(item.type).trim() : '',
+      runtimeOnly: !!item.runtime_only,
+      disabled: !!item.disabled,
+      status: item.status != null ? String(item.status).trim() : ''
+    };
+  }
+  return map;
+}
+function resetAuthFilesCache() {
+  state.authFilesEpoch++;
+  if (state.authFilesAbortCtrl) { state.authFilesAbortCtrl.abort(); state.authFilesAbortCtrl = null; }
+  state.authFilesByIndex = Object.create(null);
+  state.authFilesLoadedAt = 0;
+  state.authFilesFailedAt = 0;
+  state.authFilesInFlight = false;
+}
+function ensureAuthFiles(force) {
+  // Never probe /v0/management/auth-files before a 2xx has verified mgmtKey,
+  // so a wrong key only costs a single strike toward the host's IP ban.
+  if (!mgmtKey || !keyVerified) return;
+  var now = Date.now();
+  if (state.authFilesInFlight) {
+    if (!force) return;
+    if (state.authFilesAbortCtrl) { state.authFilesAbortCtrl.abort(); state.authFilesAbortCtrl = null; }
+  }
+  if (!force) {
+    if (state.authFilesLoadedAt && (now - state.authFilesLoadedAt) < AUTH_FILES_TTL_MS) return;
+    if (!state.authFilesLoadedAt && state.authFilesFailedAt && (now - state.authFilesFailedAt) < AUTH_FILES_RETRY_MS) return;
+  }
+  var epoch = ++state.authFilesEpoch;
+  var ctrl = new AbortController();
+  state.authFilesAbortCtrl = ctrl;
+  state.authFilesInFlight = true;
+  fetchWithTimeout(AUTH_FILES_URL, ctrl.signal).then(function(data) {
+    if (epoch !== state.authFilesEpoch) return;
+    state.authFilesAbortCtrl = null;
+    state.authFilesInFlight = false;
+    state.authFilesByIndex = parseAuthFilesIndex(data);
+    state.authFilesLoadedAt = Date.now();
+    state.authFilesFailedAt = 0;
+    try { refreshOpenRecordDetail(); } catch (e) {}
+  }, function(err) {
+    if (epoch !== state.authFilesEpoch) return;
+    state.authFilesAbortCtrl = null;
+    state.authFilesInFlight = false;
+    if (err && err.authRequired) { dropKeyAndPrompt(); return; }
+    if (ctrl.signal.aborted) return;
+    state.authFilesFailedAt = Date.now();
+    try { refreshOpenRecordDetail(); } catch (e) {}
   });
 }
 
@@ -1458,6 +1596,7 @@ function loadData(appendRecords, forceReplace) {
     }
     if (!appendRecords) { state.serverSnapshot=finalSnapshot; state.snapshotFilterKey=filterKey; }
     extractFilterOptions(data[0], data[1]); state.hasLoadedData = true; state.lastFetchOk = Date.now(); hideSkeletons(); setDashboardBusy(false);
+    if (typeof ensureAuthFiles === 'function') ensureAuthFiles(!!forceReplace);
     if (!appendRecords) scheduleNextPoll(computeAdaptivePollMs(state.records, state.currentPreset));
   }).catch(function(err) {
     if (requestID !== state.requestID) return;
@@ -2019,7 +2158,7 @@ function loadMoreRecords() {
 }
 // Record detail modal: focus-safe dialog/sheet with reversible body scroll lock.
 function detailRow(key, value, className, sub) { var row=document.createElement('div'), keyEl=document.createElement('div'), valueEl=document.createElement('div');row.className='detail-row';keyEl.className='detail-key';keyEl.textContent=key;valueEl.className='detail-val'+(className?' '+className:'');valueEl.textContent=value;if(sub){var subEl=document.createElement('small');subEl.className='detail-val-sub';subEl.textContent=sub;valueEl.appendChild(subEl);}row.appendChild(keyEl);row.appendChild(valueEl);return row; }
-function detailSection(title, rows) { var section=document.createElement('section'), heading=document.createElement('div');section.className='detail-section';heading.className='detail-section-title';heading.textContent=title;section.appendChild(heading);rows.forEach(function(row){section.appendChild(row);});return section; }
+function detailSection(title, rows, extraClass) { var section=document.createElement('section'), heading=document.createElement('div');section.className='detail-section'+(extraClass?' '+extraClass:'');heading.className='detail-section-title';heading.textContent=title;section.appendChild(heading);rows.forEach(function(row){section.appendChild(row);});return section; }
 function lockBodyScroll() { if (state.dialogScrollLock) return; state.dialogScrollLock={overflow:document.body.style.overflow,paddingRight:document.body.style.paddingRight}; var gutter=typeof getComputedStyle==='function'?getComputedStyle(document.documentElement).scrollbarGutter:'';var width=gutter&&gutter.indexOf('stable')!==-1?0:window.innerWidth-document.documentElement.clientWidth; document.body.style.overflow='hidden'; if(width>0)document.body.style.paddingRight=width+'px'; }
 function unlockBodyScroll() { if(!state.dialogScrollLock)return; document.body.style.overflow=state.dialogScrollLock.overflow;document.body.style.paddingRight=state.dialogScrollLock.paddingRight;state.dialogScrollLock=null; }
 function detailThinkingRow(rec) {
@@ -2033,11 +2172,128 @@ function detailTierRow(rec) {
   var sub = tier.requested && tier.requested !== tier.actual ? t('dlg.tierRequested', {tier: tierLabel(tier.requested)}) : '';
   return detailRow(t('dlg.serviceTier'), text, '', sub);
 }
-function showRecordDetail(idx, opener) {
-  var rec=state.records[idx];if(!rec)return;state.openRecordIdx=idx;var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay'),body=DOM.dialogBody||document.getElementById('dialogBody'),rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp,rawProv=rec.provider||rec.Provider||'-',displayProv=formatProvider(rawProv),model=rec.model||rec.Model||'-',alias=rec.alias||rec.Alias||'-',endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-',failed=!!(rec.failed||rec.Failed),latency=formatLatency(rec.latency_ms != null?rec.latency_ms:(rec.latency != null?rec.latency:rec.Latency)),ttft=formatLatency(rec.ttft_ms != null?rec.ttft_ms:(rec.ttft != null?rec.ttft:rec.TTFT));
-  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;body.replaceChildren();var grid=document.createElement('div');grid.className='detail-grid';grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT),'detail-val-time',String(rawT||'-')),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow(t('lbl.provider'),displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow(t('lbl.model'),String(model)),detailRow(t('dlg.alias'),String(alias)),detailThinkingRow(rec),detailTierRow(rec),detailRow(t('dlg.endpointSource'),String(endpoint))]));grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));body.appendChild(grid);lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
+function normalizeFileToken(v) {
+  return String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
-function closeDrawer() { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');var wasOpen=!!(overlay&&overlay.classList.contains('open'));if(dialog)dialog.setAttribute('aria-hidden','true');if(overlay){overlay.classList.remove('open');overlay.setAttribute('aria-hidden','true');}unlockBodyScroll();var opener=state.drawerOpener;state.drawerOpener=null;state.openRecordIdx=null;if(wasOpen&&opener&&document.contains(opener))opener.focus(); }
+function fileNameIncludesIdentity(fileName, identity) {
+  var fn = String(fileName || '').trim().toLowerCase();
+  var id = String(identity || '').trim().toLowerCase();
+  if (!fn || !id) return false;
+  if (fn.indexOf(id) >= 0) return true;
+  var normFn = normalizeFileToken(fn.replace(/\.json$/i, ''));
+  var normId = normalizeFileToken(id);
+  return !!(normId && normId.length >= 3 && normFn.indexOf(normId) >= 0);
+}
+function formatAuthTypeLabel(rawType) {
+  var norm = String(rawType || '').trim().toLowerCase();
+  if (!norm) return '';
+  if (norm === 'oauth') return t('dlg.authTypeOAuth');
+  if (norm === 'api_key' || norm === 'apikey' || norm === 'api-key') return t('dlg.authTypeApiKey');
+  return String(rawType).trim();
+}
+function detailRoutingSection(rec) {
+  var authIndex = normalizeAuthIndex(rec.auth_index != null ? rec.auth_index : rec.AuthIndex);
+  var rawAuthType = String(rec.auth_type != null ? rec.auth_type : (rec.AuthType != null ? rec.AuthType : '')).trim();
+  var meta = authIndex ? state.authFilesByIndex[authIndex] : null;
+  var loading = !!(authIndex && !meta && state.authFilesInFlight);
+  var fetchFailed = !!(authIndex && !meta && !loading && !state.authFilesLoadedAt && state.authFilesFailedAt);
+  if (!authIndex && !rawAuthType) {
+    return detailSection(t('dlg.routing'), [detailRow(t('dlg.authFile'), t('dlg.authUnavailable'), 'detail-val-muted')], 'detail-section-full');
+  }
+  var rows = [];
+  var email = meta ? (meta.email || '') : '';
+  var account = meta && !isApiKeyAuthKind(rawAuthType) && !isApiKeyAuthKind(meta.accountType) ? (meta.account || '') : '';
+
+  var hasFileRow = false;
+  if (meta) {
+    if (meta.name) {
+      var fileSubParts = [];
+      if (meta.runtimeOnly) fileSubParts.push(t('dlg.authRuntimeOnly'));
+      if (meta.disabled) fileSubParts.push(t('dlg.authDisabled'));
+      rows.push(detailRow(t('dlg.authFile'), meta.name, 'detail-val-mono', fileSubParts.join(' · ')));
+      hasFileRow = true;
+    } else if (meta.runtimeOnly) {
+      rows.push(detailRow(t('dlg.authFile'), t('dlg.authRuntimeOnly'), 'detail-val-muted', meta.disabled ? t('dlg.authDisabled') : ''));
+      hasFileRow = true;
+    } else if (!email && !account) {
+      rows.push(detailRow(t('dlg.authFile'), '-', '', meta.disabled ? t('dlg.authDisabled') : ''));
+      hasFileRow = true;
+    }
+
+    // Show Account row only when it adds info not already embedded in the auth filename.
+    var showEmail = !!(email && !fileNameIncludesIdentity(meta.name, email));
+    var showAccount = !!(account && (!email || account.toLowerCase() !== email.toLowerCase()) && !fileNameIncludesIdentity(meta.name, account));
+    if (showEmail || showAccount) {
+      var accVal = showEmail ? email : account;
+      var accSubParts = [];
+      if (showEmail && showAccount) accSubParts.push(account);
+      if (!hasFileRow && meta.disabled) accSubParts.push(t('dlg.authDisabled'));
+      rows.push(detailRow(t('dlg.account'), accVal, '', accSubParts.join(' · ')));
+    }
+  } else if (loading) {
+    rows.push(detailRow(t('dlg.authFile'), t('dlg.authLoading'), 'detail-val-muted'));
+  } else if (fetchFailed) {
+    rows.push(detailRow(t('dlg.authFile'), t('dlg.authFetchFailed'), 'detail-val-muted'));
+  } else if (authIndex) {
+    rows.push(detailRow(t('dlg.authFile'), t('dlg.authUnmatched'), 'detail-val-muted'));
+  }
+
+  if (meta && meta.label) {
+    var normLabel = meta.label.toLowerCase();
+    var dupLabel = (meta.provider && normLabel === meta.provider.toLowerCase()) ||
+      (meta.name && normLabel === meta.name.toLowerCase()) ||
+      (email && normLabel === email.toLowerCase()) ||
+      (account && normLabel === account.toLowerCase());
+    if (!dupLabel) rows.push(detailRow(t('dlg.authLabel'), meta.label));
+  }
+
+  var authTypeText = formatAuthTypeLabel(rawAuthType);
+  var authTypeSub = '';
+  if (meta && meta.accountType) {
+    var metaTypeLabel = formatAuthTypeLabel(meta.accountType);
+    if (!authTypeText) {
+      authTypeText = metaTypeLabel;
+    } else if (metaTypeLabel.toLowerCase() !== authTypeText.toLowerCase() && meta.accountType.toLowerCase() !== rawAuthType.toLowerCase()) {
+      authTypeSub = meta.accountType;
+    }
+  }
+  rows.push(detailRow(t('dlg.authType'), authTypeText || '-', '', authTypeSub));
+
+  if (authIndex) {
+    rows.push(detailRow(t('dlg.authIndex'), authIndex, 'detail-val-mono'));
+  }
+  return detailSection(t('dlg.routing'), rows, 'detail-section-full');
+}
+function renderRecordDetailBody(rec) {
+  var body = DOM.dialogBody || document.getElementById('dialogBody');
+  if (!body || !rec) return;
+  var prevScrollTop = body.scrollTop || 0;
+  var rawT=rec.requested_at||rec.t||rec.RequestedAt||rec.Timestamp,rawProv=rec.provider||rec.Provider||'-',displayProv=formatProvider(rawProv),model=rec.model||rec.Model||'-',alias=rec.alias||rec.Alias||'-',endpoint=rec.endpoint||rec.executor_type||rec.ExecutorType||rec.source||rec.Source||'-',failed=!!(rec.failed||rec.Failed),latency=formatLatency(rec.latency_ms != null?rec.latency_ms:(rec.latency != null?rec.latency:rec.Latency)),ttft=formatLatency(rec.ttft_ms != null?rec.ttft_ms:(rec.ttft != null?rec.ttft:rec.TTFT));
+  body.replaceChildren();
+  var grid=document.createElement('div');
+  grid.className='detail-grid';
+  grid.appendChild(detailSection(t('dlg.basic'),[detailRow(t('dlg.time'),formatDateTime(rawT),'detail-val-time',String(rawT||'-')),detailRow(t('dlg.status'),failed?t('rec.failed'):t('rec.success')),detailRow(t('dlg.failureStatus'),String(rec.failure_status||'-')),detailRow(t('lbl.provider'),displayProv+(rawProv!==displayProv?' ('+String(rawProv)+')':'')),detailRow(t('lbl.model'),String(model)),detailRow(t('dlg.alias'),String(alias)),detailThinkingRow(rec),detailTierRow(rec),detailRow(t('dlg.endpointSource'),String(endpoint))]));
+  grid.appendChild(detailSection(t('dlg.tokens'),[detailRow(t('dlg.total'),formatExactNumber(rec.total != null?rec.total:null)),detailRow(t('dlg.input'),formatExactNumber(rec.input != null?rec.input:null),'num-input'),detailRow(t('dlg.fresh'),formatExactNumber(rec.fresh_input != null?rec.fresh_input:null),'num-input'),detailRow(t('dlg.output'),formatExactNumber(rec.output != null?rec.output:null),'num-output'),detailRow(t('dlg.reasoning'),formatExactNumber(rec.reasoning != null?rec.reasoning:0)),detailRow(t('dlg.cached'),formatExactNumber(rec.cached != null?rec.cached:0)),detailRow(t('dlg.latency'),latency),detailRow(t('dlg.ttft'),ttft)]));
+  grid.appendChild(detailRoutingSection(rec));
+  body.appendChild(grid);
+  if (prevScrollTop > 0) body.scrollTop = prevScrollTop;
+}
+function refreshOpenRecordDetail() {
+  var overlay = DOM.detailOverlay || document.getElementById('detailOverlay');
+  if (!overlay || !overlay.classList || !overlay.classList.contains('open')) return;
+  var rec = state.openRecord || (state.openRecordIdx != null ? state.records[state.openRecordIdx] : null);
+  if (rec) renderRecordDetailBody(rec);
+}
+function showRecordDetail(idx, opener) {
+  var rec=state.records[idx];if(!rec)return;state.openRecordIdx=idx;state.openRecord=rec;var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay'),body=DOM.dialogBody||document.getElementById('dialogBody');
+  if(!dialog||!overlay||!body)return;state.drawerOpener=opener||document.activeElement;
+  var authIndex = normalizeAuthIndex(rec.auth_index != null ? rec.auth_index : rec.AuthIndex);
+  if (authIndex) ensureAuthFiles(false);
+  body.scrollTop = 0;
+  renderRecordDetailBody(rec);
+  lockBodyScroll();overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');dialog.setAttribute('aria-hidden','false');var close=DOM.recordDialogClose||dialog.querySelector('.dialog-close');if(close)close.focus();
+}
+function closeDrawer() { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');var wasOpen=!!(overlay&&overlay.classList.contains('open'));if(dialog)dialog.setAttribute('aria-hidden','true');if(overlay){overlay.classList.remove('open');overlay.setAttribute('aria-hidden','true');}unlockBodyScroll();var opener=state.drawerOpener;state.drawerOpener=null;state.openRecordIdx=null;state.openRecord=null;if(wasOpen&&opener&&document.contains(opener))opener.focus(); }
 function trapDrawerFocus(e) { var dialog=DOM.recordDialog||document.getElementById('recordDialog'),overlay=DOM.detailOverlay||document.getElementById('detailOverlay');if(e.key!=='Tab'||!dialog||!overlay||!overlay.classList.contains('open'))return;var items=dialog.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');if(!items.length){e.preventDefault();return;}var first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();} }
 
 // Visibility change handler: pause on hidden, immediate refresh + resume on visible
@@ -2065,6 +2321,10 @@ window.addEventListener('beforeunload', function() {
   if (state.pageAbortCtrl) {
     state.pageAbortCtrl.abort();
     state.pageAbortCtrl = null;
+  }
+  if (state.authFilesAbortCtrl) {
+    state.authFilesAbortCtrl.abort();
+    state.authFilesAbortCtrl = null;
   }
 });
 

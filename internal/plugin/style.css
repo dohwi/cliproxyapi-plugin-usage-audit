@@ -1270,10 +1270,13 @@
   }
 
   /* ---- Record dialog ---- */
+  .detail-section-full { grid-column: 1 / -1; }
   body .detail-val { flex: 1 1 auto; max-width: none; }
   body .detail-key { flex: 0 0 auto; white-space: nowrap; }
   body .detail-val-sub { display: block; margin-top: 2px; color: var(--text-muted); font-size: 0.6875rem; font-weight: 400; overflow-wrap: anywhere; }
   body .detail-val-time { font-weight: 600; }
+  body .detail-val-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.75rem; }
+  body .detail-val-muted { color: var(--text-muted); }
 
   /* ---- Tables ---- */
   @media (min-width: 768px) {
@@ -1534,6 +1537,9 @@
 
   /* Dialog stays flat: 1px border, 8px radius, no shadow, no scaling. */
   .record-dialog, body .record-dialog, :root[data-theme='dark'] .record-dialog { border: 1px solid var(--ov-border); border-radius: 8px; box-shadow: none; }
+  @media (max-width: 767px) {
+    .record-dialog, body .record-dialog, :root[data-theme='dark'] .record-dialog { width: 100%; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 16px 16px 0 0; }
+  }
   .dialog-header, body .dialog-header, :root[data-theme='dark'] .dialog-header { background: var(--ov-bg); border-bottom: 1px solid var(--divider); }
   body .dialog-body { background: var(--ov-bg); }
   .detail-section-title { border-bottom: 0; }

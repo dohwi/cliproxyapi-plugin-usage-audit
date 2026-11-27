@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -247,5 +248,131 @@ func TestRecordsCacheHitAndInvalidation(t *testing.T) {
 	p3, _, total3, _, err := cachedRecordsPageQuery(ps, opts, "resource", "", 1, 20)
 	if err != nil || total3 != 2 || len(p3) != 2 || p3[0].Model != "m2" {
 		t.Fatalf("after append: total=%d len=%d first=%+v err=%v", total3, len(p3), p3, err)
+	}
+}
+
+func TestDashboardRecordsExposeAuthRoutingWithoutSecrets(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "usage.jsonl"), store.DefaultMaxBytes, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := queue.New(64)
+	ps := &pluginState{st: st, q: q}
+	ps.workerWg.Add(1)
+	go ps.consumeLoop()
+	stateMu.Lock()
+	prev := state
+	state = ps
+	stateMu.Unlock()
+	t.Cleanup(func() {
+		ps.shutdown()
+		stateMu.Lock()
+		state = prev
+		stateMu.Unlock()
+	})
+
+	t1 := time.Date(2026, 11, 24, 11, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 11, 24, 11, 1, 0, 0, time.UTC)
+	t3 := time.Date(2026, 11, 24, 11, 2, 0, 0, time.UTC)
+	payloads := []map[string]any{
+		{
+			"Provider":    "codex",
+			"Model":       "gpt-5",
+			"AuthID":      "secret-auth-id-1.json",
+			"AuthIndex":   "0",
+			"AuthType":    "oauth",
+			"APIKey":      "sk-client-secret-should-never-appear",
+			"Source":      "secret-source-email@example.com",
+			"Generate":    true,
+			"RequestedAt": t1.Format(time.RFC3339),
+			"Detail":      map[string]any{"InputTokens": 10, "OutputTokens": 5, "TotalTokens": 15},
+		},
+		{
+			"Provider":    "claude",
+			"Model":       "claude-opus-5-5",
+			"AuthID":      "secret-auth-id-2",
+			"AuthIndex":   "idx-claude-api",
+			"AuthType":    "api_key",
+			"APIKey":      "sk-ant-raw-upstream-secret",
+			"Source":      "sk-ant-raw-upstream-secret",
+			"Generate":    true,
+			"RequestedAt": t2.Format(time.RFC3339),
+			"Detail":      map[string]any{"InputTokens": 20, "OutputTokens": 10, "TotalTokens": 30},
+		},
+		{
+			"Provider":    "openai",
+			"Model":       "gpt-4.1",
+			"Generate":    true,
+			"RequestedAt": t3.Format(time.RFC3339),
+			"Detail":      map[string]any{"InputTokens": 5, "OutputTokens": 5, "TotalTokens": 10},
+		},
+	}
+	for _, p := range payloads {
+		raw, _ := json.Marshal(p)
+		handleUsage(raw)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		recs, err := st.ReadAllView()
+		if err == nil && len(recs) == 3 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	envRaw := handleGetDashboardRecords(managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/records"})
+	var env struct {
+		OK     bool               `json:"ok"`
+		Result managementResponse `json:"result"`
+	}
+	if err := json.Unmarshal(envRaw, &env); err != nil || !env.OK || env.Result.StatusCode != 200 {
+		t.Fatalf("unexpected envelope: %s err=%v", string(envRaw), err)
+	}
+	rawBody := string(env.Result.Body)
+	for _, forbidden := range []string{
+		"secret-auth-id-1.json",
+		"secret-auth-id-2",
+		"sk-client-secret-should-never-appear",
+		"sk-ant-raw-upstream-secret",
+		"secret-source-email@example.com",
+	} {
+		if strings.Contains(rawBody, forbidden) {
+			t.Fatalf("/data/records leaked forbidden field %q in %s", forbidden, rawBody)
+		}
+	}
+	var rawBodyObj struct {
+		Records []map[string]any `json:"records"`
+	}
+	if err := json.Unmarshal(env.Result.Body, &rawBodyObj); err != nil {
+		t.Fatal(err)
+	}
+	if len(rawBodyObj.Records) != 3 {
+		t.Fatalf("expected 3 records, got %d", len(rawBodyObj.Records))
+	}
+	// Empty auth_index / auth_type must be omitted from JSON via omitempty.
+	if _, exists := rawBodyObj.Records[0]["auth_index"]; exists {
+		t.Fatalf("empty auth_index should be omitted from JSON: %+v", rawBodyObj.Records[0])
+	}
+	if _, exists := rawBodyObj.Records[0]["auth_type"]; exists {
+		t.Fatalf("empty auth_type should be omitted from JSON: %+v", rawBodyObj.Records[0])
+	}
+	var body struct {
+		Records []resourceRecord `json:"records"`
+	}
+	if err := json.Unmarshal(env.Result.Body, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Records[1].AuthIndex != "idx-claude-api" || body.Records[1].AuthType != "api_key" {
+		t.Fatalf("record 1 auth mismatch: %+v", body.Records[1])
+	}
+	if body.Records[2].AuthIndex != "0" || body.Records[2].AuthType != "oauth" {
+		t.Fatalf("record 2 auth mismatch (zero string must survive): %+v", body.Records[2])
+	}
+
+	// /data/summary must remain auth_index-free.
+	sumRaw := handleGetDashboardSummary(managementHandleRequest{Method: "GET", Path: mgmtBase + "/data/summary"})
+	if strings.Contains(string(sumRaw), "idx-claude-api") || strings.Contains(string(sumRaw), `"auth_index"`) {
+		t.Fatalf("/data/summary must not expose auth_index: %s", string(sumRaw))
 	}
 }

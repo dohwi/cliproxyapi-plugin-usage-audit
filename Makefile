@@ -21,7 +21,7 @@ LIB := artifacts/usage-audit.$(LIB_EXT)
 SMOKE := artifacts/native-smoke$(SMOKE_EXE)
 SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo "shasum -a 256")
 
-.PHONY: verify-i18n verify-host release-check verify verify-sanitize build native-smoke audit-dry-run sanitize-dry-run boundary-sanitize-dry-run verify-layout clean
+.PHONY: verify-i18n verify-host verify-auth-detail release-check verify verify-sanitize build native-smoke audit-dry-run sanitize-dry-run boundary-sanitize-dry-run verify-layout clean
 
 verify:
 	go test -race -count=1 -timeout=120s ./...
@@ -73,6 +73,9 @@ verify-i18n:
 # Host embedding: served with the hash CSP (zero violations), follows the host language.
 verify-host:
 	node scripts/test-usage-dashboard-host.cjs
+
+verify-auth-detail:
+	node scripts/test-usage-dashboard-auth-detail.cjs
 
 # Usage: make release-check TAG=v0.1.0
 release-check:
